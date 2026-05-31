@@ -11,6 +11,9 @@
   "scripts": {
     "check-types": "tsc --noEmit"
   },
+  "dependencies": {
+    "@bamboo/types": "workspace:*"
+  },
   "devDependencies": {
     "@bamboo/typescript-config": "workspace:*",
     "typescript": "5.9.2"
