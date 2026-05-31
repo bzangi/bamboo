@@ -1,15 +1,17 @@
 # Bamboo — SaaS para Nutricionistas
 
-Monorepo greenfield (só `.git` por enquanto). B2B2C: a nutri paga o SaaS; o paciente usa de graça. Web/desktop pra nutri, app mobile pra paciente. Status: **pré-MVP, RN-first**.
+Monorepo pnpm + Turborepo. B2B2C: a nutri paga o SaaS; o paciente usa de graça. Web/desktop pra nutri, app mobile pra paciente. Status: **pré-MVP, RN-first** — **Fase 0** (fundação) e **Fase 1** (alça do paciente: ver "o agora" + substituir) já implementadas e testadas (feature `specs/001-alca-do-paciente`).
 
 ## Fonte da verdade
 
 Os planos e decisões de produto ficam em `docs/` (versionados no git, espelhados no Obsidian via symlink). Quando precisar de contexto que não está aqui, leia:
 
+- `docs/estado-atual.md` — **snapshot do estado real** do repo (em conflito com este header, o snapshot vence).
+- `specs/001-alca-do-paciente/` — feature ativa no Spec Kit (spec → plan → tasks); fonte viva da Fase 0/1.
 - `docs/decisoes-produto.md` — decisões de produto (o "porquê").
 - `docs/plano-de-build.md` — companion técnico (arquitetura, roadmap por fases).
-- `docs/plano-implementacao-fase0-fase1.md` — specs atomizadas T0–T8 (a fila de trabalho atual).
-- `docs/schema.ts` — schema Drizzle inicial (Fase 0; migra pra `packages/db/schema.ts` na T2).
+- `docs/plano-implementacao-fase0-fase1.md` — specs T0–T8 (histórico; fonte viva migrou pro Spec Kit).
+- `docs/schema.ts` — schema Drizzle inicial (Fase 0; já migrado pra `packages/db/schema.ts`).
 
 ## Tese central (o que decide o produto)
 

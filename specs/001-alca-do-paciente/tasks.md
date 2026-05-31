@@ -50,27 +50,27 @@ description: "Task list — feature 001-alca-do-paciente"
 
 ### Núcleo puro — `packages/core` (T4, test-first)
 
-- [ ] T003 [P] Implementar `Result<T,E>` + `ok`/`err` em `packages/core/src/result.ts` (substitui o placeholder).
-- [ ] T004 [P] **TEST-FIRST**: escrever `packages/core/src/substitution.test.ts` (Vitest) cobrindo: troca normal (`ok`), arredondamento para medida caseira, alvo com nutriente-base zero (`err: nutriente-base-zero`), alvo fora do grupo (`err: fora-do-grupo`), preservação do nutriente-base ≤ 2%. Os testes DEVEM FALHAR antes da implementação.
-- [ ] T005 Implementar `substituir()` + `SubstitutionError` em `packages/core/src/substitution.ts` conforme `contracts/core-substituir.md`, até T004 passar (depende de T003, T004).
-- [ ] T006 [P] **TEST-FIRST** + impl do cálculo nutricional por porção em `packages/core/src/nutrition.ts` (+ `nutrition.test.ts`): dado food (macros/100g) e gramas, retorna kcal/macros; apoia o gate de exposição da US1.
-- [ ] T007 Re-exports do núcleo em `packages/core/src/index.ts` (`result`, `substitution`, `nutrition`) (depende de T005, T006).
+- [x] T003 [P] Implementar `Result<T,E>` + `ok`/`err` em `packages/core/src/result.ts` (substitui o placeholder).
+- [x] T004 [P] **TEST-FIRST**: escrever `packages/core/src/substitution.test.ts` (Vitest) cobrindo: troca normal (`ok`), arredondamento para medida caseira, alvo com nutriente-base zero (`err: nutriente-base-zero`), alvo fora do grupo (`err: fora-do-grupo`), preservação do nutriente-base ≤ 2%. Os testes DEVEM FALHAR antes da implementação.
+- [x] T005 Implementar `substituir()` + `SubstitutionError` em `packages/core/src/substitution.ts` conforme `contracts/core-substituir.md`, até T004 passar (depende de T003, T004).
+- [x] T006 [P] **TEST-FIRST** + impl do cálculo nutricional por porção em `packages/core/src/nutrition.ts` (+ `nutrition.test.ts`): dado food (macros/100g) e gramas, retorna kcal/macros; apoia o gate de exposição da US1.
+- [x] T007 Re-exports do núcleo em `packages/core/src/index.ts` (`result`, `substitution`, `nutrition`) (depende de T005, T006).
 
 ### Banco — `packages/db` (T2)
 
-- [ ] T008 [P] Migrar o schema de `docs/schema.ts` para `packages/db/schema.ts` e **adicionar o campo `meal.horario`** (tipo `time` nullable — decisão da T2 conforme data-model.md).
-- [ ] T009 Configurar `packages/db/drizzle.config.ts` (aponta `DATABASE_URL`), `packages/db/client.ts` (`export const db`) e scripts `db:generate`/`db:migrate` no `packages/db/package.json` (depende de T008).
-- [ ] T010 Gerar e aplicar a migration inicial (`drizzle-kit generate` + `migrate`); validar que as tabelas existem (psql/studio) (depende de T009; usa o Postgres do T002).
+- [x] T008 [P] Migrar o schema de `docs/schema.ts` para `packages/db/schema.ts` e **adicionar o campo `meal.horario`** (tipo `time` nullable — decisão da T2 conforme data-model.md).
+- [x] T009 Configurar `packages/db/drizzle.config.ts` (aponta `DATABASE_URL`), `packages/db/client.ts` (`export const db`) e scripts `db:generate`/`db:migrate` no `packages/db/package.json` (depende de T008).
+- [x] T010 Gerar e aplicar a migration inicial (`drizzle-kit generate` + `migrate`); validar que as tabelas existem (psql/studio) (depende de T009; usa o Postgres do T002).
 
 ### Ingestão TACO — `packages/db/scripts` (T3)
 
-- [ ] T011 Implementar `packages/db/scripts/ingest-taco.ts`: mapear colunas da TACO → `food` (kcal/carb/protein/fat/fiber por 100g) e medidas caseiras → `food_household_measure`; caminho do arquivo configurável por env; sourcing via conversão pública JSON/CSV da TACO ou arquivo fornecido (depende de T010).
-- [ ] T012 Rodar a ingestão e validar: `food` count > 0 com medidas caseiras; spot-check de 3–4 alimentos confere com a tabela (depende de T011).
+- [x] T011 Implementar `packages/db/scripts/ingest-taco.ts`: mapear colunas da TACO → `food` (kcal/carb/protein/fat/fiber por 100g) e medidas caseiras → `food_household_measure`; caminho do arquivo configurável por env; sourcing via conversão pública JSON/CSV da TACO ou arquivo fornecido (depende de T010).
+- [x] T012 Rodar a ingestão e validar: `food` count > 0 com medidas caseiras; spot-check de 3–4 alimentos confere com a tabela (depende de T011).
 
 ### Seed — `packages/db/scripts` (T6)
 
-- [ ] T013 Implementar `packages/db/scripts/seed.ts`: 1 nutri, 1 paciente; grupos `Carboidratos` (basis=carb) e `Proteínas` (basis=protein); associar foods da TACO aos grupos com `reference_portion_grams`; 1 plano com tipos-de-dia (treino, descanso), `day_schedule` da semana, refeições (com `horario` informativo em algumas), `meal_option` (incl. um almoço com 2–3 opções), `meal_item` com mix travado/flexível; garantir ≥ 1 item flexível com substitutos no grupo (depende de T010, T012).
-- [ ] T014 Rodar o seed e validar: existe ≥ 1 item flexível com substitutos; o plano é consultável (depende de T013).
+- [x] T013 Implementar `packages/db/scripts/seed.ts`: 1 nutri, 1 paciente; grupos `Carboidratos` (basis=carb) e `Proteínas` (basis=protein); associar foods da TACO aos grupos com `reference_portion_grams`; 1 plano com tipos-de-dia (treino, descanso), `day_schedule` da semana, refeições (com `horario` informativo em algumas), `meal_option` (incl. um almoço com 2–3 opções), `meal_item` com mix travado/flexível; garantir ≥ 1 item flexível com substitutos no grupo (depende de T010, T012).
+- [x] T014 Rodar o seed e validar: existe ≥ 1 item flexível com substitutos; o plano é consultável (depende de T013).
 
 **Checkpoint**: núcleo testado, banco migrado, TACO ingerida, plano semeado → US1 e US2 podem começar (em paralelo).
 
@@ -82,11 +82,11 @@ description: "Task list — feature 001-alca-do-paciente"
 
 **Independent Test**: com o plano semeado, abrir o app e confirmar tipo-de-dia anunciado, refeição do momento (1ª refeição no v0) e lista do dia, sem navegar; números nutricionais conforme `exposure`.
 
-- [ ] T015 [P] [US1] DTOs de `/today` em `packages/types/src/today.ts` (`TodayResponse`, `MealDto`, `MealOptionDto`, `MealItemDto`, `NutritionDto`) conforme `contracts/get-today.md`.
-- [ ] T016 [US1] **TEST-FIRST**: teste de integração de `GET /patients/:id/today` em `apps/api/test/today.e2e-spec.ts` (seed → request → assertivas: dayType.label, meals ordenadas, currentMealId = 1ª refeição, exposição aplicada). Deve falhar antes da impl (depende de T014, T015).
-- [ ] T017 [US1] (T5a) Implementar `GET /patients/:id/today` em `apps/api/src/plan/` (controller + service casca): resolve `day_type` pelo weekday via `day_schedule`, carrega refeições → opção default → itens, aplica `@bamboo/core` (nutrition) + gate de exposição, monta **DTO puro**, marca `currentMealId` = 1ª refeição; até T016 passar (depende de T006, T010, T015).
-- [ ] T018 [P] [US1] `getToday()` tipado em `packages/api-client/src/index.ts` usando `@bamboo/types` (depende de T015).
-- [ ] T019 [US1] (T7) Tela Home "o agora" em `apps/mobile`: auth stub (paciente fixo por env), busca `/today` via `@bamboo/api-client`, mostra tipo-de-dia anunciado ("Hoje: …") + refeição do momento + lista do dia + `horario` quando definido; respeita exposição (depende de T017, T018).
+- [x] T015 [P] [US1] DTOs de `/today` em `packages/types/src/today.ts` (`TodayResponse`, `MealDto`, `MealOptionDto`, `MealItemDto`, `NutritionDto`) conforme `contracts/get-today.md`.
+- [x] T016 [US1] **TEST-FIRST**: teste de integração de `GET /patients/:id/today` em `apps/api/test/today.e2e-spec.ts` (seed → request → assertivas: dayType.label, meals ordenadas, currentMealId = 1ª refeição, exposição aplicada). Deve falhar antes da impl (depende de T014, T015).
+- [x] T017 [US1] (T5a) Implementar `GET /patients/:id/today` em `apps/api/src/plan/` (controller + service casca): resolve `day_type` pelo weekday via `day_schedule`, carrega refeições → opção default → itens, aplica `@bamboo/core` (nutrition) + gate de exposição, monta **DTO puro**, marca `currentMealId` = 1ª refeição; até T016 passar (depende de T006, T010, T015).
+- [x] T018 [P] [US1] `getToday()` tipado em `packages/api-client/src/index.ts` usando `@bamboo/types` (depende de T015).
+- [x] T019 [US1] (T7) Tela Home "o agora" em `apps/mobile`: auth stub (paciente fixo por env), busca `/today` via `@bamboo/api-client`, mostra tipo-de-dia anunciado ("Hoje: …") + refeição do momento + lista do dia + `horario` quando definido; respeita exposição (depende de T017, T018).
 
 **Checkpoint**: US1 funcional e testável de forma independente — MVP entregável.
 
@@ -98,11 +98,11 @@ description: "Task list — feature 001-alca-do-paciente"
 
 **Independent Test**: tocar num item flexível e ver alternativas do mesmo grupo com quantidade equivalente + medida caseira; selecionar e ver a refeição atualizar; item travado não abre opção.
 
-- [ ] T020 [P] [US2] DTOs de `/substitutions` em `packages/types/src/substitution.ts` (`SubstitutionsResponse`, `AlternativeDto`, `MedidaCaseiraDto`) conforme `contracts/get-substitutions.md`.
-- [ ] T021 [US2] **TEST-FIRST**: teste de integração de `GET /meal-items/:id/substitutions` em `apps/api/test/substitutions.e2e-spec.ts` (alternativas do mesmo grupo com gramas+medida; alvo nutriente-base-zero excluído; item travado/sem-grupo → não-substituível; grupo sem substitutos → lista vazia 200). Deve falhar antes da impl (depende de T014, T020, T005).
-- [ ] T022 [US2] (T5b) Implementar `GET /meal-items/:id/substitutions` em `apps/api/src/substitution/` (casca): carrega item + grupo + foods do grupo, chama `substituir()` do `@bamboo/core` por alvo, exclui `err` (nutriente-base-zero), converte `Result`→`HttpException` via `ts-pattern`, monta DTO; até T021 passar (depende de T005, T010, T020).
-- [ ] T023 [P] [US2] `getSubstitutions()` tipado em `packages/api-client/src/index.ts` (depende de T020).
-- [ ] T024 [US2] (T8) Bottom-sheet de substituição em `apps/mobile`: tocar item flexível → busca `/substitutions` → mostra alternativas com gramas + medida caseira → seleciona → atualiza a refeição (estado local); item travado não abre opção (depende de T019, T022, T023).
+- [x] T020 [P] [US2] DTOs de `/substitutions` em `packages/types/src/substitution.ts` (`SubstitutionsResponse`, `AlternativeDto`, `MedidaCaseiraDto`) conforme `contracts/get-substitutions.md`.
+- [x] T021 [US2] **TEST-FIRST**: teste de integração de `GET /meal-items/:id/substitutions` em `apps/api/test/substitutions.e2e-spec.ts` (alternativas do mesmo grupo com gramas+medida; alvo nutriente-base-zero excluído; item travado/sem-grupo → não-substituível; grupo sem substitutos → lista vazia 200). Deve falhar antes da impl (depende de T014, T020, T005).
+- [x] T022 [US2] (T5b) Implementar `GET /meal-items/:id/substitutions` em `apps/api/src/substitution/` (casca): carrega item + grupo + foods do grupo, chama `substituir()` do `@bamboo/core` por alvo, exclui `err` (nutriente-base-zero), converte `Result`→`HttpException` via `ts-pattern`, monta DTO; até T021 passar (depende de T005, T010, T020).
+- [x] T023 [P] [US2] `getSubstitutions()` tipado em `packages/api-client/src/index.ts` (depende de T020).
+- [x] T024 [US2] (T8) Bottom-sheet de substituição em `apps/mobile`: tocar item flexível → busca `/substitutions` → mostra alternativas com gramas + medida caseira → seleciona → atualiza a refeição (estado local); item travado não abre opção (depende de T019, T022, T023).
 
 **Checkpoint**: US1 e US2 funcionam de forma independente — a alça que prova a tese.
 
@@ -110,8 +110,8 @@ description: "Task list — feature 001-alca-do-paciente"
 
 ## Phase 5: Polish & Cross-Cutting
 
-- [ ] T025 Rodar `quickstart.md` de ponta a ponta e confirmar os critérios (SC-001..SC-007) (depende de T019, T024).
-- [ ] T026 [P] Cobrir bordas faltantes com testes unitários no `packages/core` (ex.: medida caseira por múltiplos, empates de arredondamento).
+- [x] T025 Rodar `quickstart.md` de ponta a ponta e confirmar os critérios (SC-001..SC-007) (depende de T019, T024).
+- [x] T026 [P] Cobrir bordas faltantes com testes unitários no `packages/core` (ex.: medida caseira por múltiplos, empates de arredondamento).
 
 ---
 
