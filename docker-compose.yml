@@ -1,0 +1,26 @@
+# Postgres para desenvolvimento local (Bamboo).
+# Sobe com: docker compose up -d   ·   confere: docker compose ps
+# Credenciais e porta vêm do .env (ver .env.example); há defaults embutidos.
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: bamboo-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-bamboo}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-bamboo}
+      POSTGRES_DB: ${POSTGRES_DB:-bamboo}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - bamboo_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-bamboo} -d ${POSTGRES_DB:-bamboo}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+volumes:
+  bamboo_pgdata:

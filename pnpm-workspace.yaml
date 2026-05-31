@@ -1,0 +1,14 @@
+packages:
+  - "apps/*"
+  - "packages/*"
+
+# Expo/Metro em monorepo exige layout achatado de node_modules.
+nodeLinker: hoisted
+
+# pnpm 11 bloqueia build scripts por segurança; liberar os necessários.
+# (chave do pnpm 11: allowBuilds, mapa pkg -> bool.)
+allowBuilds:
+  "@nestjs/core": true
+  msgpackr-extract: true
+  sharp: true
+  unrs-resolver: true
