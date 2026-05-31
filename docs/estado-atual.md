@@ -33,8 +33,8 @@ Imports internos sob o scope `@bamboo/*`.
 
 **Git (verificado ao vivo — diverge do "clean / 1 commit" do snapshot do prompt):**
 
-- **14 commits.** Linha do tempo: `5d1b7d8 first commit` → `8ccb826` (adota Spec Kit + ratifica constituição v1.0.0) → `ddbd803` (scaffold T0 + Postgres T1) → `681ddb1`/`34fa5c2`/`f1e7ffd` (spec/plan/tasks da feature 001) → `cb418f2` (foundational: core + db/schema/migration + TACO + seed) → builds/deps → `43d1d6c` (backend US1 `/today` + US2 `/substitutions` + e2e) → `2b614ca` (mobile Home + bottom-sheet) → `b3b5b28` (fix ingest-taco idempotente FK-safe) = **HEAD**.
-- **Working tree NÃO está limpo.** Trabalho em andamento, não commitado: documentação OpenAPI/Swagger na API (`apps/api/src/docs/`, `apps/api/openapi.json`, `apps/api/src/gen-openapi.ts`) — fora do escopo T0–T8.
+- **15 commits.** Linha do tempo: `5d1b7d8 first commit` → `8ccb826` (adota Spec Kit + ratifica constituição v1.0.0) → `ddbd803` (scaffold T0 + Postgres T1) → `681ddb1`/`34fa5c2`/`f1e7ffd` (spec/plan/tasks da feature 001) → `cb418f2` (foundational: core + db/schema/migration + TACO + seed) → builds/deps → `43d1d6c` (backend US1 `/today` + US2 `/substitutions` + e2e) → `2b614ca` (mobile Home + bottom-sheet) → `b3b5b28` (fix ingest-taco idempotente FK-safe) → `8a322b3` (OpenAPI/Swagger na API + Prettier e regra de lint/format aplicados) = **HEAD**.
+- **Working tree limpo** (verificado). A documentação OpenAPI/Swagger da API (`apps/api/src/docs/`, `apps/api/openapi.json`, `apps/api/src/gen-openapi.ts`) — fora do escopo T0–T8 — já foi commitada em `8a322b3`, junto com a aplicação do Prettier e da regra de lint/format no "done".
 
 **Versões instaladas (dos `package.json`):** NestJS `^11`, `@nestjs/swagger ^11.4.4`, `ts-pattern ^5.9.0` · Drizzle ORM `^0.45.2`, drizzle-kit `^0.31.10`, pg `^8.21.0` · Expo `~56.0.8`, RN `0.85.3`, React `19.2.3` · Vitest `^4.1.7`, TypeScript `5.9.2`, Turborepo `^2.9.16`, pnpm `11.5.0`.
 
@@ -116,7 +116,7 @@ Detalhamento do paradigma com exemplos canônicos em `CLAUDE.md`; invariantes go
 
 ## Próximos passos
 
-> Os três passos do briefing original tratavam bootstrap e T0–T8 como **pendentes**. Verificação no repo (14 commits, testes verdes) mostra que **já estão concluídos**; ficam aqui reconciliados com o estado real, seguidos do que de fato falta.
+> Os três passos do briefing original tratavam bootstrap e T0–T8 como **pendentes**. Verificação no repo (15 commits, testes verdes) mostra que **já estão concluídos**; ficam aqui reconciliados com o estado real, seguidos do que de fato falta.
 
 **Já concluído (reconciliação factual):**
 
@@ -126,7 +126,6 @@ Detalhamento do paradigma com exemplos canônicos em `CLAUDE.md`; invariantes go
 
 **Pendente de verdade (a partir daqui):**
 
-- **Commitar o trabalho em andamento** de OpenAPI/Swagger na API (`apps/api/src/docs/`, `apps/api/openapi.json`, `apps/api/src/gen-openapi.ts`) — hoje no working tree, fora do escopo T0–T8.
 - **Reconciliar a documentação desatualizada:** cabeçalho do `CLAUDE.md` ("greenfield, só `.git`") e os checkboxes de `specs/001-alca-do-paciente/tasks.md` (marcar T003–T026 como feitas).
 - **Fase 2+:** motor de rebalanceamento; registro/ciclo/adesão/relatório + UI da nutri (web); import por IA, offline, notificações; billing.
 - **Endurecer LGPD/auth:** sair do gate de exposição + `FR-016` para controle de acesso, criptografia e consentimento reais; substituir o auth stub.
