@@ -9,6 +9,7 @@ nodeLinker: hoisted
 # (chave do pnpm 11: allowBuilds, mapa pkg -> bool.)
 allowBuilds:
   "@nestjs/core": true
+  "@swc/core": true
   esbuild: true
   msgpackr-extract: true
   sharp: true
