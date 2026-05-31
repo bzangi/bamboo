@@ -45,6 +45,14 @@ A spec não deixou marcadores `[NEEDS CLARIFICATION]` em aberto (a regra de "o a
 - **Decisão**: o cálculo de substituição roda no `packages/core` (portátil ao device), mas **cache local, fila de sync e robustez offline ficam fora de escopo** nesta feature.
 - **Rationale**: a portabilidade do núcleo já paga o futuro offline sem custo agora; construir a infra offline é Fase 4.
 
+## D9 — Interop api↔core: build step nos packages consumidos pelo Node
+
+- **Decisão**: `packages/core`, `packages/db` e `packages/types` ganham um **build** (`tsc -p tsconfig.build.json` → `dist/*.js` + `.d.ts`); `package.json.exports` aponta pro `dist`. O Turbo orquestra a ordem (`^build`); `check-types` depende de `^build`. `packages/api-client` segue sem build (só bundlers o consomem). `dist/` é git-ignored (artefato).
+- **Rationale**: provado **empiricamente** que o consumidor Node (`apps/api`, type-checked e que emite via `nest build`) não consegue consumir `.ts` cru: o tsc (NodeNext) exige import com `.js`, mas o runtime do Node procura o arquivo `.js` literal (que não existe) — e inverter pra `.ts` quebra o type-check do consumidor (`allowImportingTsExtensions` exige `noEmit`, e o api emite). Bundlers (Next/Metro) reescrevem extensão e por isso consomem source de boa; o Node não. Build é o padrão de monorepo e satisfaz tsc **e** runtime.
+- **Verificado**: `turbo build` 5/5; `turbo check-types` 8/8; `apps/api` importa `substituir()` e `db/schema` em build-time e runtime (`node dist`).
+- **Alternativas rejeitadas**: (a) hook de resolução `.js`→`.ts` em runtime no api — preserva "sem build" mas é infra custom não-padrão; (b) `@swc-node/register` carregando `.ts` na hora — frágil (ignora node_modules workspace por padrão), foge do fluxo do Nest.
+- **Nota**: revoga o atalho "sem build step" (que era só do bootstrap, não versionado em constituição/CLAUDE) **apenas** para os 3 packages que o Node consome; o domínio (`core`) segue TS puro e roda no device via Metro sem mudança. Reversível.
+
 ## D8 — Tolerância de equivalência
 
 - **Decisão**: a preservação do nutriente-base é verificada em teste com tolerância **≤ 2%** (parâmetro). O arredondamento para medida caseira pode introduzir desvio; o teste afere o `gramas` exato (pré-arredondamento) e, separadamente, documenta o desvio do arredondamento.
