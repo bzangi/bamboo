@@ -1,5 +1,7 @@
 # Plano Sequencial de Implementação — Fase 0 + Fase 1
 
+> **⚠️ Fonte viva migrou para o Spec Kit.** A alça do paciente (T0–T8) agora vive em **`specs/001-alca-do-paciente/`** — `spec.md` (QUE/PORQUÊ) → `plan.md` (COMO) → `tasks.md` (T003–T026, com o mapeamento T0–T8). **Trabalhe a partir de `specs/001-alca-do-paciente/tasks.md`.** Este documento passa a ser **histórico/contexto** (o "porquê" original das tasks). T0 e T1 já estão concluídos (Bloco 1).
+
 > Specs atomizadas pra mandar ao **Claude Code**, uma por vez, na ordem.
 > Escopo: fundação + alça do paciente (consultar "o agora" + substituir com recálculo).
 > Fases 2+ ficam pra próxima leva.
