@@ -230,6 +230,8 @@ Combinação (arroz+batata juntos) · rebalanceamento multi-refeição · overri
 Dado de saúde desde a Fase 0: controle de acesso, criptografia, consentimento. Não é fase, é transversal. Empurrar pro fim vira dívida cara.
 
 <!-- SPECKIT START -->
-For additional context about technologies to be used, project structure,
-shell commands, and other important information, read the current plan
+Feature ativa: **001-alca-do-paciente** (alça do paciente: ver "o agora" + substituir).
+Contexto técnico (stack, estrutura, contratos, data-model) no plano:
+`specs/001-alca-do-paciente/plan.md` — companheiros: `spec.md`, `research.md`,
+`data-model.md`, `contracts/`, `quickstart.md`. `.specify/feature.json` aponta a feature.
 <!-- SPECKIT END -->
