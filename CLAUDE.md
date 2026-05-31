@@ -177,6 +177,39 @@ export class SubstitutionService {
 - Plano pertence **direto ao paciente** no v0; o *ciclo* vira o wrapper que versiona planos numa fase posterior.
 - Brasil: base **TACO** (gratuita) + **medidas caseiras** (gramas → colheres/conchas).
 
+## Fluxo de Desenvolvimento (Spec-Driven Development)
+
+Por padrão, TODA tarefa de desenvolvimento segue este pipeline, nesta ordem, sem pular etapas:
+
+**Constitution → Specify → Plan → Tasks → Implement**
+
+Nomenclatura do GitHub Spec Kit, instalado como skills `speckit-*` (`/speckit-constitution`, `/speckit-specify`, `/speckit-plan`, `/speckit-tasks`, `/speckit-implement`). Acima de tudo: **nada começa sem spec clara aprovada por mim**. SEMPRE que faltar clareza, PARE e me guie ativamente para gerá-la — não assuma comportamento, não invente regra de negócio, não preencha lacuna por conta própria. Faça perguntas direcionadas (uma de cada vez ou em lista curta) até a spec fechar.
+
+### 1. Constitution — princípios governantes
+- Regras não-negociáveis que toda fase seguinte herda; nenhuma spec, plan ou task pode violá-las.
+- A constituição do Bamboo já vive neste CLAUDE.md + `docs/`: tese central, assinatura do produto, decisões de arquitetura, paradigma funcional (backend) e LGPD.
+- Atualize só quando uma decisão estrutural muda — não a cada feature.
+
+### 2. Specify — o QUE e o PORQUÊ
+- Descreve comportamento e requisitos; **sem stack, sem COMO**.
+- Critérios de aceitação verificáveis (EARS quando aplicável: "Quando <condição>, o sistema deve <comportamento>").
+- Inclui casos de borda, estados de erro e o que está fora de escopo.
+- Gate: só avance para o Plan após eu aprovar a spec explicitamente.
+
+### 3. Plan — o COMO técnico
+- Linguagem de engenharia: arquitetura, onde mora (núcleo puro em `packages/core` vs casca em `apps/api`), contratos/DTOs, modelo de dados, estratégia de testes, riscos e constraints.
+- Respeite a Constitution; se algo só fechar violando-a, pare e me consulte.
+- Gate: só avance para Tasks após eu aprovar o plano.
+
+### 4. Tasks — quebra acionável
+- Fatie o plano em tarefas pequenas, ordenadas e independentes, respeitando dependências ("Depende de").
+- Cada task tem critério de aceitação próprio. **Test-first**: a task de teste vem antes da de implementação.
+
+### 5. Implement — execução
+- Execute task por task, na ordem, conforme Constitution + Spec + Plan.
+- TDD: escreva o teste que falha, implemente até passar, cobrindo critérios de aceitação, casos de borda e estados de erro da spec.
+- Se surgir ambiguidade ou requisito não coberto, volte à Specify ou ao Plan e me consulte antes de prosseguir.
+
 ## Roadmap
 
 Trabalho atual = **Fase 0 (fundação) + Fase 1 (alça do paciente)**, quebrado nas specs T0–T8. Mandar uma tarefa por vez, na ordem (respeitar "Depende de"). Coração recomendado pra começar: **T4 — motor de substituição em `packages/core`** (função pura, testável).
@@ -195,3 +228,8 @@ Combinação (arroz+batata juntos) · rebalanceamento multi-refeição · overri
 ## Constante — LGPD
 
 Dado de saúde desde a Fase 0: controle de acesso, criptografia, consentimento. Não é fase, é transversal. Empurrar pro fim vira dívida cara.
+
+<!-- SPECKIT START -->
+For additional context about technologies to be used, project structure,
+shell commands, and other important information, read the current plan
+<!-- SPECKIT END -->
