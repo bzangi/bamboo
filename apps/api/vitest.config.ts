@@ -1,5 +1,5 @@
-import swc from "unplugin-swc";
-import { defineConfig } from "vitest/config";
+import swc from 'unplugin-swc';
+import { defineConfig } from 'vitest/config';
 
 // Vitest + NestJS: o plugin do SWC transpila os decorators do Nest
 // (emitDecoratorMetadata) — sem ele, a DI quebra nos testes.
@@ -11,9 +11,9 @@ export default defineConfig({
   // o unplugin-swc desliga o transform default — sem efeito nos testes.
   test: {
     globals: true,
-    environment: "node",
-    include: ["test/**/*.e2e-spec.ts"],
-    setupFiles: ["./test/setup-env.ts"],
+    environment: 'node',
+    include: ['test/**/*.e2e-spec.ts'],
+    setupFiles: ['./test/setup-env.ts'],
     // Banco compartilhado entre suites: roda sem paralelismo entre arquivos.
     fileParallelism: false,
     hookTimeout: 30000,
@@ -21,7 +21,7 @@ export default defineConfig({
   },
   plugins: [
     swc.vite({
-      module: { type: "es6" },
+      module: { type: 'es6' },
     }),
   ],
 });

@@ -15,6 +15,7 @@ Abordagem técnica: a **matemática de substituição vive em `packages/core`** 
 **Language/Version**: TypeScript strict; Node 20+ (máquina atual: Node 26). Monorepo pnpm 11 + Turborepo 2.x.
 
 **Primary Dependencies**:
+
 - `packages/core`: **TS puro** — `Result`/`ok`/`err` à mão (zero dep de plataforma) + `ts-pattern` para match exaustivo. **Sem** `neverthrow`/`Effect`/`fp-ts` (decisão MVP; `Result` à mão segue o exemplo canônico do CLAUDE.md e mantém o núcleo sem dependências).
 - `packages/db`: `drizzle-orm`, `drizzle-kit`, `pg`.
 - `apps/api`: NestJS 11 (`class-validator` + `ValidationPipe` na borda).
@@ -37,12 +38,12 @@ Abordagem técnica: a **matemática de substituição vive em `packages/core`** 
 
 ## Constitution Check
 
-*GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
+_GATE: Must pass before Phase 0 research. Re-check after Phase 1 design._
 
 - [x] **Núcleo puro** (Princípio III): `substituir()` (e o cálculo nutricional por porção) vivem em `packages/core` como funções **puras** — sem I/O, sem `throw`, sem mutação — retornando `Result<…, SubstitutionError>` com erro como **discriminated union** (`fora-do-grupo`, `nutriente-base-zero`), casado com `ts-pattern`.
 - [x] **Casca fina** (Princípio III): I/O (Drizzle, `db.transaction` quando necessário), orquestração e conversão `Result`→`HttpException` ficam **só em `apps/api`**; a response é montada por **DTO puro** (nunca entidade do Drizzle crua) e respeita o gate de exposição.
 - [x] **Tese** (Princípios I/II): serve "seguir + adequar" (substituição = adequar); "mostra o certo por padrão" (default anunciado, refeição do momento), "troca num toque", "nunca barra" (sem substitutos → informa, não bloqueia); **faixa-alvo não teto** e **sem bucket de % de caloria** (FR-015).
-- [x] **LGPD** (Princípio V): dados **patient-scoped** por design; **gate de exposição** respeitado (FR-005/FR-016). ⚠️ *Auth real é stub no v0* — deferral consciente, **justificado no Complexity Tracking** (sem PII real; design encaixa auth depois sem refactor de domínio).
+- [x] **LGPD** (Princípio V): dados **patient-scoped** por design; **gate de exposição** respeitado (FR-005/FR-016). ⚠️ _Auth real é stub no v0_ — deferral consciente, **justificado no Complexity Tracking** (sem PII real; design encaixa auth depois sem refactor de domínio).
 - [x] **Escopo** (Princípio VI): dentro do MVP; respeita "Fora de escopo" (sem rebalanceamento, combinação, registro/adesão, UI da nutri, offline, auth real); **sem** `Effect`/`fp-ts`.
 - [x] **TDD** (Princípio IV): teste vem **antes** da implementação no núcleo (T4: `substitution.test.ts` antes de `substitution.ts`), cobrindo troca normal, arredondamento, alvo com nutriente-base zero (retorna `err`), alvo fora do grupo e preservação do nutriente-base dentro da tolerância.
 
@@ -112,6 +113,6 @@ apps/mobile/                # paciente
 
 ## Complexity Tracking
 
-| Violation | Why Needed | Simpler Alternative Rejected Because |
-|-----------|------------|-------------------------------------|
+| Violation                                                                                      | Why Needed                                                                                                                                                                                                                                                   | Simpler Alternative Rejected Because                                                                                                                                                                                                                                      |
+| ---------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Auth stub no v0** (LGPD Princípio V parcialmente diferido — controle de acesso real ausente) | Provar a tese (alça do paciente) sem antecipar o custo de auth real; no v0 os dados são **semeados/fictícios**, sem PII de paciente real. Consta explicitamente na lista "Fora de escopo agora" (`auth de verdade — v0 = auth stub, paciente fixo por env`). | Implementar auth real agora atrasaria a prova da tese sem reduzir risco (sem dado real). O **gate de exposição** (controle de privacidade central) já é respeitado, e o domínio é **patient-scoped**, então auth real encaixa na borda depois **sem refactor** do núcleo. |

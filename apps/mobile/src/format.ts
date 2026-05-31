@@ -39,7 +39,8 @@ export function formatNutritionLine(item: MealItemDto): string | null {
 
   // Nível 'percent': só proporções (sem gramas/kcal).
   if (parts.length === 0) {
-    if (typeof n.carbPct === "number") parts.push(`C ${Math.round(n.carbPct)}%`);
+    if (typeof n.carbPct === "number")
+      parts.push(`C ${Math.round(n.carbPct)}%`);
     if (typeof n.proteinPct === "number")
       parts.push(`P ${Math.round(n.proteinPct)}%`);
     if (typeof n.fatPct === "number") parts.push(`G ${Math.round(n.fatPct)}%`);

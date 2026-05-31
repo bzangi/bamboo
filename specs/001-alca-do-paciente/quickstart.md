@@ -59,13 +59,13 @@ pnpm --filter @bamboo/core test     # Vitest: troca normal, arredondamento, err 
 
 ## Critérios de aceite (mapa para a spec)
 
-| Verificação | Spec |
-|---|---|
-| Home mostra "o agora" + tipo-de-dia sem navegar | SC-001, SC-006, FR-001..006 |
-| Substituições do mesmo grupo com gramas + medida caseira | SC-002, FR-007..010 |
-| Preservação do nutriente-base ≤ 2% | SC-003, FR-009 |
-| Item travado nunca oferece troca | SC-004, FR-012 |
-| Substituir em ≤ 2 toques, refeição atualiza | SC-005, FR-011 |
-| Grupo sem substitutos informa (não barra) | SC-007, FR-014 |
-| Exposição respeitada | FR-005, FR-016 |
-| `meal.horario` exibido quando definido | FR-005a |
+| Verificação                                              | Spec                        |
+| -------------------------------------------------------- | --------------------------- |
+| Home mostra "o agora" + tipo-de-dia sem navegar          | SC-001, SC-006, FR-001..006 |
+| Substituições do mesmo grupo com gramas + medida caseira | SC-002, FR-007..010         |
+| Preservação do nutriente-base ≤ 2%                       | SC-003, FR-009              |
+| Item travado nunca oferece troca                         | SC-004, FR-012              |
+| Substituir em ≤ 2 toques, refeição atualiza              | SC-005, FR-011              |
+| Grupo sem substitutos informa (não barra)                | SC-007, FR-014              |
+| Exposição respeitada                                     | FR-005, FR-016              |
+| `meal.horario` exibido quando definido                   | FR-005a                     |

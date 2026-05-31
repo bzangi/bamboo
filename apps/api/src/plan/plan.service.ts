@@ -2,11 +2,7 @@ import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { and, asc, eq, schema } from '@bamboo/db';
 import type { TodayResponse } from '@bamboo/types';
 import { DB, type Db } from '../db/db.module';
-import {
-  toTodayResponse,
-  type MealRow,
-  type OptionRow,
-} from './today.mapper';
+import { toTodayResponse, type MealRow, type OptionRow } from './today.mapper';
 
 // Casca imperativa: faz I/O (Drizzle), orquestra o mapper puro, converte
 // ausências em HttpException na borda. Sem estado mutável (singleton do Nest).
@@ -89,8 +85,7 @@ export class PlanService {
       if (options.length === 0)
         throw new NotFoundException(`refeição ${m.id} sem opções`);
 
-      const defaultOpt =
-        options.find((o) => o.isDefault) ?? options[0];
+      const defaultOpt = options.find((o) => o.isDefault) ?? options[0];
       const otherOptionsCount = options.length - 1;
 
       const items = await this.db

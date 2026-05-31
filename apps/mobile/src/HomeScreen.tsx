@@ -30,9 +30,9 @@ type ScreenState =
 export function HomeScreen() {
   const [state, setState] = useState<ScreenState>({ status: "loading" });
   // Override local por item (foodName + label de quantidade) aplicado na troca.
-  const [overrides, setOverrides] = useState<Readonly<Record<string, ItemOverride>>>(
-    {},
-  );
+  const [overrides, setOverrides] = useState<
+    Readonly<Record<string, ItemOverride>>
+  >({});
   // Item aberto no bottom-sheet; null = fechado.
   const [activeItem, setActiveItem] = useState<MealItemDto | null>(null);
 

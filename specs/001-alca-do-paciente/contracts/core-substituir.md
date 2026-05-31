@@ -23,11 +23,11 @@ export interface HouseholdMeasure {
 }
 
 export interface SubstitutionInput {
-  readonly basis: EquivalenceBasis;          // nutriente-base do grupo
+  readonly basis: EquivalenceBasis; // nutriente-base do grupo
   readonly origem: {
     readonly groupId: string;
     readonly macros: FoodMacros;
-    readonly gramas: number;                 // quantidade atual do item
+    readonly gramas: number; // quantidade atual do item
   };
   readonly alvo: {
     readonly groupId: string;
@@ -37,7 +37,7 @@ export interface SubstitutionInput {
 }
 
 export interface SubstitutionResult {
-  readonly gramas: number;                   // quantidade equivalente (exata, pré-arredondamento)
+  readonly gramas: number; // quantidade equivalente (exata, pré-arredondamento)
   readonly medidaCaseira: HouseholdMeasure | null; // medida mais próxima, ou null se não houver
 }
 
@@ -77,8 +77,14 @@ import { match } from "ts-pattern";
 // ...
 if (!r.ok) {
   throw match(r.error)
-    .with({ kind: "fora-do-grupo" }, () => new UnprocessableEntityException("alimento fora do grupo"))
-    .with({ kind: "nutriente-base-zero" }, () => new UnprocessableEntityException("alvo sem o nutriente-base"))
+    .with(
+      { kind: "fora-do-grupo" },
+      () => new UnprocessableEntityException("alimento fora do grupo"),
+    )
+    .with(
+      { kind: "nutriente-base-zero" },
+      () => new UnprocessableEntityException("alvo sem o nutriente-base"),
+    )
     .exhaustive();
 }
 ```

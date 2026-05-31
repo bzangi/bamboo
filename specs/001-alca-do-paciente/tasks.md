@@ -20,16 +20,16 @@ description: "Task list — feature 001-alca-do-paciente"
 
 ## Mapeamento com o roadmap T0–T8
 
-| Legado | Vira | Fase |
-|---|---|---|
-| T0 scaffold | T001 | Setup (✅ feito) |
-| T1 docker | T002 | Setup (✅ feito) |
-| T4 core (substituir) | T003–T007 | Foundational |
-| T2 db (schema/migration) | T008–T010 | Foundational |
-| T3 ingestão TACO | T011–T012 | Foundational |
-| T6 seed | T013–T014 | Foundational |
-| T5a + api-client + T7 Home | T015–T019 | US1 |
-| T5b + api-client + T8 troca | T020–T024 | US2 |
+| Legado                      | Vira      | Fase             |
+| --------------------------- | --------- | ---------------- |
+| T0 scaffold                 | T001      | Setup (✅ feito) |
+| T1 docker                   | T002      | Setup (✅ feito) |
+| T4 core (substituir)        | T003–T007 | Foundational     |
+| T2 db (schema/migration)    | T008–T010 | Foundational     |
+| T3 ingestão TACO            | T011–T012 | Foundational     |
+| T6 seed                     | T013–T014 | Foundational     |
+| T5a + api-client + T7 Home  | T015–T019 | US1              |
+| T5b + api-client + T8 troca | T020–T024 | US2              |
 
 ---
 
@@ -37,8 +37,8 @@ description: "Task list — feature 001-alca-do-paciente"
 
 **Purpose**: monorepo + Postgres. **Concluído no Bloco 1.**
 
-- [X] T001 (T0) Scaffold do monorepo `@bamboo/*` (apps/{api,web,mobile} + packages/{core,db,types,api-client}, turbo, pnpm-workspace) — verificado: `pnpm install` + `turbo build` verdes, apps sobem.
-- [X] T002 (T1) Postgres no Docker em `docker-compose.yml` + `.env.example` — verificado: `docker compose ps` healthy, `SELECT` ok.
+- [x] T001 (T0) Scaffold do monorepo `@bamboo/*` (apps/{api,web,mobile} + packages/{core,db,types,api-client}, turbo, pnpm-workspace) — verificado: `pnpm install` + `turbo build` verdes, apps sobem.
+- [x] T002 (T1) Postgres no Docker em `docker-compose.yml` + `.env.example` — verificado: `docker compose ps` healthy, `SELECT` ok.
 
 ---
 

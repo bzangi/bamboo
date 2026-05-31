@@ -77,9 +77,7 @@ export function SubstitutionSheet({ item, onClose, onSelect }: Props) {
           <View style={styles.handle} />
           <Text style={styles.title}>Trocar alimento</Text>
           {item && (
-            <Text style={styles.currentLabel}>
-              Atual: {item.food.name}
-            </Text>
+            <Text style={styles.currentLabel}>Atual: {item.food.name}</Text>
           )}
 
           <SheetBody

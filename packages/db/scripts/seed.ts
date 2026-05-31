@@ -19,8 +19,8 @@
 //   node --env-file=.env --import tsx packages/db/scripts/seed.ts
 // (o script também faz `import 'dotenv/config'` como rede de segurança.)
 
-import 'dotenv/config';
-import { sql } from 'drizzle-orm';
+import "dotenv/config";
+import { sql } from "drizzle-orm";
 import {
   db,
   pool,
@@ -35,7 +35,7 @@ import {
   meal,
   mealOption,
   mealItem,
-} from '../src/index.js';
+} from "../src/index.js";
 
 /* ============================================================
  * Configuração declarativa do seed.
@@ -47,23 +47,23 @@ import {
 // Cada grupo tem >=2 foods → garante substitutos reais.
 const GROUPS = [
   {
-    name: 'Carboidratos',
-    basis: 'carb' as const,
+    name: "Carboidratos",
+    basis: "carb" as const,
     foods: [
-      { name: 'Arroz branco cozido', referencePortionGrams: 100 },
-      { name: 'Batata inglesa cozida', referencePortionGrams: 150 },
-      { name: 'Batata doce cozida', referencePortionGrams: 120 },
-      { name: 'Mandioca (aipim) cozida', referencePortionGrams: 100 },
+      { name: "Arroz branco cozido", referencePortionGrams: 100 },
+      { name: "Batata inglesa cozida", referencePortionGrams: 150 },
+      { name: "Batata doce cozida", referencePortionGrams: 120 },
+      { name: "Mandioca (aipim) cozida", referencePortionGrams: 100 },
     ],
   },
   {
-    name: 'Proteínas',
-    basis: 'protein' as const,
+    name: "Proteínas",
+    basis: "protein" as const,
     foods: [
-      { name: 'Patinho bovino grelhado', referencePortionGrams: 100 },
-      { name: 'Ovo de galinha cozido', referencePortionGrams: 50 },
-      { name: 'Coxão mole bovino cozido', referencePortionGrams: 100 },
-      { name: 'Filé de pescada frito', referencePortionGrams: 100 },
+      { name: "Patinho bovino grelhado", referencePortionGrams: 100 },
+      { name: "Ovo de galinha cozido", referencePortionGrams: 50 },
+      { name: "Coxão mole bovino cozido", referencePortionGrams: 100 },
+      { name: "Filé de pescada frito", referencePortionGrams: 100 },
     ],
   },
 ] as const;
@@ -119,21 +119,21 @@ async function seed(): Promise<SeedResult> {
     // Nomes referenciados pelo seed (grupos + itens soltos das refeições).
     const referencedNames = [
       ...GROUPS.flatMap((g) => g.foods.map((f) => f.name)),
-      'Aveia em flocos',
-      'Banana nanica',
-      'Feijão carioca cozido',
-      'Alface lisa crua',
-      'Brócolis cozido',
-      'Tomate (salada)',
-      'Maçã com casca',
-      'Cenoura crua',
+      "Aveia em flocos",
+      "Banana nanica",
+      "Feijão carioca cozido",
+      "Alface lisa crua",
+      "Brócolis cozido",
+      "Tomate (salada)",
+      "Maçã com casca",
+      "Cenoura crua",
     ];
     const missing = Array.from(new Set(referencedNames)).filter(
       (n) => !foodIdByName.has(n),
     );
     if (missing.length > 0) {
       throw new Error(
-        `Foods da TACO ausentes (rode a ingestão T011/T012 antes): ${missing.join(', ')}`,
+        `Foods da TACO ausentes (rode a ingestão T011/T012 antes): ${missing.join(", ")}`,
       );
     }
     const foodId = (name: string): string => {
@@ -145,7 +145,7 @@ async function seed(): Promise<SeedResult> {
     // -------- nutricionista --------
     const [nutri] = await tx
       .insert(nutritionist)
-      .values({ name: 'Dra. Marina Lopes', email: 'marina@bamboo.dev' })
+      .values({ name: "Dra. Marina Lopes", email: "marina@bamboo.dev" })
       .returning({ id: nutritionist.id });
 
     // -------- paciente (exposure=macros para ver números na US1) --------
@@ -153,11 +153,11 @@ async function seed(): Promise<SeedResult> {
       .insert(patient)
       .values({
         nutritionistId: nutri.id,
-        name: 'João da Silva',
-        email: 'joao@example.com',
+        name: "João da Silva",
+        email: "joao@example.com",
         heightCm: 178,
         weightKg: 82,
-        exposure: 'macros',
+        exposure: "macros",
       })
       .returning({ id: patient.id });
 
@@ -180,23 +180,27 @@ async function seed(): Promise<SeedResult> {
       );
       fsgCount += g.foods.length;
     }
-    const carbGroupId = groupIdByName['Carboidratos'];
-    const proteinGroupId = groupIdByName['Proteínas'];
+    const carbGroupId = groupIdByName["Carboidratos"];
+    const proteinGroupId = groupIdByName["Proteínas"];
 
     // -------- plano ativo --------
     const [pln] = await tx
       .insert(plan)
-      .values({ patientId: pac.id, name: 'Plano de João — Ciclo 1', isActive: true })
+      .values({
+        patientId: pac.id,
+        name: "Plano de João — Ciclo 1",
+        isActive: true,
+      })
       .returning({ id: plan.id });
 
     // -------- tipos-de-dia (treino / descanso) --------
     const [treino] = await tx
       .insert(dayType)
-      .values({ planId: pln.id, name: 'treino' })
+      .values({ planId: pln.id, name: "treino" })
       .returning({ id: dayType.id });
     const [descanso] = await tx
       .insert(dayType)
-      .values({ planId: pln.id, name: 'descanso' })
+      .values({ planId: pln.id, name: "descanso" })
       .returning({ id: dayType.id });
 
     // -------- programação semanal (0=dom .. 6=sáb), cobre os 7 dias --------
@@ -267,21 +271,21 @@ async function seed(): Promise<SeedResult> {
 
     // guarda o item flexível "de referência" (frango flexível no Carbo? não —
     // arroz flexível no grupo Carboidratos, que tem 4 foods).
-    let flexibleItemId = '';
-    let flexibleFoodName = '';
-    let flexibleGroupName = '';
+    let flexibleItemId = "";
+    let flexibleFoodName = "";
+    let flexibleGroupName = "";
 
     /* ===== DIA DE TREINO ===== */
 
     // Café da manhã (08:00) — 1 opção. Ovo travado + aveia flexível? aveia não
     // está em grupo; usamos ovo travado (proteína fixa) + banana solta.
     {
-      const cafe = await insertMeal(treino.id, 'Café da manhã', 1, '08:00');
-      const opt = await insertOption(cafe, 'Padrão', true);
+      const cafe = await insertMeal(treino.id, "Café da manhã", 1, "08:00");
+      const opt = await insertOption(cafe, "Padrão", true);
       // ovo TRAVADO (proteína fixa do café)
       await insertItem({
         mealOptionId: opt,
-        foodName: 'Ovo de galinha cozido',
+        foodName: "Ovo de galinha cozido",
         quantityGrams: 100,
         isLocked: true,
         substitutionGroupId: null,
@@ -289,7 +293,7 @@ async function seed(): Promise<SeedResult> {
       // aveia: não-travada e sem grupo → não substituível (item solto)
       await insertItem({
         mealOptionId: opt,
-        foodName: 'Aveia em flocos',
+        foodName: "Aveia em flocos",
         quantityGrams: 40,
         isLocked: false,
         substitutionGroupId: null,
@@ -297,7 +301,7 @@ async function seed(): Promise<SeedResult> {
       // banana: idem (acompanhamento solto)
       await insertItem({
         mealOptionId: opt,
-        foodName: 'Banana nanica',
+        foodName: "Banana nanica",
         quantityGrams: 85,
         isLocked: false,
         substitutionGroupId: null,
@@ -307,80 +311,80 @@ async function seed(): Promise<SeedResult> {
     // Almoço (12:30) — 3 OPÇÕES (uma default). É aqui que mora o item flexível
     // de referência: arroz no grupo Carboidratos (4 foods → 3 substitutos).
     {
-      const almoco = await insertMeal(treino.id, 'Almoço', 2, '12:30');
+      const almoco = await insertMeal(treino.id, "Almoço", 2, "12:30");
 
       // Opção 1 (DEFAULT): arroz (flexível, Carbo) + patinho (flexível, Proteína) + salada solta.
-      const opt1 = await insertOption(almoco, 'Arroz e carne', true);
+      const opt1 = await insertOption(almoco, "Arroz e carne", true);
       const arrozItemId = await insertItem({
         mealOptionId: opt1,
-        foodName: 'Arroz branco cozido',
+        foodName: "Arroz branco cozido",
         quantityGrams: 150,
         isLocked: false,
         substitutionGroupId: carbGroupId,
       });
       // este é o item flexível de referência (grupo com 4 foods)
       flexibleItemId = arrozItemId;
-      flexibleFoodName = 'Arroz branco cozido';
-      flexibleGroupName = 'Carboidratos';
+      flexibleFoodName = "Arroz branco cozido";
+      flexibleGroupName = "Carboidratos";
 
       await insertItem({
         mealOptionId: opt1,
-        foodName: 'Patinho bovino grelhado',
+        foodName: "Patinho bovino grelhado",
         quantityGrams: 120,
         isLocked: false,
         substitutionGroupId: proteinGroupId,
       });
       await insertItem({
         mealOptionId: opt1,
-        foodName: 'Feijão carioca cozido',
+        foodName: "Feijão carioca cozido",
         quantityGrams: 80,
         isLocked: false,
         substitutionGroupId: null, // acompanhamento solto
       });
       await insertItem({
         mealOptionId: opt1,
-        foodName: 'Alface lisa crua',
+        foodName: "Alface lisa crua",
         quantityGrams: 30,
         isLocked: false,
         substitutionGroupId: null,
       });
 
       // Opção 2: batata doce (flexível, Carbo) + pescada (flexível, Proteína).
-      const opt2 = await insertOption(almoco, 'Batata e peixe', false);
+      const opt2 = await insertOption(almoco, "Batata e peixe", false);
       await insertItem({
         mealOptionId: opt2,
-        foodName: 'Batata doce cozida',
+        foodName: "Batata doce cozida",
         quantityGrams: 180,
         isLocked: false,
         substitutionGroupId: carbGroupId,
       });
       await insertItem({
         mealOptionId: opt2,
-        foodName: 'Filé de pescada frito',
+        foodName: "Filé de pescada frito",
         quantityGrams: 130,
         isLocked: false,
         substitutionGroupId: proteinGroupId,
       });
       await insertItem({
         mealOptionId: opt2,
-        foodName: 'Brócolis cozido',
+        foodName: "Brócolis cozido",
         quantityGrams: 80,
         isLocked: false,
         substitutionGroupId: null,
       });
 
       // Opção 3: mandioca (flexível, Carbo) + coxão mole (flexível, Proteína).
-      const opt3 = await insertOption(almoco, 'Mandioca e carne', false);
+      const opt3 = await insertOption(almoco, "Mandioca e carne", false);
       await insertItem({
         mealOptionId: opt3,
-        foodName: 'Mandioca (aipim) cozida',
+        foodName: "Mandioca (aipim) cozida",
         quantityGrams: 120,
         isLocked: false,
         substitutionGroupId: carbGroupId,
       });
       await insertItem({
         mealOptionId: opt3,
-        foodName: 'Coxão mole bovino cozido',
+        foodName: "Coxão mole bovino cozido",
         quantityGrams: 120,
         isLocked: false,
         substitutionGroupId: proteinGroupId,
@@ -389,11 +393,11 @@ async function seed(): Promise<SeedResult> {
 
     // Jantar (19:30) — 1 opção: batata inglesa (flexível, Carbo) + ovo travado.
     {
-      const jantar = await insertMeal(treino.id, 'Jantar', 3, '19:30');
-      const opt = await insertOption(jantar, 'Padrão', true);
+      const jantar = await insertMeal(treino.id, "Jantar", 3, "19:30");
+      const opt = await insertOption(jantar, "Padrão", true);
       await insertItem({
         mealOptionId: opt,
-        foodName: 'Batata inglesa cozida',
+        foodName: "Batata inglesa cozida",
         quantityGrams: 150,
         isLocked: false,
         substitutionGroupId: carbGroupId,
@@ -401,14 +405,14 @@ async function seed(): Promise<SeedResult> {
       // ovo TRAVADO no jantar
       await insertItem({
         mealOptionId: opt,
-        foodName: 'Ovo de galinha cozido',
+        foodName: "Ovo de galinha cozido",
         quantityGrams: 100,
         isLocked: true,
         substitutionGroupId: null,
       });
       await insertItem({
         mealOptionId: opt,
-        foodName: 'Tomate (salada)',
+        foodName: "Tomate (salada)",
         quantityGrams: 90,
         isLocked: false,
         substitutionGroupId: null,
@@ -419,18 +423,18 @@ async function seed(): Promise<SeedResult> {
 
     // Café da manhã (sem horário definido) — 1 opção.
     {
-      const cafe = await insertMeal(descanso.id, 'Café da manhã', 1, null);
-      const opt = await insertOption(cafe, 'Padrão', true);
+      const cafe = await insertMeal(descanso.id, "Café da manhã", 1, null);
+      const opt = await insertOption(cafe, "Padrão", true);
       await insertItem({
         mealOptionId: opt,
-        foodName: 'Ovo de galinha cozido',
+        foodName: "Ovo de galinha cozido",
         quantityGrams: 50,
         isLocked: true,
         substitutionGroupId: null,
       });
       await insertItem({
         mealOptionId: opt,
-        foodName: 'Maçã com casca',
+        foodName: "Maçã com casca",
         quantityGrams: 130,
         isLocked: false,
         substitutionGroupId: null,
@@ -439,25 +443,25 @@ async function seed(): Promise<SeedResult> {
 
     // Almoço (12:30) — 1 opção: arroz (flexível, Carbo) + coxão mole (flexível, Proteína).
     {
-      const almoco = await insertMeal(descanso.id, 'Almoço', 2, '12:30');
-      const opt = await insertOption(almoco, 'Padrão', true);
+      const almoco = await insertMeal(descanso.id, "Almoço", 2, "12:30");
+      const opt = await insertOption(almoco, "Padrão", true);
       await insertItem({
         mealOptionId: opt,
-        foodName: 'Arroz branco cozido',
+        foodName: "Arroz branco cozido",
         quantityGrams: 120,
         isLocked: false,
         substitutionGroupId: carbGroupId,
       });
       await insertItem({
         mealOptionId: opt,
-        foodName: 'Coxão mole bovino cozido',
+        foodName: "Coxão mole bovino cozido",
         quantityGrams: 100,
         isLocked: false,
         substitutionGroupId: proteinGroupId,
       });
       await insertItem({
         mealOptionId: opt,
-        foodName: 'Cenoura crua',
+        foodName: "Cenoura crua",
         quantityGrams: 80,
         isLocked: false,
         substitutionGroupId: null,
@@ -466,18 +470,18 @@ async function seed(): Promise<SeedResult> {
 
     // Jantar (sem horário) — 1 opção: batata doce (flexível, Carbo) + pescada (flexível, Proteína).
     {
-      const jantar = await insertMeal(descanso.id, 'Jantar', 3, null);
-      const opt = await insertOption(jantar, 'Padrão', true);
+      const jantar = await insertMeal(descanso.id, "Jantar", 3, null);
+      const opt = await insertOption(jantar, "Padrão", true);
       await insertItem({
         mealOptionId: opt,
-        foodName: 'Batata doce cozida',
+        foodName: "Batata doce cozida",
         quantityGrams: 150,
         isLocked: false,
         substitutionGroupId: carbGroupId,
       });
       await insertItem({
         mealOptionId: opt,
-        foodName: 'Filé de pescada frito',
+        foodName: "Filé de pescada frito",
         quantityGrams: 120,
         isLocked: false,
         substitutionGroupId: proteinGroupId,
@@ -530,12 +534,12 @@ async function seed(): Promise<SeedResult> {
 async function main(): Promise<void> {
   const r = await seed();
 
-  console.log('[seed] OK — plano semeado.');
-  console.log('[seed] contagens:');
+  console.log("[seed] OK — plano semeado.");
+  console.log("[seed] contagens:");
   for (const [k, v] of Object.entries(r.counts)) {
     console.log(`  - ${k}: ${v}`);
   }
-  console.log('[seed] IDs úteis (para testes de API):');
+  console.log("[seed] IDs úteis (para testes de API):");
   console.log(`  - patientId:        ${r.patientId}`);
   console.log(`  - planId (ativo):   ${r.planId}`);
   console.log(`  - nutritionistId:   ${r.nutritionistId}`);
@@ -552,7 +556,7 @@ async function main(): Promise<void> {
 main()
   .then(() => pool.end())
   .catch(async (err) => {
-    console.error('[seed] ERRO:', err);
+    console.error("[seed] ERRO:", err);
     await pool.end();
     process.exit(1);
   });

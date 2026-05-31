@@ -1,0 +1,538 @@
+{
+  "openapi": "3.0.0",
+  "paths": {
+    "/": {
+      "get": {
+        "operationId": "AppController_getHello",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "App"
+        ]
+      }
+    },
+    "/patients/{patientId}/today": {
+      "get": {
+        "description": "Resolve o tipo-de-dia do dia corrente (via programação semanal), retorna as refeições do dia (ordenadas) com a opção default e seus itens, marca a refeição do momento (currentMealId) e filtra os números nutricionais pelo gate de exposição do paciente. (v0: auth stub — paciente fixo por env.)",
+        "operationId": "PlanController_getToday",
+        "parameters": [
+          {
+            "name": "patientId",
+            "required": true,
+            "in": "path",
+            "description": "UUID do paciente semeado (muda a cada seed; pegue no log do seed ou no banco).",
+            "schema": {
+              "format": "uuid",
+              "example": "f5258d1a-b07e-4b72-abdd-792fa9afd88b",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "plano do dia",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TodayResponseModel"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "patientId não é um UUID válido",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorModel"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "paciente inexistente ou sem plano ativo/programação",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorModel"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Plano de hoje (\"o agora\")",
+        "tags": [
+          "Plano do paciente"
+        ]
+      }
+    },
+    "/meal-items/{mealItemId}/substitutions": {
+      "get": {
+        "description": "Lista os alimentos do mesmo grupo de substituição do item, cada um com a quantidade recalculada (preservando o nutriente-base do grupo) e a medida caseira correspondente. Alvos com nutriente-base zero são excluídos. Item travado ou sem grupo → 422 (não substituível). Lista vazia de alternativas é 200 (grupo sem substitutos).",
+        "operationId": "SubstitutionController_getSubstitutions",
+        "parameters": [
+          {
+            "name": "mealItemId",
+            "required": true,
+            "in": "path",
+            "description": "UUID do meal_item (flexível). Itens travados retornam 422.",
+            "schema": {
+              "format": "uuid",
+              "example": "d5efbc96-9aa8-4d33-a92f-ecf2f0b81b2d",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "alternativas equivalentes (lista pode ser vazia)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SubstitutionsResponseModel"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "mealItemId não é um UUID válido",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorModel"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "item inexistente",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorModel"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "item travado ou sem grupo (não substituível)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorModel"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Substituições de um item flexível",
+        "tags": [
+          "Substituição"
+        ]
+      }
+    }
+  },
+  "info": {
+    "title": "Bamboo API",
+    "description": "API da alça do paciente — ver \"o agora\" (US1) e substituir um alimento dentro do grupo, com quantidade recalculada e medida caseira (US2). v0: auth stub (paciente fixo por env).",
+    "version": "0.1.0",
+    "contact": {}
+  },
+  "tags": [
+    {
+      "name": "Plano do paciente",
+      "description": "GET /today — a refeição do momento + o plano do dia"
+    },
+    {
+      "name": "Substituição",
+      "description": "GET /substitutions — alternativas equivalentes do grupo"
+    }
+  ],
+  "servers": [],
+  "components": {
+    "schemas": {
+      "DayTypeModel": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "label": {
+            "type": "string",
+            "example": "descanso"
+          }
+        },
+        "required": [
+          "id",
+          "label"
+        ]
+      },
+      "FoodRefModel": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "example": "64c1ec0a-cfd7-42e2-a286-8d72216831ad"
+          },
+          "name": {
+            "type": "string",
+            "example": "Arroz branco cozido"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ]
+      },
+      "NutritionModel": {
+        "type": "object",
+        "properties": {
+          "kcal": {
+            "type": "number",
+            "example": 195,
+            "description": "kcal da porção (só exposure=full_kcal)"
+          },
+          "carb": {
+            "type": "number",
+            "example": 33.7,
+            "description": "carboidrato (g) da porção"
+          },
+          "protein": {
+            "type": "number",
+            "example": 3
+          },
+          "fat": {
+            "type": "number",
+            "example": 0.3
+          },
+          "carbPct": {
+            "type": "number",
+            "example": 80,
+            "description": "proporção do macro no total de macros (%), não bucket de kcal"
+          },
+          "proteinPct": {
+            "type": "number",
+            "example": 7
+          },
+          "fatPct": {
+            "type": "number",
+            "example": 13
+          }
+        }
+      },
+      "MealItemModel": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "food": {
+            "$ref": "#/components/schemas/FoodRefModel"
+          },
+          "quantityGrams": {
+            "type": "number",
+            "example": 150
+          },
+          "isLocked": {
+            "type": "boolean",
+            "example": false
+          },
+          "substitutionGroupId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true,
+            "example": "6c4c612c-5dbf-4595-ba44-4c0bf6687000"
+          },
+          "substitutable": {
+            "type": "boolean",
+            "example": true,
+            "description": "!isLocked && substitutionGroupId != null"
+          },
+          "nutrition": {
+            "description": "ausente quando exposure = hidden",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/NutritionModel"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "food",
+          "quantityGrams",
+          "isLocked",
+          "substitutionGroupId",
+          "substitutable"
+        ]
+      },
+      "MealOptionModel": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "label": {
+            "type": "string",
+            "example": "Padrão"
+          },
+          "isDefault": {
+            "type": "boolean",
+            "example": true
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MealItemModel"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "label",
+          "isDefault",
+          "items"
+        ]
+      },
+      "MealModel": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string",
+            "example": "Almoço"
+          },
+          "position": {
+            "type": "number",
+            "example": 2
+          },
+          "horario": {
+            "type": "string",
+            "nullable": true,
+            "example": "12:30",
+            "description": "horário \"HH:MM\"; null/ausente se não definido"
+          },
+          "defaultOption": {
+            "$ref": "#/components/schemas/MealOptionModel"
+          },
+          "otherOptionsCount": {
+            "type": "number",
+            "example": 2,
+            "description": "nº de outras opções da refeição (não expandidas no v0)"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "position",
+          "defaultOption",
+          "otherOptionsCount"
+        ]
+      },
+      "TodayResponseModel": {
+        "type": "object",
+        "properties": {
+          "patientId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "exposure": {
+            "type": "string",
+            "enum": [
+              "hidden",
+              "percent",
+              "macros",
+              "full_kcal"
+            ],
+            "example": "macros",
+            "description": "gate de exposição (controlado pela nutri)"
+          },
+          "dayType": {
+            "$ref": "#/components/schemas/DayTypeModel"
+          },
+          "currentMealId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "a refeição do momento (v0: 1ª por position)"
+          },
+          "meals": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MealModel"
+            }
+          }
+        },
+        "required": [
+          "patientId",
+          "exposure",
+          "dayType",
+          "currentMealId",
+          "meals"
+        ]
+      },
+      "ApiErrorModel": {
+        "type": "object",
+        "properties": {
+          "statusCode": {
+            "type": "number",
+            "example": 404
+          },
+          "message": {
+            "type": "string",
+            "example": "item não encontrado",
+            "description": "string (ou array em erros de validação)"
+          },
+          "error": {
+            "type": "string",
+            "example": "Not Found"
+          }
+        },
+        "required": [
+          "statusCode",
+          "message"
+        ]
+      },
+      "SubstitutionGroupModel": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string",
+            "example": "Carboidratos"
+          },
+          "basis": {
+            "type": "string",
+            "enum": [
+              "carb",
+              "protein",
+              "fat",
+              "kcal"
+            ],
+            "example": "carb",
+            "description": "nutriente-base preservado na troca"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "basis"
+        ]
+      },
+      "CurrentItemModel": {
+        "type": "object",
+        "properties": {
+          "foodId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string",
+            "example": "Arroz branco cozido"
+          },
+          "quantityGrams": {
+            "type": "number",
+            "example": 150
+          }
+        },
+        "required": [
+          "foodId",
+          "name",
+          "quantityGrams"
+        ]
+      },
+      "HouseholdMeasureModel": {
+        "type": "object",
+        "properties": {
+          "label": {
+            "type": "string",
+            "example": "colher de sopa cheia"
+          },
+          "grams": {
+            "type": "number",
+            "example": 30
+          }
+        },
+        "required": [
+          "label",
+          "grams"
+        ]
+      },
+      "SubstitutionAlternativeModel": {
+        "type": "object",
+        "properties": {
+          "foodId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string",
+            "example": "Batata inglesa cozida"
+          },
+          "gramas": {
+            "type": "number",
+            "example": 352.5,
+            "description": "quantidade equivalente (preserva o nutriente-base)"
+          },
+          "medidaCaseira": {
+            "nullable": true,
+            "description": "medida caseira mais próxima, ou null",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/HouseholdMeasureModel"
+              }
+            ]
+          }
+        },
+        "required": [
+          "foodId",
+          "name",
+          "gramas",
+          "medidaCaseira"
+        ]
+      },
+      "SubstitutionsResponseModel": {
+        "type": "object",
+        "properties": {
+          "itemId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "group": {
+            "$ref": "#/components/schemas/SubstitutionGroupModel"
+          },
+          "current": {
+            "$ref": "#/components/schemas/CurrentItemModel"
+          },
+          "alternatives": {
+            "description": "lista vazia = grupo sem outros alimentos elegíveis (200, não erro)",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SubstitutionAlternativeModel"
+            }
+          }
+        },
+        "required": [
+          "itemId",
+          "group",
+          "current",
+          "alternatives"
+        ]
+      }
+    }
+  }
+}

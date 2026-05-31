@@ -8,7 +8,6 @@ import { match } from 'ts-pattern';
 import { substituir, type HouseholdMeasure } from '@bamboo/core';
 import { and, eq, ne, schema } from '@bamboo/db';
 import type {
-  EquivalenceBasis,
   SubstitutionAlternativeDto,
   SubstitutionsResponse,
 } from '@bamboo/types';
@@ -61,8 +60,9 @@ export class SubstitutionService {
       .from(schema.substitutionGroup)
       .where(eq(schema.substitutionGroup.id, groupId))
       .limit(1);
-    if (!group) throw new NotFoundException('grupo de substituição não encontrado');
-    const basis = group.basis as EquivalenceBasis;
+    if (!group)
+      throw new NotFoundException('grupo de substituição não encontrado');
+    const basis = group.basis;
 
     // 4. Outros foods do grupo (exclui o food atual), com macros.
     const targets = await this.db

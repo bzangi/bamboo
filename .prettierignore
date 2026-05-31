@@ -1,0 +1,14 @@
+# Dependências e artefatos de build
+node_modules
+dist
+.next
+.expo
+.turbo
+**/openapi.json
+
+# Tooling vendado (Spec Kit + skills do Claude) — não reformatar
+.claude
+.specify
+
+# Docs de produto espelhados no Obsidian — formatação mantida à mão
+docs

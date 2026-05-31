@@ -17,7 +17,8 @@
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
-    "test:e2e": "vitest run"
+    "test:e2e": "vitest run",
+    "openapi:gen": "nest build && node --env-file=../../.env dist/gen-openapi.js"
   },
   "dependencies": {
     "@bamboo/core": "workspace:*",
@@ -26,6 +27,7 @@
     "@nestjs/common": "^11.0.1",
     "@nestjs/core": "^11.0.1",
     "@nestjs/platform-express": "^11.0.1",
+    "@nestjs/swagger": "^11.4.4",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
     "ts-pattern": "^5.9.0"

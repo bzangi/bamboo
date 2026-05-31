@@ -56,3 +56,21 @@ pnpm --filter api dev       # NestJS (http://localhost:3000)
 pnpm --filter web dev       # Next.js da nutri (http://localhost:3000)
 pnpm --filter mobile start  # Expo (app do paciente)
 ```
+
+## Documentação da API (OpenAPI / Swagger)
+
+Com a API rodando:
+
+- **Swagger UI:** `http://localhost:<porta>/docs`
+- **Spec JSON:** `http://localhost:<porta>/docs-json`
+
+**Importar no Postman:** Import → cole a URL `http://localhost:<porta>/docs-json` (ou o arquivo `apps/api/openapi.json`) → o Postman gera a collection com os endpoints, params e schemas.
+
+O spec também fica versionado em **`apps/api/openapi.json`** (não precisa subir o server pra importar). Para regerá-lo após mudar endpoints/DTOs:
+
+```sh
+pnpm build                    # garante os packages @bamboo/* buildados
+pnpm --filter api run openapi:gen   # gera apps/api/openapi.json
+```
+
+> Os UUIDs de `patientId` / `mealItemId` mudam a cada `seed` — pegue os atuais no log do seed ou no banco (`select id from patient limit 1`).

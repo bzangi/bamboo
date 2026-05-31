@@ -8,7 +8,7 @@
 
 **Input**: User description: "alça do paciente: ver a refeição do momento (o agora) e substituir um alimento flexível dentro do grupo, com quantidade recalculada e medida caseira; item travado não troca"
 
-## User Scenarios & Testing *(mandatory)*
+## User Scenarios & Testing _(mandatory)_
 
 ### User Story 1 - Ver "o agora" (Priority: P1)
 
@@ -57,7 +57,7 @@ O paciente toca num alimento **flexível** da refeição, vê as alternativas do
 - **Nenhuma refeição registrada hoje**: "o agora" é a **primeira refeição do dia** (estado inicial e, no v0 desta feature, o estado permanente — ver FR-006a).
 - **Sem tipo-de-dia para o dia corrente**: ver Assumptions (o v0 assume programação cobrindo os 7 dias da semana).
 
-## Requirements *(mandatory)*
+## Requirements _(mandatory)_
 
 ### Functional Requirements
 
@@ -70,7 +70,7 @@ O paciente toca num alimento **flexível** da refeição, vê as alternativas do
 - **FR-005**: O sistema MUST exibir, para os itens da refeição, alimentos e quantidades; a exibição de números nutricionais (kcal/macros/%) MUST respeitar o nível de exposição configurado para aquele paciente (oculto / só % / % + macros / kcal cheio).
 - **FR-005a**: O sistema MUST exibir o **horário** da refeição quando este estiver definido (informação que ajuda o paciente a se organizar e a nutri a planejar). O horário é metadado de exibição e **NÃO** determina "o agora" (ver FR-006) — a feature não depende dele.
 - **FR-006**: O sistema MUST resolver "o agora" como a **refeição seguinte à última refeição registrada no dia corrente**. A contagem **reseta a cada dia**: sem registro no dia anterior, hoje recomeça da primeira refeição; conforme o paciente registra refeições, "o agora" avança para a seguinte. (Decisão de produto — não usa relógio/horário.)
-- **FR-006a** *(dependência / comportamento no v0)*: O avanço de "o agora" depende do **registro de refeição** (feito / troquei / pulei), que está **fora do escopo desta feature** (diferido para fase posterior — ver Out of Scope). Portanto, nesta feature (sem registro disponível), "o agora" resolve **sempre para a primeira refeição do dia**; a regra completa de avanço (FR-006) passa a valer quando o registro existir.
+- **FR-006a** _(dependência / comportamento no v0)_: O avanço de "o agora" depende do **registro de refeição** (feito / troquei / pulei), que está **fora do escopo desta feature** (diferido para fase posterior — ver Out of Scope). Portanto, nesta feature (sem registro disponível), "o agora" resolve **sempre para a primeira refeição do dia**; a regra completa de avanço (FR-006) passa a valer quando o registro existir.
 
 #### Substituir num toque (US2)
 
@@ -86,9 +86,9 @@ O paciente toca num alimento **flexível** da refeição, vê as alternativas do
 #### Transversais
 
 - **FR-015**: O sistema MUST NOT enquadrar a substituição como economia/corte de caloria nem exibir "bucket de calorias em %"; a troca dentro do grupo é equivalência, não redução.
-- **FR-016**: O acesso aos dados de plano e saúde do paciente MUST respeitar controle de acesso (somente o próprio paciente e a nutri responsável veem os dados daquele paciente). *(LGPD — transversal.)*
+- **FR-016**: O acesso aos dados de plano e saúde do paciente MUST respeitar controle de acesso (somente o próprio paciente e a nutri responsável veem os dados daquele paciente). _(LGPD — transversal.)_
 
-### Key Entities *(include if feature involves data)*
+### Key Entities _(include if feature involves data)_
 
 - **Paciente**: pessoa que segue o plano; possui um nível de exposição (quanto número vê) e vínculo com a nutri responsável.
 - **Plano**: conjunto do paciente; agrupa tipos-de-dia e a programação semanal. Pertence direto ao paciente no v0.
@@ -102,7 +102,7 @@ O paciente toca num alimento **flexível** da refeição, vê as alternativas do
 - **Grupo de substituição**: agrupa alimentos equivalentes; define a **base de equivalência** (qual nutriente é preservado na troca). Cada vínculo alimento↔grupo carrega a porção de referência do alimento no grupo (origem do recálculo).
 - **Nível de exposição**: gate, controlado pela nutri, de quanto número nutricional o paciente enxerga.
 
-## Success Criteria *(mandatory)*
+## Success Criteria _(mandatory)_
 
 ### Measurable Outcomes
 
@@ -128,7 +128,7 @@ O paciente toca num alimento **flexível** da refeição, vê as alternativas do
 - **Exposição default**: na ausência de configuração, o nível de exposição é "oculto" (sem números).
 - **Aplicar a troca é client-side no v0**: a substituição altera apenas o estado local da tela; nada é persistido.
 
-## Out of Scope *(desta feature)*
+## Out of Scope _(desta feature)_
 
 - Rebalanceamento multi-refeição e qualquer gatilho dele (escolher entre opções desiguais, troca de tipo-de-dia, registro do que comeu de fato).
 - Substituição em combinação (trocar 1 alimento por 2, ex.: macarrão → arroz + batata).

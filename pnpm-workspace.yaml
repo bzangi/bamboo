@@ -9,6 +9,8 @@ nodeLinker: hoisted
 # (chave do pnpm 11: allowBuilds, mapa pkg -> bool.)
 allowBuilds:
   "@nestjs/core": true
+  # telemetria (phone-home no postinstall): declinado de proposito.
+  "@scarf/scarf": false
   "@swc/core": true
   esbuild: true
   msgpackr-extract: true

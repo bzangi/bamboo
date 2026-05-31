@@ -25,13 +25,13 @@ GET /patients/:patientId/today
   "patientId": "uuid",
   "exposure": "hidden | percent | macros | full_kcal",
   "dayType": { "id": "uuid", "label": "dia de treino" },
-  "currentMealId": "uuid",            // v0: a 1ª refeição
+  "currentMealId": "uuid", // v0: a 1ª refeição
   "meals": [
     {
       "id": "uuid",
       "name": "Almoço",
       "position": 2,
-      "horario": "12:30",             // opcional; ausente/null se não definido
+      "horario": "12:30", // opcional; ausente/null se não definido
       "defaultOption": {
         "id": "uuid",
         "label": "Almoço padrão",
@@ -43,28 +43,31 @@ GET /patients/:patientId/today
             "quantityGrams": 120,
             "isLocked": false,
             "substitutionGroupId": "uuid | null",
-            "substitutable": true,     // = !isLocked && substitutionGroupId != null
+            "substitutable": true, // = !isLocked && substitutionGroupId != null
             // nutrition presente conforme exposure (ausente em 'hidden'):
-            "nutrition": { "kcal": 156, "carb": 34, "protein": 3, "fat": 0.3 }
-          }
-        ]
+            "nutrition": { "kcal": 156, "carb": 34, "protein": 3, "fat": 0.3 },
+          },
+        ],
       },
-      "otherOptionsCount": 2           // sinaliza que há outras opções (não as expande no v0)
-    }
-  ]
+      "otherOptionsCount": 2, // sinaliza que há outras opções (não as expande no v0)
+    },
+  ],
 }
 ```
 
 ### Regras de exposição (na borda)
+
 - `hidden`: omitir `nutrition` de todos os itens.
 - `percent`: incluir só proporções (sem kcal absoluto).
 - `macros`: incluir macros (+ %), sem kcal cheio.
 - `full_kcal`: incluir tudo.
 
 ## Erros
+
 - `404` se o paciente não existe ou não tem plano ativo / programação para hoje.
 - (v0 não trata auth real — paciente fixo.)
 
 ## Notas
+
 - Escolher outra opção da refeição (e o rebalanceamento que dispara) é **fora de escopo** — por isso só a `defaultOption` é expandida; `otherOptionsCount` apenas sinaliza.
 - A response **nunca** serializa entidade do Drizzle crua (Princípio III): montada por função pura DTO.

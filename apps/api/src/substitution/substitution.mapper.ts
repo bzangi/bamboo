@@ -31,7 +31,10 @@ export function toAlternativeDto(input: {
   readonly foodId: string;
   readonly name: string;
   readonly gramas: number;
-  readonly medidaCaseira: { readonly label: string; readonly grams: number } | null;
+  readonly medidaCaseira: {
+    readonly label: string;
+    readonly grams: number;
+  } | null;
 }): SubstitutionAlternativeDto {
   return {
     foodId: input.foodId,

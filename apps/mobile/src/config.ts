@@ -13,4 +13,5 @@ export const API_URL: string =
   process.env.EXPO_PUBLIC_API_URL ?? DEFAULT_API_URL;
 
 // Sem default: se faltar, a Home exibe um aviso de configuração (não chuta UUID).
-export const PATIENT_ID: string | undefined = process.env.EXPO_PUBLIC_PATIENT_ID;
+export const PATIENT_ID: string | undefined =
+  process.env.EXPO_PUBLIC_PATIENT_ID;
