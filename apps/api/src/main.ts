@@ -1,3 +1,4 @@
+import './load-env'; // PRIMEIRO: carrega o .env antes de importar @bamboo/db
 import { NestFactory } from '@nestjs/core';
 import { SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';

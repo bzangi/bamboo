@@ -1,7 +1,7 @@
 // Gera o openapi.json (versionado) sem subir o servidor. Roda a partir do dist
 // compilado (precisa de decorator metadata, que o tsc do nest build emite).
 //   pnpm --filter api run openapi:gen
-import 'dotenv/config';
+import './load-env';
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { NestFactory } from '@nestjs/core';

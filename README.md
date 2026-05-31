@@ -51,11 +51,23 @@ A `DATABASE_URL` fica no `.env` (ver `.env.example`).
 
 ## Rodar os apps em dev
 
+`pnpm dev` (na raiz) builda os packages `@bamboo/*` e sobe **API + web** juntos via Turborepo:
+
 ```sh
-pnpm --filter api dev       # NestJS (http://localhost:3000)
-pnpm --filter web dev       # Next.js da nutri (http://localhost:3000)
-pnpm --filter mobile start  # Expo (app do paciente)
+pnpm dev
+# API (NestJS)  → http://localhost:3333   (Swagger UI em /docs)
+# web (Next.js) → http://localhost:3000
 ```
+
+Ou individualmente:
+
+```sh
+pnpm --filter api dev       # NestJS  → http://localhost:3333 (carrega o .env da raiz)
+pnpm --filter web dev       # Next.js → http://localhost:3000
+pnpm --filter mobile start  # Expo (Metro) — roda separado
+```
+
+> Pré-requisito: Postgres no ar (`docker compose up -d`) + banco migrado/semeado. A API lê a `DATABASE_URL` do `.env` da raiz automaticamente.
 
 ## Documentação da API (OpenAPI / Swagger)
 
