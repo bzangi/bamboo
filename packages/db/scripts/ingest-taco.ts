@@ -18,9 +18,9 @@
 //      reais da TACO embutidos no script (espelham 1:1 os IDs da allow-list).
 //      Logamos explicitamente qual modo foi usado e a base dos valores.
 //
-// Idempotente: limpa `food_household_measure` e `food` antes de inserir.
-// Como a ingestão roda ANTES do seed do plano, `food` ainda não é referenciada
-// por meal_item / food_substitution_group; limpar as duas tabelas basta.
+// Idempotente e FK-safe: faz upsert de `food` por nome (atualiza macros mantendo
+// o id, substitui as medidas caseiras). NÃO deleta `food`, então re-ingestar é
+// seguro mesmo DEPOIS do seed — sem violar a FK de food_substitution_group/meal_item.
 //
 // Execução (carregando .env):
 //   node --env-file=.env --import tsx packages/db/scripts/ingest-taco.ts
@@ -28,7 +28,7 @@
 
 import 'dotenv/config';
 import { readFile } from 'node:fs/promises';
-import { sql } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import { db, pool, food, foodHouseholdMeasure } from '../src/index.js';
 
 /* ============================================================
@@ -359,37 +359,50 @@ async function persist(foods: ReadonlyArray<FoodToInsert>): Promise<{
   measureCount: number;
 }> {
   return db.transaction(async (tx) => {
-    // Limpeza idempotente — medida depende de food (FK), limpa primeiro.
-    // food ainda não é referenciada (ingest roda antes do seed).
-    await tx.execute(sql`DELETE FROM ${foodHouseholdMeasure}`);
-    await tx.execute(sql`DELETE FROM ${food}`);
+    // Idempotente E FK-safe: upsert por nome. NÃO deletamos `food` — ela pode já
+    // estar referenciada por food_substitution_group / meal_item (se o seed já
+    // rodou). Preservar o id mantém essas FKs válidas; re-ingestar é seguro a
+    // qualquer momento.
+    const existing = await tx.select({ id: food.id, name: food.name }).from(food);
+    const idByName = new Map(existing.map((r) => [r.name, r.id]));
 
     let foodCount = 0;
     let measureCount = 0;
 
     for (const f of foods) {
-      const [inserted] = await tx
-        .insert(food)
-        .values({
-          name: f.name,
-          source: 'taco',
-          kcalPer100g: f.macros.kcalPer100g,
-          carbPer100g: f.macros.carbPer100g,
-          proteinPer100g: f.macros.proteinPer100g,
-          fatPer100g: f.macros.fatPer100g,
-          fiberPer100g: f.macros.fiberPer100g,
-        })
-        .returning({ id: food.id });
+      const macros = {
+        source: 'taco' as const,
+        kcalPer100g: f.macros.kcalPer100g,
+        carbPer100g: f.macros.carbPer100g,
+        proteinPer100g: f.macros.proteinPer100g,
+        fatPer100g: f.macros.fatPer100g,
+        fiberPer100g: f.macros.fiberPer100g,
+      };
+
+      let foodId: string;
+      const existingId = idByName.get(f.name);
+      if (existingId) {
+        // Atualiza macros mantendo o id (FKs do seed intactas).
+        await tx.update(food).set(macros).where(eq(food.id, existingId));
+        // Medidas caseiras não são referenciadas: substitui sem risco de FK.
+        await tx
+          .delete(foodHouseholdMeasure)
+          .where(eq(foodHouseholdMeasure.foodId, existingId));
+        foodId = existingId;
+      } else {
+        const [inserted] = await tx
+          .insert(food)
+          .values({ name: f.name, ...macros })
+          .returning({ id: food.id });
+        if (!inserted) throw new Error(`falha ao inserir food: ${f.name}`);
+        foodId = inserted.id;
+      }
 
       foodCount += 1;
 
       if (f.measures.length > 0) {
         await tx.insert(foodHouseholdMeasure).values(
-          f.measures.map((m) => ({
-            foodId: inserted.id,
-            label: m.label,
-            grams: m.grams,
-          })),
+          f.measures.map((m) => ({ foodId, label: m.label, grams: m.grams })),
         );
         measureCount += f.measures.length;
       }
