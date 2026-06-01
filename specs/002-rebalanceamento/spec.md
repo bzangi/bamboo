@@ -201,6 +201,7 @@ O app do paciente (cliente fino) consome o motor: na tela do dia, o paciente vê
 - Persistência das escolhas (opção/combinação/troca de tipo-de-dia) e qualquer estrutura nova de persistência (seleção-de-dia, eventos de refeição).
 - Alvo nutricional explícito definido pela nutri (registrado como ideia de backlog).
 - Rebalanceamento multi-macro em **troca de item dentro da refeição** (item swap e combinação permanecem single-nutriente).
+- **Motor escolher/trocar alimentos do cardápio para rebalancear** (em vez de só reescalar quantidades). O rebalanceamento no v0 é **cálculo fechado e determinístico** que reescala as quantidades dos itens flexíveis das refeições seguintes; deixar o motor escolher outros alimentos (troca dentro do grupo como alavanca, ou busca cruzando grupos) é **improvement futuro** (backlog).
 - Combinação 1→3 ou mais (somente 1→2 nesta feature).
 - UI da nutri (web), import de plano por IA, registro de comida fora da lista.
 - Autenticação de verdade, offline robusto, notificações.

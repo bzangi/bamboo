@@ -265,8 +265,9 @@ Dado de saúde desde a Fase 0: controle de acesso, criptografia, consentimento. 
 
 Feature ativa: **002-rebalanceamento** (motor de rebalanceamento: escolher opção
 desigual + prévia, combinação 1→2, troca de tipo-de-dia). Fase 2.
-Estado: **spec aprovada; plan pendente** (`/speckit-plan` é o próximo passo).
-Fonte viva: `specs/002-rebalanceamento/spec.md` (+ `checklists/`). `.specify/feature.json`
-aponta a feature. Anterior (concluída): `specs/001-alca-do-paciente/` (Fase 0/1).
+Estado: **spec + plan prontos; tasks pendente** (`/speckit-tasks` é o próximo passo, após o gate).
+Contexto técnico no plano: `specs/002-rebalanceamento/plan.md` — companheiros: `spec.md`,
+`research.md` (decisões D1–D10), `data-model.md`, `contracts/` (core + HTTP), `quickstart.md`.
+`.specify/feature.json` aponta a feature. Anterior (concluída): `specs/001-alca-do-paciente/` (Fase 0/1).
 
 <!-- SPECKIT END -->
