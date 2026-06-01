@@ -5,3 +5,5 @@
 export * from "./result.js";
 export * from "./nutrition.js";
 export * from "./substitution.js";
+export * from "./params.js";
+export * from "./rebalance.js";

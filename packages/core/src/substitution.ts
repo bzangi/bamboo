@@ -40,8 +40,12 @@ export type SubstitutionError =
   | { readonly kind: "fora-do-grupo" }
   | { readonly kind: "nutriente-base-zero" };
 
-/** Valor do nutriente-base (por 100g) de um alimento, conforme a base do grupo. */
-function basisPer100g(macros: FoodMacros, basis: EquivalenceBasis): number {
+/** Valor do nutriente-base (por 100g) de um alimento, conforme a base do grupo.
+ * Exportado para reuso pela combinação (Fase 2). */
+export function basisPer100g(
+  macros: FoodMacros,
+  basis: EquivalenceBasis,
+): number {
   switch (basis) {
     case "carb":
       return macros.carbPer100g;
@@ -58,7 +62,7 @@ function basisPer100g(macros: FoodMacros, basis: EquivalenceBasis): number {
  * Escolhe a medida cujo múltiplo inteiro (n >= 1) minimiza |gramas - n*grams|.
  * Empate -> mantém a primeira encontrada. measures vazio -> null.
  */
-function medidaMaisProxima(
+export function medidaMaisProxima(
   gramas: number,
   measures: readonly HouseholdMeasure[],
 ): HouseholdMeasure | null {
