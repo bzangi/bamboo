@@ -219,8 +219,12 @@ export function previewTrocaOpcao(input: {
   }
 
   const deltaKcal = totalAtual.kcal - alvo.kcal;
+  // Alavancas = itens flexíveis das refeições AINDA NÃO REGISTRADAS, exceto a do
+  // gatilho (a escolha fixou essa). No v0 (registro fora de escopo) nada foi
+  // registrado → todas as refeições, menos a do gatilho. Quando o registro
+  // existir, refeições já registradas saem (passam a "travadas").
   const alavancas = diaComEscolha
-    .filter((r) => r.position > triggerPosition)
+    .filter((r) => r.position !== triggerPosition)
     .flatMap((r) =>
       r.itens.filter(ehAlavanca).map((i) => toAlavanca(i, r.position)),
     );

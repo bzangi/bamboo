@@ -73,7 +73,7 @@ export function previewTrocaOpcao(input: {
 
 - `alvo = alvoDoDia(refeicoesDefault)`; `total = somaNutrientes(diaComEscolha)`.
 - `avaliarFaixa(total, alvo, toleranciaPct)`: todos `dentro` → `sem-acao`.
-- `deltaKcal = total.kcal − alvo.kcal`; `alavancas` = itens flexíveis (`!isLocked && groupId != null`) de refeições com `position > triggerPosition` → `rebalancearPorKcal`.
+- `deltaKcal = total.kcal − alvo.kcal`; `alavancas` = itens flexíveis (`!isLocked && groupId != null`) das refeições **não registradas, exceto a do gatilho** (`position !== triggerPosition` no v0, pois nada está registrado — inclui as anteriores) → `rebalancearPorKcal`. _(Quando o registro existir, refeições registradas saem das alavancas.)_
 
 ## Adaptador P3 — troca de tipo-de-dia (FR-020)
 
@@ -99,11 +99,11 @@ export function previewTrocaTipoDia(input: {
 ## Casos de teste (test-first)
 
 - **sem-acao**: escolha cabe na faixa → não mexe em nada.
-- **rebalanceado (reduzir)**: opção mais pesada; alavancas seguintes reduzem proporcional, soma volta à faixa; itens travados/sem-grupo intactos (FR-006); `totalDepois.kcal ≈ alvo.kcal`.
+- **rebalanceado (reduzir)**: opção mais pesada; alavancas das demais refeições não registradas (inclui anteriores) reduzem proporcional, soma volta à faixa; itens travados/sem-grupo intactos (FR-006); `totalDepois.kcal ≈ alvo.kcal`.
 - **rebalanceado (aumentar)**: opção mais leve → alavancas aumentam.
 - **recusa estoura-piso**: desvio grande, todas as alavancas batem o piso → `recusa-orientada("estoura-piso")`, nenhuma abaixo do piso (SC-002/FR-011).
-- **recusa sem-alavanca**: refeições seguintes só travadas/sem-grupo → `recusa-orientada("sem-alavanca")` (FR mesa-6).
-- **sem refeição seguinte**: gatilho na última posição; cabe na faixa → `sem-acao`; não cabe → recusa.
+- **recusa sem-alavanca**: todas as demais refeições não registradas só travadas/sem-grupo → `recusa-orientada("sem-alavanca")`.
+- **inclui anterior**: gatilho no almoço (pos 2) → café (pos 1, não registrado) também é alavanca; gatilho na última refeição ainda tem as anteriores como alavancas.
 - **kcal-priority**: macros não fecham juntos; `totalDepois.kcal` dentro da faixa, resíduo de macro reportado (FR-010/SC-010).
 - **P3**: consumido < alvoNovo → redistribui; consumido > alvoNovo+faixa → recusa; `consumido = 0` (início do dia) → `sem-acao`.
 - **piso por nível**: mesma entrada, `pisoPct` 50 vs 70 muda o ponto de recusa (FR-012a).

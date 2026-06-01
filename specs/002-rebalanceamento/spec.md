@@ -14,14 +14,14 @@ A Fase 1 entrega **ver "o agora"** e **substituir um alimento dentro do grupo** 
 
 **Um motor só, vários gatilhos.** O mesmo cálculo de domínio é alimentado por três gatilhos nesta feature:
 
-1. **Escolher outra opção/prato** de uma refeição (os "3 almoços" desiguais) — recalcula **todos os macros** e espalha a diferença nas refeições seguintes. _(P1)_
+1. **Escolher outra opção/prato** de uma refeição (os "3 almoços" desiguais) — recalcula **todos os macros** e espalha a diferença nas demais refeições não registradas. _(P1)_
 2. **Combinação** — trocar 1 alimento por 2 (ex.: macarrão → arroz + batata), preservando **um** nutriente (a base do grupo). _(P2)_
 3. **Trocar o tipo-de-dia** (o cardápio do dia inteiro) — o motor trabalha no **total do dia**. _(P3, com restrição de escopo no app v0 — ver US3.)_
 
 Dois modos de balanceamento, decisão de produto:
 
 - **Troca de item dentro da refeição** (a substituição da Fase 1 e a combinação P2): preserva **um** nutriente (a base do grupo) e **não** rebalanceia múltiplas refeições.
-- **Troca de opção/prato inteiro** (P1) ou de **tipo-de-dia** (P3): recalcula **todos os macros** e espalha nas refeições seguintes.
+- **Troca de opção/prato inteiro** (P1) ou de **tipo-de-dia** (P3): recalcula **todos os macros** e espalha nas demais refeições não registradas.
 
 ## User Scenarios & Testing _(mandatory)_
 
@@ -31,14 +31,14 @@ O paciente está vendo uma refeição que tem mais de uma opção pré-montada (
 
 **Why this priority**: É o coração da Fase 2 — a primeira prova viva de que o app **negocia o dia**, não só exibe. Entrega valor sozinha: a capacidade de calcular o efeito de uma escolha e mostrá-lo antes de confirmar já existe e é verificável de ponta a ponta (motor + contrato), mesmo antes da tela final. A regra de **troca de tipo-de-dia no nível do motor** (total do dia) é construída e testada junto, por ser o mesmo cálculo.
 
-**Independent Test**: Com um plano semeado em que uma refeição tem ≥2 opções de pesos diferentes e há refeições seguintes com itens flexíveis, disparar a escolha de uma opção não-default e confirmar que o sistema devolve (a) o novo balanço da refeição escolhida e (b) a prévia das refeições seguintes recalculadas para trazer o dia de volta à faixa — ou uma recusa orientada quando o desvio não cabe. Verificável pelo cálculo do motor e pelo contrato, sem a tela.
+**Independent Test**: Com um plano semeado em que uma refeição tem ≥2 opções de pesos diferentes e há outras refeições não registradas com itens flexíveis, disparar a escolha de uma opção não-default e confirmar que o sistema devolve (a) o novo balanço da refeição escolhida e (b) a prévia das demais refeições não registradas recalculadas para trazer o dia de volta à faixa — ou uma recusa orientada quando o desvio não cabe. Verificável pelo cálculo do motor e pelo contrato, sem a tela.
 
 **Acceptance Scenarios**:
 
-1. **Given** uma refeição com opção default e ao menos uma opção mais pesada, e refeições seguintes com itens flexíveis com folga acima do piso, **When** o paciente escolhe a opção mais pesada, **Then** o sistema apresenta uma **prévia** com as quantidades recalculadas dos itens flexíveis das refeições **seguintes** (position maior que a refeição do gatilho), de modo que o total do dia por nutriente volte para dentro da **faixa-alvo**, sem alterar itens travados nem itens sem grupo.
+1. **Given** uma refeição com opção default e ao menos uma opção mais pesada, e outras refeições não registradas com itens flexíveis com folga acima do piso, **When** o paciente escolhe a opção mais pesada, **Then** o sistema apresenta uma **prévia** com as quantidades recalculadas dos itens flexíveis das **demais refeições não registradas** (no v0, todas exceto a do gatilho — inclusive as anteriores), de modo que o total do dia por nutriente volte para dentro da **faixa-alvo**, sem alterar itens travados nem itens sem grupo.
 2. **Given** a prévia de rebalanceamento exibida, **When** o paciente confirma, **Then** a refeição escolhida e as refeições seguintes passam a refletir o novo balanço (estado local; nada é persistido no v0).
 3. **Given** a prévia de rebalanceamento exibida, **When** o paciente desiste, **Then** nada muda — o dia permanece como antes da escolha.
-4. **Given** uma opção escolhida cujo desvio em relação ao default **cabe dentro da faixa-alvo** sem precisar de ajuste, **When** o paciente a escolhe, **Then** o sistema confirma a troca **sem** alterar as refeições seguintes (nenhum rebalanceamento necessário).
+4. **Given** uma opção escolhida cujo desvio em relação ao default **cabe dentro da faixa-alvo** sem precisar de ajuste, **When** o paciente a escolhe, **Then** o sistema confirma a troca **sem** alterar nenhuma outra refeição (nenhum rebalanceamento necessário).
 5. **Given** uma opção escolhida cujo desvio **não cabe** nas alavancas disponíveis sem cruzar o **piso** (ex.: jantar teria que ir abaixo do mínimo), **When** o paciente a escolhe, **Then** o sistema **recusa** o rebalanceamento e **orienta** ("hoje ficou acima, segue leve e volta amanhã"), sem aplicar nenhum corte abaixo do piso.
 6. **Given** as refeições seguintes não têm nenhum item flexível (só travados / sem grupo), **When** uma opção desigual é escolhida, **Then** o motor não tem alavanca para rebalancear e responde com recusa orientada (não aplica troca silenciosa nem corta item travado).
 7. **Given** o nível de exposição do paciente é "oculto", **When** a prévia é exibida, **Then** o sistema mostra a **ação** (as novas quantidades / medidas caseiras das refeições seguintes) **sem** números nutricionais e **sem** "bucket de calorias em %".
@@ -83,10 +83,10 @@ O app do paciente (cliente fino) consome o motor: na tela do dia, o paciente vê
 
 ### Edge Cases
 
-- **Cabe na faixa**: a opção escolhida desvia pouco e o total do dia continua dentro da faixa-alvo → o motor **não** mexe nas refeições seguintes; apenas confirma a troca.
+- **Cabe na faixa**: a opção escolhida desvia pouco e o total do dia continua dentro da faixa-alvo → o motor **não** mexe em nenhuma outra refeição; apenas confirma a troca.
 - **Estoura o piso**: o desvio é grande e não há folga suficiente nas alavancas sem cruzar o piso → **recusa orientada**, nunca um corte abaixo do mínimo.
-- **Sem alavanca**: as refeições seguintes só têm itens travados ou sem grupo → não há o que ajustar → recusa orientada (não toca em item travado).
-- **Sem refeições seguintes**: o gatilho ocorre na última refeição do dia (não há position maior) → não há onde espalhar; se o desvio cabe na faixa, confirma; se não, recusa orienta.
+- **Sem alavanca**: as demais refeições não registradas (exceto a do gatilho) só têm itens travados ou sem grupo → não há o que ajustar → recusa orientada (não toca em item travado).
+- **Gatilho na última refeição**: ainda há as refeições **anteriores** não registradas como alavancas (no v0, nada foi comido); só falta alavanca se todas as outras forem travadas/sem-grupo (ou, no futuro, já registradas) → aí recusa orienta.
 - **Combinação com alvo de nutriente-base zero**: o alvo é excluído da combinação (não pode ser destino de equivalência).
 - **Combinação fora do grupo**: alvo de grupo diferente do item original é rejeitado (guarda de domínio; não deve ser alcançável pela UI).
 - **Troca de tipo-de-dia no início do dia** (nada consumido): só exibe o novo cardápio; não há passado para descontar, então não há rebalanceamento mesmo quando o registro existir.
@@ -109,9 +109,9 @@ O app do paciente (cliente fino) consome o motor: na tela do dia, o paciente vê
 
 #### Gatilho P1 — escolher outra opção (rebalanceamento multi-macro)
 
-- **FR-005**: Quando o paciente escolhe uma **opção diferente da default** de uma refeição, o sistema MUST recalcular **todos os macros** do dia e, se o total sair da faixa, espalhar a diferença ajustando as **quantidades dos itens flexíveis** das refeições **seguintes** (position maior que a refeição do gatilho, no mesmo tipo-de-dia).
+- **FR-005**: Quando o paciente escolhe uma **opção diferente da default** de uma refeição, o sistema MUST recalcular **todos os macros** do dia e, se o total sair da faixa, espalhar a diferença ajustando as **quantidades dos itens flexíveis** das demais refeições do dia **ainda não registradas** (todas, exceto a do gatilho), no mesmo tipo-de-dia. O discriminador é o **registro**, não a posição: refeição já registrada (feito/troquei/pulei) fica **travada**; uma refeição **anterior** ainda não comida **é** alavanca. No v0 (registro fora de escopo), nenhuma está registrada → **todas as refeições exceto a do gatilho** são alavancas. _(Revisa a decisão Q6, que dizia "position > gatilho".)_
 - **FR-006**: O rebalanceamento MUST NOT alterar itens **travados** nem itens **sem grupo de substituição** — só itens flexíveis são alavancas.
-- **FR-007**: O sistema MUST apresentar a **prévia** (o estado recalculado das refeições seguintes) **antes** de o paciente confirmar; nada é aplicado silenciosamente.
+- **FR-007**: O sistema MUST apresentar a **prévia** (o estado recalculado das refeições afetadas) **antes** de o paciente confirmar; nada é aplicado silenciosamente.
 - **FR-008**: O sistema MUST aplicar o rebalanceamento somente após **confirmação** do paciente; ao desistir, o dia volta ao estado anterior à escolha.
 - **FR-009**: Quando o desvio **não couber** nas alavancas disponíveis sem cruzar o **piso**, o sistema MUST **recusar** o rebalanceamento e **orientar** o paciente (mensagem de normalização, ex.: "hoje ficou acima, segue leve e volta amanhã"), sem aplicar nenhum corte abaixo do piso.
 - **FR-010**: Quando os macros não puderem todos ser trazidos exatamente à faixa ao mesmo tempo (sistema sobredeterminado), o sistema MUST fazer o melhor esforço de aproximação respeitando o piso, em vez de falhar. A **prioridade é casar as kcal** (energia do dia) quando há conflito entre macros; a ponderação fina dos demais nutrientes (carb/proteína/gordura) depois das kcal é decisão do plano técnico.
@@ -172,7 +172,7 @@ O app do paciente (cliente fino) consome o motor: na tela do dia, o paciente vê
 - **SC-001**: Em **100%** das escolhas de opção desigual que exigem ajuste, o paciente vê a **prévia** das refeições seguintes **antes** de qualquer aplicação — o sistema **nunca** aplica rebalanceamento sem confirmação.
 - **SC-002**: Em **0** casos o rebalanceamento reduz um item flexível **abaixo do piso** configurado; quando o desvio não cabe, o resultado é sempre uma recusa orientada.
 - **SC-003**: O motor **nunca** altera item travado ou item sem grupo — em **100%** dos rebalanceamentos, as alavancas movidas são exclusivamente itens flexíveis.
-- **SC-004**: Quando a opção escolhida mantém o total do dia **dentro da faixa-alvo**, o sistema **não** altera nenhuma refeição seguinte (rebalanceamento desnecessário em **0** desses casos).
+- **SC-004**: Quando a opção escolhida mantém o total do dia **dentro da faixa-alvo**, o sistema **não** altera nenhuma outra refeição (rebalanceamento desnecessário em **0** desses casos).
 - **SC-005**: Na combinação, a soma dos nutrientes-base dos dois alvos preserva o nutriente-base do item original dentro de **≤ 2%**.
 - **SC-006**: Em **0** telas/respostas aparece "bucket de calorias em %"; e em **100%** dos casos com exposição "oculto", a prévia é exibida como ação (quantidades/medidas) sem números nutricionais.
 - **SC-007**: O paciente conclui "escolher outra opção e ver a prévia" em **no máximo 2 toques** (1 para abrir as opções, 1 para escolher) e vê a consequência imediatamente.
@@ -188,7 +188,7 @@ O app do paciente (cliente fino) consome o motor: na tela do dia, o paciente vê
 - **Onde os overrides vivem no v0**: os valores de nível nutri e paciente são **semeados** (config), já que a UI da nutri está fora de escopo. Isso implica um **pequeno acréscimo de schema** (campos de configuração em entidades existentes — provável `nutritionist` e `patient`); a modelagem exata é decisão do data-model no `/speckit-plan`. Não confundir com persistir escolhas (que segue efêmero — FR-026).
 - **Tolerância de equivalência da combinação**: ≤ 2% sobre o nutriente-base (mesma régua da substituição da Fase 1).
 - **Melhor esforço multi-macro**: quando não dá para zerar todos os macros ao mesmo tempo, o motor minimiza o desvio respeitando o piso e **prioriza casar as kcal** (FR-010); a ponderação fina dos demais macros é decisão do plano técnico.
-- **"Refeições seguintes"**: definidas por `position` maior que a refeição do gatilho, no mesmo tipo-de-dia (sem registro, é o critério disponível).
+- **Alavancas do rebalanceamento**: itens flexíveis das refeições **ainda não registradas**, exceto a do gatilho (o registro é o discriminador, não a posição). No **v0** (registro fora de escopo) nada foi consumido → **todas as refeições exceto a do gatilho** são alavancas, inclusive as anteriores. Quando o registro existir (Fase 3), refeições registradas saem (ficam travadas). _(Revisa a Q6, que dizia "position > gatilho".)_
 - **Registro fora de escopo**: feito/troquei/pulei e o avanço de "o agora" por consumo continuam diferidos; por isso a troca de tipo-de-dia no app v0 não rebalanceia.
 - **Persistência fora de escopo**: tudo é estado local/efêmero no v0, como a substituição da Fase 1; sem tabelas novas.
 - **Auth stub (v0)**: paciente fixo por configuração de ambiente; autenticação de verdade fora de escopo.

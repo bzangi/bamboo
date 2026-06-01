@@ -110,7 +110,7 @@ describe('POST /patients/:id/rebalance/option-choice (US1)', () => {
           gramasNovo: number;
         }>;
       }>) {
-        expect(r.position).toBeGreaterThan(triggerPosition); // só refeições seguintes
+        expect(r.position).not.toBe(triggerPosition); // qualquer refeição não-gatilho (não registrada)
         for (const it of r.itensAjustados) {
           expect(typeof it.food.name).toBe('string');
           expect(it.gramasNovo).toBeGreaterThan(0);

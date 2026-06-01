@@ -22,7 +22,7 @@ Parâmetros de adaptação (faixa-alvo e piso) resolvem em 3 níveis (FR-012a–
 ## Entidades reusadas (sem mudança estrutural)
 
 - **plan / day_type / day_schedule** — o plano é o conjunto de tipos-de-dia + a programação semanal. O **alvo do dia** é derivado, não armazenado.
-- **meal** (`position`, `horario?`) — `position` define "refeições seguintes" (> a do gatilho) e a ordem do dia.
+- **meal** (`position`, `horario?`) — `position` define a ordem do dia. As alavancas do rebalanceamento são as refeições **não registradas exceto a do gatilho** (não "position > gatilho" — ver spec FR-005).
 - **meal_option** (`is_default`) — as "3 opções"; a **default** define o alvo; escolher uma não-default é o gatilho P1.
 - **meal_item** (`quantity_grams`, `is_locked`, `substitution_group_id?`) — `quantity_grams` é o **planejado** (baseline do piso); flexível (`!is_locked && group != null`) é **alavanca**; travado/sem-grupo nunca é tocado.
 - **food / food_household_measure** — macros/100 g + medidas caseiras (pra arredondar a quantidade nova).

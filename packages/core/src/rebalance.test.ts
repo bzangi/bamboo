@@ -176,15 +176,15 @@ const refeicoesDefault = [
   },
 ];
 
-describe("previewTrocaOpcao (P1)", () => {
-  it("opção mais pesada → rebalanceado nas refeições seguintes, travado intacto", () => {
+describe("previewTrocaOpcao (P1) — alavancas = refeições não-gatilho (v0: nada registrado)", () => {
+  it("opção mais pesada → ajusta TODAS as não-gatilho (anterior E seguinte), travado intacto", () => {
     const dia = [
-      { position: 1, itens: [itemDia("m1", 100)] },
-      { position: 2, itens: [itemDia("m2", 150)] }, // escolha mais pesada
+      { position: 1, itens: [itemDia("ant", 100, { gramasPlanejado: 100 })] }, // anterior ao gatilho
+      { position: 2, itens: [itemDia("m2", 150)] }, // gatilho (mais pesada)
       {
         position: 3,
         itens: [
-          itemDia("lev", 150, { gramasPlanejado: 150 }),
+          itemDia("seg", 150, { gramasPlanejado: 150 }), // seguinte
           itemDia("lock", 100, { isLocked: true, groupId: null }),
         ],
       },
@@ -196,21 +196,21 @@ describe("previewTrocaOpcao (P1)", () => {
       parametros: PARAMETROS_SISTEMA,
     });
     if (r.ok && r.value.kind === "rebalanceado") {
-      // só a alavanca foi tocada (travado fora)
-      expect(r.value.alavancas.map((a) => a.itemId)).toEqual(["lev"]);
-      expect(r.value.alavancas[0]!.gramasNovo).toBeCloseTo(100, 4); // 150 - 50g
+      // ajusta a anterior (ant) E a seguinte (seg); travado fora; gatilho fora.
+      const ids = r.value.alavancas.map((a) => a.itemId).sort();
+      expect(ids).toEqual(["ant", "seg"]);
       expect(r.value.totalDepois.kcal).toBeCloseTo(450, 4); // de volta ao alvo
     } else throw new Error("esperava rebalanceado");
   });
 
   it("escolha que cabe na faixa → sem-acao", () => {
     const dia = [
-      { position: 1, itens: [itemDia("m1", 100)] },
+      { position: 1, itens: [itemDia("ant", 100)] },
       { position: 2, itens: [itemDia("m2", 100)] }, // = default
       {
         position: 3,
         itens: [
-          itemDia("lev", 150, { gramasPlanejado: 150 }),
+          itemDia("seg", 150, { gramasPlanejado: 150 }),
           itemDia("lock", 100, { isLocked: true, groupId: null }),
         ],
       },
@@ -224,14 +224,17 @@ describe("previewTrocaOpcao (P1)", () => {
     expect(r.ok && r.value.kind).toBe("sem-acao");
   });
 
-  it("refeições seguintes só com travados → recusa sem-alavanca", () => {
+  it("nenhuma refeição não-gatilho com alavanca → recusa sem-alavanca", () => {
     const dia = [
-      { position: 1, itens: [itemDia("m1", 100)] },
+      {
+        position: 1,
+        itens: [itemDia("ant", 100, { isLocked: true, groupId: null })],
+      },
       { position: 2, itens: [itemDia("m2", 150)] },
       {
         position: 3,
         itens: [
-          itemDia("lev", 150, { isLocked: true }),
+          itemDia("seg", 150, { isLocked: true }),
           itemDia("lock", 100, { isLocked: true, groupId: null }),
         ],
       },
