@@ -263,9 +263,10 @@ Dado de saúde desde a Fase 0: controle de acesso, criptografia, consentimento. 
 
 <!-- SPECKIT START -->
 
-Feature ativa: **001-alca-do-paciente** (alça do paciente: ver "o agora" + substituir).
-Contexto técnico (stack, estrutura, contratos, data-model) no plano:
-`specs/001-alca-do-paciente/plan.md` — companheiros: `spec.md`, `research.md`,
-`data-model.md`, `contracts/`, `quickstart.md`. `.specify/feature.json` aponta a feature.
+Feature ativa: **002-rebalanceamento** (motor de rebalanceamento: escolher opção
+desigual + prévia, combinação 1→2, troca de tipo-de-dia). Fase 2.
+Estado: **spec aprovada; plan pendente** (`/speckit-plan` é o próximo passo).
+Fonte viva: `specs/002-rebalanceamento/spec.md` (+ `checklists/`). `.specify/feature.json`
+aponta a feature. Anterior (concluída): `specs/001-alca-do-paciente/` (Fase 0/1).
 
 <!-- SPECKIT END -->
