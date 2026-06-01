@@ -1,7 +1,7 @@
 # Bamboo — Estado Atual
 
 > **Status:** pré-MVP · **não é greenfield** (fundação + alça do paciente já implementadas e testadas) · RN-first.
-> **Atualizado em:** 2026-05-31.
+> **Atualizado em:** 2026-06-01.
 
 Documento vivo — snapshot do estado real do repositório nesta data, verificado por leitura direta dos arquivos e do histórico git. Em conflito com o cabeçalho do `CLAUDE.md` ("monorepo greenfield, só `.git`"), **este snapshot vence**: o scaffold já foi executado e há código de aplicação funcional commitado.
 
@@ -92,7 +92,7 @@ Detalhamento do paradigma com exemplos canônicos em `CLAUDE.md`; invariantes go
 |---|---|---|
 | 0 — Fundação | monorepo, NestJS+Postgres+Drizzle+migrations, schema, ingestão TACO | **Implementada** |
 | 1 — O batimento | seed de plano + Home "o agora" + substituir dentro do grupo (recálculo + medida caseira) | **Implementada** |
-| 2 — Rebalanceamento | recálculo multi-refeição, gatilhos, piso, prévia antes de confirmar | Não iniciada |
+| 2 — Rebalanceamento | recálculo multi-refeição, gatilhos, piso, prévia antes de confirmar | **Implementada** (`002-rebalanceamento`) |
 | 3 — Inteligência da nutri | registro (feito/troquei/pulei), ciclo, adesão, **relatório de ciclo**, UI da nutri (web) | Não iniciada |
 | 4 — Reduzir fricção | import por IA (PDF→estruturado), offline, notificações, comida fora da lista | Não iniciada |
 | 5+ — Negócio | billing, Pix/Stripe, deploy/infra | Não iniciada |

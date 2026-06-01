@@ -265,7 +265,9 @@ Dado de saúde desde a Fase 0: controle de acesso, criptografia, consentimento. 
 
 Feature ativa: **002-rebalanceamento** (motor de rebalanceamento: escolher opção
 desigual + prévia, combinação 1→2, troca de tipo-de-dia). Fase 2.
-Estado: **spec + plan prontos; tasks pendente** (`/speckit-tasks` é o próximo passo, após o gate).
+Estado: **implementada e testada** — motor puro em `packages/core` (rebalance/combination/params),
+endpoints na API (POST option-choice, POST combine, `/today` estendido com opções + `?dayTypeId`),
+UI mobile (chips de opção→prévia, combinar, troca de tipo-de-dia). 58 testes core + 27 e2e verdes.
 Contexto técnico no plano: `specs/002-rebalanceamento/plan.md` — companheiros: `spec.md`,
 `research.md` (decisões D1–D10), `data-model.md`, `contracts/` (core + HTTP), `quickstart.md`.
 `.specify/feature.json` aponta a feature. Anterior (concluída): `specs/001-alca-do-paciente/` (Fase 0/1).

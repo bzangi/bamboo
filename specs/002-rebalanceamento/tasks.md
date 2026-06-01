@@ -33,7 +33,7 @@ description: "Task list — feature 002-rebalanceamento"
 
 **Purpose**: garantir baseline verde antes de começar. Sem novo scaffold (monorepo da Fase 0/1).
 
-- [ ] T001 Sanity baseline: `pnpm install`, `pnpm -r build`, `pnpm --filter @bamboo/core test` e e2e da API verdes (estado Fase 0/1) antes de iniciar a Fase 2.
+- [x] T001 Sanity baseline: `pnpm install`, `pnpm -r build`, `pnpm --filter @bamboo/core test` e e2e da API verdes (estado Fase 0/1) antes de iniciar a Fase 2.
 
 ---
 
@@ -43,11 +43,11 @@ description: "Task list — feature 002-rebalanceamento"
 
 **Paralelismo**: o bloco core (T004) é independente do bloco db (T002–T003, T005–T006).
 
-- [ ] T002 [P] Schema: adicionar 4 colunas de config nullable em `packages/db/src/schema.ts` — `nutritionist.default_band_tolerance_pct`, `nutritionist.default_floor_pct`, `patient.band_tolerance_pct`, `patient.floor_pct` (todas `double precision`, nullable), conforme `data-model.md`.
-- [ ] T003 Gerar e aplicar a migration (`drizzle-kit generate` + `migrate`); validar as colunas no banco (depende de T002).
-- [ ] T004 [P] **TEST-FIRST**: `Nutrientes` + `somaNutrientes()` em `packages/core/src/nutrition.ts` (+ casos em `nutrition.test.ts`): soma sobre múltiplos itens/refeições; lista vazia → zeros. Reusa `nutrientesDaPorcao`. Testes DEVEM FALHAR antes da impl.
-- [ ] T005 Estender `packages/db/scripts/seed.ts`: plano com **≥2 tipos-de-dia** (treino/descanso) + `day_schedule`; refeições com **opções desiguais** (almoço leve/pesado); refeições seguintes com mix **flexível + travado** (garantir alavanca); um caso só-travado (pra exercitar `sem-alavanca`); (opcional) semear `patient.*_pct` e `nutritionist.default_*_pct` pra ver a resolução de 3 níveis (depende de T003).
-- [ ] T006 Rodar o seed e validar: ≥1 refeição com opções desiguais; ≥1 refeição seguinte com item flexível; ≥1 caso só-travado; (se semeado) config legível (depende de T005).
+- [x] T002 [P] Schema: adicionar 4 colunas de config nullable em `packages/db/src/schema.ts` — `nutritionist.default_band_tolerance_pct`, `nutritionist.default_floor_pct`, `patient.band_tolerance_pct`, `patient.floor_pct` (todas `double precision`, nullable), conforme `data-model.md`.
+- [x] T003 Gerar e aplicar a migration (`drizzle-kit generate` + `migrate`); validar as colunas no banco (depende de T002).
+- [x] T004 [P] **TEST-FIRST**: `Nutrientes` + `somaNutrientes()` em `packages/core/src/nutrition.ts` (+ casos em `nutrition.test.ts`): soma sobre múltiplos itens/refeições; lista vazia → zeros. Reusa `nutrientesDaPorcao`. Testes DEVEM FALHAR antes da impl.
+- [x] T005 Estender `packages/db/scripts/seed.ts`: plano com **≥2 tipos-de-dia** (treino/descanso) + `day_schedule`; refeições com **opções desiguais** (almoço leve/pesado); refeições seguintes com mix **flexível + travado** (garantir alavanca); um caso só-travado (pra exercitar `sem-alavanca`); (opcional) semear `patient.*_pct` e `nutritionist.default_*_pct` pra ver a resolução de 3 níveis (depende de T003).
+- [x] T006 Rodar o seed e validar: ≥1 refeição com opções desiguais; ≥1 refeição seguinte com item flexível; ≥1 caso só-travado; (se semeado) config legível (depende de T005).
 
 **Checkpoint**: schema migrado + dados semeados + primitivo nutricional → US1/US2 podem começar (em paralelo).
 
@@ -61,23 +61,23 @@ description: "Task list — feature 002-rebalanceamento"
 
 ### Núcleo puro — `packages/core` (test-first)
 
-- [ ] T007 [P] [US1] **TEST-FIRST**: `params.ts` — `ParametrosAdaptacao`, `PARAMETROS_SISTEMA` (`{toleranciaPct:10, pisoPct:50}`) e `resolverParametros()` (+ `params.test.ts`): precedência por campo `paciente ?? nutri ?? sistema` (todas as combinações), conforme `contracts/core-parametros.md`.
-- [ ] T008 [P] [US1] **TEST-FIRST**: `alvoDoDia()` + `avaliarFaixa()` em `packages/core/src/nutrition.ts` (+ testes): alvo = soma das opções default; faixa por nutriente nos dois sentidos; borda (`≤` é dentro); alvo zero → `dentro` (depende de T004).
-- [ ] T009 [US1] **TEST-FIRST**: primitivo `rebalancearPorKcal()` em `packages/core/src/rebalance.ts` (+ `rebalance.test.ts`) conforme `contracts/core-rebalancear.md`: `sem-acao`; reduzir proporcional respeitando piso; aumentar; transbordo multi-passe; `recusa-orientada(estoura-piso)` (nada abaixo do piso); `recusa-orientada(sem-alavanca)`; kcal-priority (macros residuais reportados). Testes DEVEM FALHAR antes da impl (depende de T004).
-- [ ] T010 [US1] **TEST-FIRST**: adaptador `previewTrocaOpcao()` em `packages/core/src/rebalance.ts` (+ testes): monta alvo (defaults) + total (com escolha), avalia faixa, calcula `deltaKcal`, seleciona alavancas (`position > trigger`, flexíveis) → `rebalancearPorKcal` (depende de T008, T009).
-- [ ] T011 [US1] **TEST-FIRST**: adaptador `previewTrocaTipoDia()` em `packages/core/src/rebalance.ts` (+ testes) — regra por total-do-dia (FR-020): `deltaKcal = (consumido + restantePlanejado) − alvoNovo`; `consumido=0` (início do dia) → `sem-acao`; `consumido > alvoNovo+faixa` → recusa. **Engine-level** (sem consumidor no app v0) (depende de T008, T009).
-- [ ] T012 [US1] Re-exports do núcleo em `packages/core/src/index.ts` (`params`, `rebalance`, e os novos de `nutrition`). ⚠️ `index.ts` também recebe o export da US2 (T021) — linhas diferentes (depende de T007, T010, T011).
-- [ ] T013 [US1] Exportar `basisPer100g` e `medidaMaisProxima` de `packages/core/src/substitution.ts` (hoje privados) p/ reuso pela combinação (US2) e pela medida caseira do rebalanceamento — pequeno refactor sem mudar comportamento (depende de T001).
+- [x] T007 [P] [US1] **TEST-FIRST**: `params.ts` — `ParametrosAdaptacao`, `PARAMETROS_SISTEMA` (`{toleranciaPct:10, pisoPct:50}`) e `resolverParametros()` (+ `params.test.ts`): precedência por campo `paciente ?? nutri ?? sistema` (todas as combinações), conforme `contracts/core-parametros.md`.
+- [x] T008 [P] [US1] **TEST-FIRST**: `alvoDoDia()` + `avaliarFaixa()` em `packages/core/src/nutrition.ts` (+ testes): alvo = soma das opções default; faixa por nutriente nos dois sentidos; borda (`≤` é dentro); alvo zero → `dentro` (depende de T004).
+- [x] T009 [US1] **TEST-FIRST**: primitivo `rebalancearPorKcal()` em `packages/core/src/rebalance.ts` (+ `rebalance.test.ts`) conforme `contracts/core-rebalancear.md`: `sem-acao`; reduzir proporcional respeitando piso; aumentar; transbordo multi-passe; `recusa-orientada(estoura-piso)` (nada abaixo do piso); `recusa-orientada(sem-alavanca)`; kcal-priority (macros residuais reportados). Testes DEVEM FALHAR antes da impl (depende de T004).
+- [x] T010 [US1] **TEST-FIRST**: adaptador `previewTrocaOpcao()` em `packages/core/src/rebalance.ts` (+ testes): monta alvo (defaults) + total (com escolha), avalia faixa, calcula `deltaKcal`, seleciona alavancas (`position > trigger`, flexíveis) → `rebalancearPorKcal` (depende de T008, T009).
+- [x] T011 [US1] **TEST-FIRST**: adaptador `previewTrocaTipoDia()` em `packages/core/src/rebalance.ts` (+ testes) — regra por total-do-dia (FR-020): `deltaKcal = (consumido + restantePlanejado) − alvoNovo`; `consumido=0` (início do dia) → `sem-acao`; `consumido > alvoNovo+faixa` → recusa. **Engine-level** (sem consumidor no app v0) (depende de T008, T009).
+- [x] T012 [US1] Re-exports do núcleo em `packages/core/src/index.ts` (`params`, `rebalance`, e os novos de `nutrition`). ⚠️ `index.ts` também recebe o export da US2 (T021) — linhas diferentes (depende de T007, T010, T011).
+- [x] T013 [US1] Exportar `basisPer100g` e `medidaMaisProxima` de `packages/core/src/substitution.ts` (hoje privados) p/ reuso pela combinação (US2) e pela medida caseira do rebalanceamento — pequeno refactor sem mudar comportamento (depende de T001).
 
 ### Casca + contrato — `packages/types`, `apps/api`, `packages/api-client`
 
-- [ ] T014 [P] [US1] DTOs em `packages/types/src/rebalance.ts` (`RebalanceOutcomeDto` união `sem-acao|rebalanceado|recusa-orientada`, `RefeicaoAfetadaDto`, `ItemAjustadoDto`, `totalDepois?`) conforme `contracts/post-rebalance-option-choice.md`.
-- [ ] T015 [P] [US1] Estender `MealDto` em `packages/types/src/today.ts` com `options: MealOptionDto[]` (default marcada; mantém `defaultOption`/`otherOptionsCount` por retrocompat) conforme `contracts/get-today-extension.md`.
-- [ ] T016 [US1] **TEST-FIRST** e2e: `apps/api/test/today-options.e2e-spec.ts` — `/today` traz `meals[].options` (default + não-default), exposição aplicada em todas as opções. Deve falhar antes da impl (depende de T006, T015).
-- [ ] T017 [US1] Implementar a expansão de opções no `GET /today` em `apps/api/src/plan/` (monta todas as `meal_option` + itens via DTO puro, respeitando exposição), até T016 passar (depende de T016).
-- [ ] T018 [US1] **TEST-FIRST** e2e: `apps/api/test/rebalance.e2e-spec.ts` — `POST /patients/:id/rebalance/option-choice`: `rebalanceado` (seguintes reescaladas, travados intactos), `sem-acao`, `recusa-orientada` (**200**, não erro), exposição (`hidden` → sem números), 404/422. Deve falhar antes da impl (depende de T006, T014, T012).
-- [ ] T019 [US1] Implementar módulo `apps/api/src/rebalance/` (controller + service casca): resolve parâmetros lendo config (`resolverParametros`), monta `diaComEscolha`+`refeicoesDefault`, chama `previewTrocaOpcao`, mapeia `RebalanceOutcome`→DTO com exposição; recusa-orientada = 200 (depende de T018, T012, T014).
-- [ ] T020 [P] [US1] `postOptionChoice()` + `getToday()` (com `options`) tipados em `packages/api-client/src/index.ts` (depende de T014, T015).
+- [x] T014 [P] [US1] DTOs em `packages/types/src/rebalance.ts` (`RebalanceOutcomeDto` união `sem-acao|rebalanceado|recusa-orientada`, `RefeicaoAfetadaDto`, `ItemAjustadoDto`, `totalDepois?`) conforme `contracts/post-rebalance-option-choice.md`.
+- [x] T015 [P] [US1] Estender `MealDto` em `packages/types/src/today.ts` com `options: MealOptionDto[]` (default marcada; mantém `defaultOption`/`otherOptionsCount` por retrocompat) conforme `contracts/get-today-extension.md`.
+- [x] T016 [US1] **TEST-FIRST** e2e: `apps/api/test/today-options.e2e-spec.ts` — `/today` traz `meals[].options` (default + não-default), exposição aplicada em todas as opções. Deve falhar antes da impl (depende de T006, T015).
+- [x] T017 [US1] Implementar a expansão de opções no `GET /today` em `apps/api/src/plan/` (monta todas as `meal_option` + itens via DTO puro, respeitando exposição), até T016 passar (depende de T016).
+- [x] T018 [US1] **TEST-FIRST** e2e: `apps/api/test/rebalance.e2e-spec.ts` — `POST /patients/:id/rebalance/option-choice`: `rebalanceado` (seguintes reescaladas, travados intactos), `sem-acao`, `recusa-orientada` (**200**, não erro), exposição (`hidden` → sem números), 404/422. Deve falhar antes da impl (depende de T006, T014, T012).
+- [x] T019 [US1] Implementar módulo `apps/api/src/rebalance/` (controller + service casca): resolve parâmetros lendo config (`resolverParametros`), monta `diaComEscolha`+`refeicoesDefault`, chama `previewTrocaOpcao`, mapeia `RebalanceOutcome`→DTO com exposição; recusa-orientada = 200 (depende de T018, T012, T014).
+- [x] T020 [P] [US1] `postOptionChoice()` + `getToday()` (com `options`) tipados em `packages/api-client/src/index.ts` (depende de T014, T015).
 
 **Checkpoint**: US1 funcional e testável headless — **MVP** (o motor que negocia o dia).
 
@@ -89,11 +89,11 @@ description: "Task list — feature 002-rebalanceamento"
 
 **Independent Test**: `POST /meal-items/:id/combine` com 2 alvos do grupo devolve gramas de cada (soma do nutriente-base = original, ≤2%) + medida caseira; split 70/30 recalcula; alvo base-zero/fora-do-grupo → 422; item travado → 422.
 
-- [ ] T021 [US2] **TEST-FIRST**: `combinar()` + `CombinacaoError` em `packages/core/src/combination.ts` (+ `combination.test.ts`) conforme `contracts/core-combinar.md`: 50/50, split ajustado, alvo `basisPer100g≤0` → `err(alvo-sem-nutriente-base)`, alvo fora do grupo → `err(fora-do-grupo)`, medida caseira (e null→gramas), preserva base ≤2%. Reusa `basisPer100g`/`medidaMaisProxima` (T013). + export no `index.ts` (depende de T013).
-- [ ] T022 [P] [US2] DTOs em `packages/types/src/combination.ts` (`partes[2]` com `food`, `gramas`, `medidaCaseira`, `fracao`, `nutrition?`) conforme `contracts/post-combine.md`.
-- [ ] T023 [US2] **TEST-FIRST** e2e: `apps/api/test/combine.e2e-spec.ts` — `POST /meal-items/:id/combine`: partes corretas + exposição; 422 item travado/sem-grupo, alvo fora-do-grupo, alvo sem nutriente-base; 404 item inexistente. Deve falhar antes da impl (depende de T006, T022, T021).
-- [ ] T024 [US2] Implementar módulo `apps/api/src/combination/` (controller + service casca): guarda item flexível, carrega alvos + basis do grupo, chama `combinar()`, converte `Result`→`HttpException` via `ts-pattern` (422), monta DTO com exposição (depende de T023, T021, T022).
-- [ ] T025 [P] [US2] `postCombine()` tipado em `packages/api-client/src/index.ts` (depende de T022).
+- [x] T021 [US2] **TEST-FIRST**: `combinar()` + `CombinacaoError` em `packages/core/src/combination.ts` (+ `combination.test.ts`) conforme `contracts/core-combinar.md`: 50/50, split ajustado, alvo `basisPer100g≤0` → `err(alvo-sem-nutriente-base)`, alvo fora do grupo → `err(fora-do-grupo)`, medida caseira (e null→gramas), preserva base ≤2%. Reusa `basisPer100g`/`medidaMaisProxima` (T013). + export no `index.ts` (depende de T013).
+- [x] T022 [P] [US2] DTOs em `packages/types/src/combination.ts` (`partes[2]` com `food`, `gramas`, `medidaCaseira`, `fracao`, `nutrition?`) conforme `contracts/post-combine.md`.
+- [x] T023 [US2] **TEST-FIRST** e2e: `apps/api/test/combine.e2e-spec.ts` — `POST /meal-items/:id/combine`: partes corretas + exposição; 422 item travado/sem-grupo, alvo fora-do-grupo, alvo sem nutriente-base; 404 item inexistente. Deve falhar antes da impl (depende de T006, T022, T021).
+- [x] T024 [US2] Implementar módulo `apps/api/src/combination/` (controller + service casca): guarda item flexível, carrega alvos + basis do grupo, chama `combinar()`, converte `Result`→`HttpException` via `ts-pattern` (422), monta DTO com exposição (depende de T023, T021, T022).
+- [x] T025 [P] [US2] `postCombine()` tipado em `packages/api-client/src/index.ts` (depende de T022).
 
 **Checkpoint**: US1 + US2 funcionam headless de forma independente.
 
@@ -105,12 +105,12 @@ description: "Task list — feature 002-rebalanceamento"
 
 **Independent Test**: no device, escolher uma opção → ver a prévia (ou recusa orientada) e confirmar; combinar um item em dois com slider; trocar o tipo-de-dia no rótulo → app re-exibe o novo cardápio com "o agora" re-ancorado, sem rebalancear; tudo respeitando exposição.
 
-- [ ] T026 [US3] **TEST-FIRST** e2e: `apps/api/test/today-daytype.e2e-spec.ts` — `GET /today?dayTypeId=<id>` re-exibe o tipo-de-dia, re-ancora `currentMealId`, `dayType.label` correto, **sem** números de rebalanceamento; `dayTypeId` fora do plano → 404. Deve falhar antes da impl (depende de T006, T017).
-- [ ] T027 [US3] Implementar o override `?dayTypeId` (display-only) no `GET /today` em `apps/api/src/plan/` (FR-021/FR-022), até T026 passar (depende de T026).
-- [ ] T028 [P] [US3] Suporte a `getToday(dayTypeId?)` no `packages/api-client/src/index.ts` (depende de T020).
-- [ ] T029 [US3] Mobile — seletor de opções + folha de **prévia do rebalanceamento** em `apps/mobile`: lista as opções da refeição, ao escolher chama `postOptionChoice`, mostra a consequência nas refeições seguintes **antes** de confirmar; renderiza `recusa-orientada` como orientação (não erro); exposição `hidden` → mostra ação (gramas/medidas) sem números (depende de T019, T020).
-- [ ] T030 [US3] Mobile — UI de **combinação** com slider de split em `apps/mobile`: dispara `postCombine`, mostra os 2 alvos (gramas + medida caseira), ajusta proporção, aplica no estado local (depende de T024, T025).
-- [ ] T031 [US3] Mobile — **troca de tipo-de-dia** no rótulo anunciado em `apps/mobile`: toca → `getToday(dayTypeId)` → re-exibe o cardápio + re-ancora "o agora", **sem** rebalancear (depende de T027, T028, T029).
+- [x] T026 [US3] **TEST-FIRST** e2e: `apps/api/test/today-daytype.e2e-spec.ts` — `GET /today?dayTypeId=<id>` re-exibe o tipo-de-dia, re-ancora `currentMealId`, `dayType.label` correto, **sem** números de rebalanceamento; `dayTypeId` fora do plano → 404. Deve falhar antes da impl (depende de T006, T017).
+- [x] T027 [US3] Implementar o override `?dayTypeId` (display-only) no `GET /today` em `apps/api/src/plan/` (FR-021/FR-022), até T026 passar (depende de T026).
+- [x] T028 [P] [US3] Suporte a `getToday(dayTypeId?)` no `packages/api-client/src/index.ts` (depende de T020).
+- [x] T029 [US3] Mobile — seletor de opções + folha de **prévia do rebalanceamento** em `apps/mobile`: lista as opções da refeição, ao escolher chama `postOptionChoice`, mostra a consequência nas refeições seguintes **antes** de confirmar; renderiza `recusa-orientada` como orientação (não erro); exposição `hidden` → mostra ação (gramas/medidas) sem números (depende de T019, T020).
+- [x] T030 [US3] Mobile — UI de **combinação** com slider de split em `apps/mobile`: dispara `postCombine`, mostra os 2 alvos (gramas + medida caseira), ajusta proporção, aplica no estado local (depende de T024, T025).
+- [x] T031 [US3] Mobile — **troca de tipo-de-dia** no rótulo anunciado em `apps/mobile`: toca → `getToday(dayTypeId)` → re-exibe o cardápio + re-ancora "o agora", **sem** rebalancear (depende de T027, T028, T029).
 
 **Checkpoint**: as três alças na mão do paciente; v0 completo da Fase 2.
 
@@ -118,9 +118,9 @@ description: "Task list — feature 002-rebalanceamento"
 
 ## Phase 6: Polish & Cross-Cutting
 
-- [ ] T032 Rodar `quickstart.md` de ponta a ponta e confirmar SC-001..SC-010 (depende de US1, US2, US3).
-- [ ] T033 [P] Bordas extras no `packages/core` (testes unitários): transbordo multi-passe até o piso; empates de medida caseira; faixa exatamente na borda; split 0/1 degenerado; resolução de parâmetros com nulls parciais.
-- [ ] T034 `pnpm lint` + `pnpm format` verdes na raiz (regra de "done"); revisar que nenhuma entidade do Drizzle é serializada crua e que recusa-orientada nunca vira 4xx.
+- [x] T032 Rodar `quickstart.md` de ponta a ponta e confirmar SC-001..SC-010 (depende de US1, US2, US3).
+- [x] T033 [P] Bordas extras no `packages/core` (testes unitários): transbordo multi-passe até o piso; empates de medida caseira; faixa exatamente na borda; split 0/1 degenerado; resolução de parâmetros com nulls parciais.
+- [x] T034 `pnpm lint` + `pnpm format` verdes na raiz (regra de "done"); revisar que nenhuma entidade do Drizzle é serializada crua e que recusa-orientada nunca vira 4xx.
 
 ---
 
