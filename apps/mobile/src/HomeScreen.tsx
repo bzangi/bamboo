@@ -28,7 +28,11 @@ import type {
   TodayResponse,
 } from "@bamboo/types";
 import { API_URL, PATIENT_ID } from "./config";
-import { formatGrams, formatNutritionLine } from "./format";
+import {
+  formatGrams,
+  formatMedidaPlanejada,
+  formatNutritionLine,
+} from "./format";
 import { SubstitutionSheet } from "./SubstitutionSheet";
 import { RebalancePreviewSheet } from "./RebalancePreviewSheet";
 import { CombineSheet } from "./CombineSheet";
@@ -362,7 +366,10 @@ function ItemRow({
   const foodName = nameOverride ? nameOverride.foodName : item.food.name;
   const quantityText = nameOverride
     ? nameOverride.quantityLabel
-    : (qtyOverride ?? formatGrams(item.quantityGrams));
+    : (qtyOverride ??
+      (item.medidaCaseira
+        ? formatMedidaPlanejada(item.quantityGrams, item.medidaCaseira)
+        : formatGrams(item.quantityGrams)));
   // Mostra nutrição só no estado original (mudou de alimento/quantidade → some).
   const nutritionLine =
     nameOverride || qtyOverride ? null : formatNutritionLine(item);

@@ -1,9 +1,14 @@
 // Mapeamento PURO entidade-do-banco -> TodayResponse (Princípio III: nunca
 // serializar entidade do Drizzle crua). Sem I/O, sem throw, sem mutação.
 // Aplica o gate de exposição (FR-005) na borda.
-import { nutrientesDaPorcao, type FoodMacros } from '@bamboo/core';
+import {
+  medidaMaisProxima,
+  nutrientesDaPorcao,
+  type FoodMacros,
+} from '@bamboo/core';
 import type {
   ExposureLevel,
+  HouseholdMeasureDto,
   MealDto,
   MealItemDto,
   MealOptionDto,
@@ -27,6 +32,24 @@ export interface ItemRow {
   readonly isLocked: boolean;
   readonly substitutionGroupId: string | null;
   readonly food: FoodRow;
+  // Medidas caseiras do alimento (label + gramas); pode ser vazio.
+  readonly measures: readonly {
+    readonly label: string;
+    readonly grams: number;
+  }[];
+}
+
+// Heurística v0: medida "discreta" (unidade/fatia) — pra exibir ovo/fruta em
+// unidades. Granel (arroz/aveia: "colher"/"escumadeira") não casa → null → gramas.
+const UNIDADE_RE = /unidade|fatia/i;
+
+function medidaPlanejada(
+  gramas: number,
+  measures: readonly { readonly label: string; readonly grams: number }[],
+): HouseholdMeasureDto | null {
+  const unidades = measures.filter((m) => UNIDADE_RE.test(m.label));
+  const m = medidaMaisProxima(gramas, unidades);
+  return m ? { label: m.label, grams: m.grams } : null;
 }
 
 export interface OptionRow {
@@ -120,6 +143,7 @@ function toItemDto(item: ItemRow, exposure: ExposureLevel): MealItemDto {
     isLocked: item.isLocked,
     substitutionGroupId: item.substitutionGroupId,
     substitutable,
+    medidaCaseira: medidaPlanejada(item.quantityGrams, item.measures),
     ...(nutrition ? { nutrition } : {}),
   };
 }

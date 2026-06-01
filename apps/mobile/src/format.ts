@@ -13,6 +13,16 @@ export function formatGrams(grams: number): string {
   return `${rounded} g`;
 }
 
+// Item planejado em UNIDADE/FATIA quando há medida preferida (ovo, fruta):
+// "1 unidade média", "2× unidade média". Granel cai em formatGrams (medida null).
+export function formatMedidaPlanejada(
+  quantityGrams: number,
+  medida: { readonly label: string; readonly grams: number },
+): string {
+  const n = Math.max(1, Math.round(quantityGrams / medida.grams));
+  return n === 1 ? medida.label : `${n}× ${medida.label}`;
+}
+
 // Rótulo principal de uma alternativa de troca: medida caseira quando houver,
 // senão a quantidade em gramas (edge case "alvo sem medida caseira").
 export function formatAlternativeQuantity(

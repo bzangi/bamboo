@@ -2,6 +2,8 @@
 // Tipos puros compartilhados entre a casca (apps/api) e os clientes
 // (api-client / mobile). Nenhuma dependência de Drizzle/Nest aqui.
 
+import type { HouseholdMeasureDto } from "./substitution.js";
+
 export type ExposureLevel = "hidden" | "percent" | "macros" | "full_kcal";
 
 // Nutrição da porção filtrada pelo gate de exposição (montada na borda):
@@ -35,6 +37,10 @@ export interface MealItemDto {
   readonly substitutable: boolean;
   // Ausente quando exposure = 'hidden'.
   readonly nutrition?: NutritionDto;
+  // Fase 2: medida caseira preferida para exibir o planejado em UNIDADE/FATIA
+  // (ovo, fruta); null → exibir em gramas (granel: arroz, aveia). Heurística v0
+  // por rótulo de unidade; o flag "discreto vs granel" no alimento fica futuro.
+  readonly medidaCaseira?: HouseholdMeasureDto | null;
 }
 
 export interface MealOptionDto {

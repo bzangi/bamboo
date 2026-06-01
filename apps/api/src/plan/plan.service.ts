@@ -98,6 +98,25 @@ export class PlanService {
     if (meals.length === 0)
       throw new NotFoundException('sem refeições para o dia corrente');
 
+    // Medidas caseiras de todos os alimentos (1 query; agrupa em memória) — pra
+    // exibir o planejado em unidade/fatia (o mapper escolhe a preferida).
+    const measureRows = await this.db
+      .select({
+        foodId: schema.foodHouseholdMeasure.foodId,
+        label: schema.foodHouseholdMeasure.label,
+        grams: schema.foodHouseholdMeasure.grams,
+      })
+      .from(schema.foodHouseholdMeasure);
+    const measuresByFood = new Map<
+      string,
+      { label: string; grams: number }[]
+    >();
+    for (const mr of measureRows) {
+      const list = measuresByFood.get(mr.foodId) ?? [];
+      list.push({ label: mr.label, grams: mr.grams });
+      measuresByFood.set(mr.foodId, list);
+    }
+
     // 5. Para cada refeição: TODAS as opções + itens (com food). (Fase 2: o
     //    paciente pode ver/escolher outra opção — gatilho P1.)
     const mealRows: MealRow[] = [];
@@ -149,6 +168,7 @@ export class PlanService {
               proteinPer100g: it.proteinPer100g,
               fatPer100g: it.fatPer100g,
             },
+            measures: measuresByFood.get(it.foodId) ?? [],
           })),
         });
       }

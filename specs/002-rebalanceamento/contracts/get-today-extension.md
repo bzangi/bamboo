@@ -32,6 +32,10 @@ GET /patients/:patientId/today?dayTypeId=<uuid>
 - Com `dayTypeId`: **exibe** aquele tipo-de-dia (deve pertencer ao plano ativo do paciente), re-ancorando `currentMealId` na 1ª refeição por `position`. **Não rebalanceia** (FR-021/FR-022) — é só a camada grossa de exibição.
 - `dayTypeId` inválido / fora do plano → **404**.
 
+## Mudança 3 — medida caseira no item planejado (unidade/fatia)
+
+`MealItemDto` ganha `medidaCaseira?: HouseholdMeasureDto | null`: a medida **preferida** para exibir o planejado em **unidade/fatia** (ovo, fruta, tomate); `null` → exibir em **gramas** (granel: arroz, aveia, carnes). Heurística v0 na casca: filtra medidas cujo rótulo casa `/unidade|fatia/i` e pega a mais próxima (`medidaMaisProxima`). O app exibe `n× label` (ex.: "2× unidade média"). O flag "discreto vs granel" no próprio alimento fica como melhoria futura (precisa da UI da nutri).
+
 ## Response (DTO — `packages/types`)
 
 `TodayResponse` inalterado na forma; `meals[].options` agora preenchido. `dayType` reflete o tipo-de-dia exibido (default ou o override).
