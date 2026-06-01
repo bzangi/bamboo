@@ -163,6 +163,22 @@ export function HomeScreen() {
     [],
   );
 
+  // Desfaz o override de um item (volta ao planejado) — permite re-ajustar.
+  const handleReset = useCallback((itemId: string) => {
+    setNameOverrides((prev) => {
+      if (!(itemId in prev)) return prev;
+      const next = { ...prev };
+      delete next[itemId];
+      return next;
+    });
+    setQtyOverrides((prev) => {
+      if (!(itemId in prev)) return prev;
+      const next = { ...prev };
+      delete next[itemId];
+      return next;
+    });
+  }, []);
+
   const handleSwitchDayType = useCallback(
     (id: string) => {
       setPickingDayType(false);
@@ -221,6 +237,7 @@ export function HomeScreen() {
             onChooseOption={(option) => setChoice({ meal, option })}
             onSubstitute={setSubItem}
             onCombine={setCombineItem}
+            onReset={handleReset}
           />
         ))}
       </ScrollView>
@@ -263,6 +280,7 @@ function MealCard({
   onChooseOption,
   onSubstitute,
   onCombine,
+  onReset,
 }: {
   readonly meal: MealDto;
   readonly isCurrent: boolean;
@@ -272,6 +290,7 @@ function MealCard({
   readonly onChooseOption: (option: MealOptionDto) => void;
   readonly onSubstitute: (item: MealItemDto) => void;
   readonly onCombine: (item: MealItemDto) => void;
+  readonly onReset: (itemId: string) => void;
 }) {
   const activeOption =
     meal.options.find((o) => o.id === activeOptionId) ?? meal.defaultOption;
@@ -295,6 +314,7 @@ function MealCard({
           qtyOverride={qtyOverrides[item.id]}
           onSubstitute={onSubstitute}
           onCombine={onCombine}
+          onReset={onReset}
         />
       ))}
 
@@ -330,12 +350,14 @@ function ItemRow({
   qtyOverride,
   onSubstitute,
   onCombine,
+  onReset,
 }: {
   readonly item: MealItemDto;
   readonly nameOverride: NameOverride | undefined;
   readonly qtyOverride: string | undefined;
   readonly onSubstitute: (item: MealItemDto) => void;
   readonly onCombine: (item: MealItemDto) => void;
+  readonly onReset: (itemId: string) => void;
 }) {
   const foodName = nameOverride ? nameOverride.foodName : item.food.name;
   const quantityText = nameOverride
@@ -357,8 +379,9 @@ function ItemRow({
         <Text style={styles.itemQty}>{quantityText}</Text>
       </View>
 
-      {/* "deixa trocar num toque" — só para item flexível e ainda no original. */}
-      {item.substitutable && !nameOverride ? (
+      {/* "deixa trocar num toque" — sempre disponível em item flexível: dá pra
+          trocar/combinar de novo. Com override aplicado, oferece desfazer. */}
+      {item.substitutable ? (
         <View style={styles.itemActions}>
           <Pressable onPress={() => onSubstitute(item)}>
             <Text style={styles.action}>Trocar ›</Text>
@@ -366,6 +389,11 @@ function ItemRow({
           <Pressable onPress={() => onCombine(item)}>
             <Text style={styles.action}>Combinar 2 ›</Text>
           </Pressable>
+          {nameOverride || qtyOverride ? (
+            <Pressable onPress={() => onReset(item.id)}>
+              <Text style={styles.actionReset}>↺ desfazer</Text>
+            </Pressable>
+          ) : null}
         </View>
       ) : null}
     </View>
@@ -491,6 +519,7 @@ const styles = StyleSheet.create({
   itemQty: { fontSize: 15, color: "#333", fontWeight: "600" },
   itemActions: { flexDirection: "row", gap: 16, marginTop: 6 },
   action: { fontSize: 13, color: "#1565c0", fontWeight: "600" },
+  actionReset: { fontSize: 13, color: "#999", fontWeight: "600" },
   optionChips: {
     flexDirection: "row",
     flexWrap: "wrap",

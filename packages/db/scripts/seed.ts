@@ -297,13 +297,14 @@ async function seed(): Promise<SeedResult> {
         isLocked: true,
         substitutionGroupId: null,
       });
-      // aveia: não-travada e sem grupo → não substituível (item solto)
+      // aveia FLEXÍVEL (grupo Carbo) → o "o agora" (café) é ajustável: dá pra
+      // trocar/combinar já na refeição do momento.
       await insertItem({
         mealOptionId: opt,
         foodName: "Aveia em flocos",
         quantityGrams: 40,
         isLocked: false,
-        substitutionGroupId: null,
+        substitutionGroupId: carbGroupId,
       });
       // banana: idem (acompanhamento solto)
       await insertItem({
@@ -451,6 +452,14 @@ async function seed(): Promise<SeedResult> {
         quantityGrams: 130,
         isLocked: false,
         substitutionGroupId: null,
+      });
+      // aveia FLEXÍVEL (grupo Carbo) → café do descanso também é ajustável.
+      await insertItem({
+        mealOptionId: opt,
+        foodName: "Aveia em flocos",
+        quantityGrams: 40,
+        isLocked: false,
+        substitutionGroupId: carbGroupId,
       });
     }
 
