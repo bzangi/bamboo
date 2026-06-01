@@ -54,6 +54,8 @@ const GROUPS = [
       { name: "Batata inglesa cozida", referencePortionGrams: 150 },
       { name: "Batata doce cozida", referencePortionGrams: 120 },
       { name: "Mandioca (aipim) cozida", referencePortionGrams: 100 },
+      { name: "Aveia em flocos", referencePortionGrams: 40 },
+      { name: "Feijão carioca cozido", referencePortionGrams: 80 },
     ],
   },
   {
@@ -64,6 +66,24 @@ const GROUPS = [
       { name: "Ovo de galinha cozido", referencePortionGrams: 50 },
       { name: "Coxão mole bovino cozido", referencePortionGrams: 100 },
       { name: "Filé de pescada frito", referencePortionGrams: 100 },
+    ],
+  },
+  {
+    name: "Frutas",
+    basis: "carb" as const,
+    foods: [
+      { name: "Banana nanica", referencePortionGrams: 85 },
+      { name: "Maçã com casca", referencePortionGrams: 130 },
+    ],
+  },
+  {
+    name: "Vegetais",
+    basis: "carb" as const,
+    foods: [
+      { name: "Alface lisa crua", referencePortionGrams: 30 },
+      { name: "Brócolis cozido", referencePortionGrams: 80 },
+      { name: "Cenoura crua", referencePortionGrams: 80 },
+      { name: "Tomate (salada)", referencePortionGrams: 90 },
     ],
   },
 ] as const;
@@ -532,8 +552,31 @@ async function seed(): Promise<SeedResult> {
       });
     }
 
+    // Fase 2 — testabilidade do motor: associa CADA item ao grupo do seu
+    // alimento (todo food do seed está em exatamente um grupo) e DESTRAVA tudo,
+    // deixando só UM item travado (o ovo do café) — assim o motor sempre tem
+    // alavancas pra exercitar, e ainda há um caso de "travado não troca".
+    await tx.execute(sql`
+      UPDATE ${mealItem} AS mi
+      SET substitution_group_id = fsg.group_id
+      FROM ${foodSubstitutionGroup} AS fsg
+      WHERE mi.food_id = fsg.food_id AND mi.substitution_group_id IS NULL
+    `);
+    await tx.execute(sql`UPDATE ${mealItem} SET is_locked = false`);
+    await tx.execute(sql`
+      UPDATE ${mealItem} SET is_locked = true
+      WHERE id = (
+        SELECT mi.id FROM ${mealItem} AS mi
+        JOIN ${mealOption} AS mo ON mo.id = mi.meal_option_id
+        JOIN ${meal} AS m ON m.id = mo.meal_id
+        JOIN ${food} AS f ON f.id = mi.food_id
+        WHERE f.name = 'Ovo de galinha cozido' AND m.name = 'Café da manhã'
+        LIMIT 1
+      )
+    `);
+
     // Substitutos reais do grupo do item flexível de referência (excluindo o
-    // próprio food do item): Carboidratos tem 4 foods → 3 substitutos.
+    // próprio food do item).
     const substituteCount =
       GROUPS.find((g) => g.name === flexibleGroupName)!.foods.length - 1;
 
