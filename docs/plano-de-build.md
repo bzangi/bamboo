@@ -72,6 +72,7 @@ bamboo/
 - Import de plano assistido por IA (PDF → estruturado)
 - Offline robusto + notificações
 - Registro de comida fora da lista (caso "aberto": base + casar texto + estimativa por IA)
+- **Ampliar a base de alimentos:** integrar outras tabelas brasileiras além da TACO (ex.: TBCA-USP, e demais fontes oficiais), usando o campo `food.source` que já prevê múltiplas origens. Aumenta cobertura de alimentos/preparações para o registro e a substituição.
 
 ### Fase 5+ — Negócio (o parqueado)
 - Billing (assinatura), pagamentos, Pix, Stripe; deploy/infra
