@@ -49,6 +49,10 @@ export interface TodayInput {
   readonly patientId: string;
   readonly exposure: ExposureLevel;
   readonly dayType: { readonly id: string; readonly label: string };
+  readonly availableDayTypes: readonly {
+    readonly id: string;
+    readonly label: string;
+  }[];
   readonly currentMealId: string;
   readonly meals: readonly MealRow[];
 }
@@ -156,6 +160,10 @@ export function toTodayResponse(input: TodayInput): TodayResponse {
     patientId: input.patientId,
     exposure: input.exposure,
     dayType: input.dayType,
+    availableDayTypes: input.availableDayTypes.map((d) => ({
+      id: d.id,
+      label: d.label,
+    })),
     currentMealId: input.currentMealId,
     meals: input.meals.map((m) => toMealDto(m, input.exposure)),
   };

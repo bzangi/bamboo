@@ -68,6 +68,8 @@ export interface TodayResponse {
   readonly patientId: string;
   readonly exposure: ExposureLevel;
   readonly dayType: DayTypeDto;
+  // Fase 2: tipos-de-dia do plano (habilita a troca de cardápio no app — US3).
+  readonly availableDayTypes: readonly DayTypeDto[];
   // v0: a 1ª refeição por position.
   readonly currentMealId: string;
   readonly meals: readonly MealDto[];

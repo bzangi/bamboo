@@ -1,10 +1,15 @@
 // US1 — Home "o agora". Busca /today, anuncia o tipo-de-dia (sempre visível),
 // destaca a refeição do momento e lista o dia inteiro na ordem.
-// Hospeda também o estado LOCAL da troca (US2): selecionar uma alternativa
-// reescreve o item exibido, sem persistir (v0).
+// Fase 2 (US3): hospeda o estado LOCAL de
+//   - troca de OPÇÃO + prévia do rebalanceamento (gatilho P1),
+//   - COMBINAÇÃO 1→2,
+//   - troca de TIPO-DE-DIA (só exibição: recarrega o /today com dayTypeId),
+//   - e a substituição da Fase 1.
+// Nada persiste (v0): tudo é override local.
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
+  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -13,30 +18,58 @@ import {
 } from "react-native";
 import { getToday } from "@bamboo/api-client";
 import type {
+  CombinePartDto,
+  DayTypeDto,
   MealDto,
   MealItemDto,
+  MealOptionDto,
+  RebalanceOutcomeDto,
   SubstitutionAlternativeDto,
   TodayResponse,
 } from "@bamboo/types";
 import { API_URL, PATIENT_ID } from "./config";
 import { formatGrams, formatNutritionLine } from "./format";
 import { SubstitutionSheet } from "./SubstitutionSheet";
+import { RebalancePreviewSheet } from "./RebalancePreviewSheet";
+import { CombineSheet } from "./CombineSheet";
 
 type ScreenState =
   | { readonly status: "loading" }
   | { readonly status: "error"; readonly message: string }
   | { readonly status: "ready"; readonly data: TodayResponse };
 
+// Override que troca o alimento exibido (substituição ou combinação).
+interface NameOverride {
+  readonly foodName: string;
+  readonly quantityLabel: string;
+}
+
 export function HomeScreen() {
   const [state, setState] = useState<ScreenState>({ status: "loading" });
-  // Override local por item (foodName + label de quantidade) aplicado na troca.
-  const [overrides, setOverrides] = useState<
-    Readonly<Record<string, ItemOverride>>
-  >({});
-  // Item aberto no bottom-sheet; null = fechado.
-  const [activeItem, setActiveItem] = useState<MealItemDto | null>(null);
+  // Troca de tipo-de-dia (só exibição): recarrega o /today com este dayTypeId.
+  const [dayTypeId, setDayTypeId] = useState<string | undefined>(undefined);
 
-  const load = useCallback(() => {
+  // Estados locais (resetam ao trocar de tipo-de-dia).
+  const [nameOverrides, setNameOverrides] = useState<
+    Readonly<Record<string, NameOverride>>
+  >({});
+  const [qtyOverrides, setQtyOverrides] = useState<
+    Readonly<Record<string, string>>
+  >({}); // ajustes de quantidade vindos do rebalanceamento
+  const [optionOverrides, setOptionOverrides] = useState<
+    Readonly<Record<string, string>>
+  >({}); // mealId -> optionId ativa
+
+  // Sheets abertos.
+  const [subItem, setSubItem] = useState<MealItemDto | null>(null);
+  const [combineItem, setCombineItem] = useState<MealItemDto | null>(null);
+  const [choice, setChoice] = useState<{
+    readonly meal: MealDto;
+    readonly option: MealOptionDto;
+  } | null>(null);
+  const [pickingDayType, setPickingDayType] = useState(false);
+
+  const load = useCallback((dt?: string) => {
     if (!PATIENT_ID) {
       setState({
         status: "error",
@@ -46,22 +79,33 @@ export function HomeScreen() {
       return;
     }
     setState({ status: "loading" });
-    getToday(API_URL, PATIENT_ID)
+    getToday(API_URL, PATIENT_ID, dt)
       .then((data) => setState({ status: "ready", data }))
       .catch((e: unknown) => {
-        const message =
-          e instanceof Error ? e.message : "Falha ao carregar o plano de hoje.";
-        setState({ status: "error", message });
+        setState({
+          status: "error",
+          message:
+            e instanceof Error
+              ? e.message
+              : "Falha ao carregar o plano de hoje.",
+        });
       });
   }, []);
 
   useEffect(() => {
-    load();
-  }, [load]);
+    load(dayTypeId);
+  }, [load, dayTypeId]);
 
-  const handleSelect = useCallback(
+  const resetOverrides = useCallback(() => {
+    setNameOverrides({});
+    setQtyOverrides({});
+    setOptionOverrides({});
+  }, []);
+
+  // US2 — aplica a substituição (estado local).
+  const handleSubstitute = useCallback(
     (item: MealItemDto, alt: SubstitutionAlternativeDto) => {
-      setOverrides((prev) => ({
+      setNameOverrides((prev) => ({
         ...prev,
         [item.id]: {
           foodName: alt.name,
@@ -70,9 +114,62 @@ export function HomeScreen() {
             : formatGrams(alt.gramas),
         },
       }));
-      setActiveItem(null);
+      setSubItem(null);
     },
     [],
+  );
+
+  // US3 — combinação: troca o item por "A + B".
+  const handleCombine = useCallback(
+    (item: MealItemDto, partes: readonly CombinePartDto[]) => {
+      const label = (p: CombinePartDto): string =>
+        p.medidaCaseira
+          ? `${p.medidaCaseira.label} (${formatGrams(p.gramas)})`
+          : formatGrams(p.gramas);
+      const [p0, p1] = partes;
+      if (p0 && p1) {
+        setNameOverrides((prev) => ({
+          ...prev,
+          [item.id]: {
+            foodName: `${p0.food.name} + ${p1.food.name}`,
+            quantityLabel: `${label(p0)} + ${label(p1)}`,
+          },
+        }));
+      }
+      setCombineItem(null);
+    },
+    [],
+  );
+
+  // US3 — confirma a troca de opção: ativa a opção + aplica os ajustes das seguintes.
+  const handleConfirmRebalance = useCallback(
+    (meal: MealDto, option: MealOptionDto, outcome: RebalanceOutcomeDto) => {
+      setOptionOverrides((prev) => ({ ...prev, [meal.id]: option.id }));
+      if (outcome.kind === "rebalanceado") {
+        setQtyOverrides((prev) => {
+          const next = { ...prev };
+          for (const r of outcome.refeicoesAfetadas) {
+            for (const it of r.itensAjustados) {
+              next[it.itemId] = it.medidaCaseira
+                ? `${it.medidaCaseira.label} (${formatGrams(it.gramasNovo)})`
+                : formatGrams(it.gramasNovo);
+            }
+          }
+          return next;
+        });
+      }
+      setChoice(null);
+    },
+    [],
+  );
+
+  const handleSwitchDayType = useCallback(
+    (id: string) => {
+      setPickingDayType(false);
+      setDayTypeId(id);
+      resetOverrides();
+    },
+    [resetOverrides],
   );
 
   if (state.status === "loading") {
@@ -88,77 +185,70 @@ export function HomeScreen() {
     return (
       <View style={styles.centerScreen}>
         <Text style={styles.errorText}>{state.message}</Text>
-        <Pressable style={styles.retryButton} onPress={load}>
+        <Pressable style={styles.retryButton} onPress={() => load(dayTypeId)}>
           <Text style={styles.retryText}>Tentar de novo</Text>
         </Pressable>
       </View>
     );
   }
 
-  return (
-    <ReadyView
-      data={state.data}
-      overrides={overrides}
-      onOpenItem={setActiveItem}
-      activeItem={activeItem}
-      onCloseSheet={() => setActiveItem(null)}
-      onSelectAlternative={handleSelect}
-    />
-  );
-}
-
-interface ItemOverride {
-  readonly foodName: string;
-  readonly quantityLabel: string;
-}
-
-function ReadyView({
-  data,
-  overrides,
-  onOpenItem,
-  activeItem,
-  onCloseSheet,
-  onSelectAlternative,
-}: {
-  readonly data: TodayResponse;
-  readonly overrides: Readonly<Record<string, ItemOverride>>;
-  readonly onOpenItem: (item: MealItemDto) => void;
-  readonly activeItem: MealItemDto | null;
-  readonly onCloseSheet: () => void;
-  readonly onSelectAlternative: (
-    item: MealItemDto,
-    alt: SubstitutionAlternativeDto,
-  ) => void;
-}) {
-  // Refeições na ordem definida (FR-003).
-  const orderedMeals = useMemo(
-    () => [...data.meals].sort((a, b) => a.position - b.position),
-    [data.meals],
-  );
+  const data = state.data;
+  const orderedMeals = [...data.meals].sort((a, b) => a.position - b.position);
 
   return (
     <View style={styles.flex}>
       <ScrollView contentContainerStyle={styles.scroll}>
-        {/* FR-002 / SC-006: tipo-de-dia anunciado e sempre visível. */}
-        <View style={styles.dayTypeBanner}>
+        {/* FR-002 / SC-006: tipo-de-dia anunciado, sempre visível e trocável num toque. */}
+        <Pressable
+          style={styles.dayTypeBanner}
+          onPress={() => setPickingDayType(true)}
+          accessibilityRole="button"
+        >
           <Text style={styles.dayTypeLabel}>Hoje: {data.dayType.label}</Text>
-        </View>
+          {data.availableDayTypes.length > 1 ? (
+            <Text style={styles.dayTypeSwitch}>trocar ›</Text>
+          ) : null}
+        </Pressable>
 
         {orderedMeals.map((meal) => (
           <MealCard
             key={meal.id}
             meal={meal}
             isCurrent={meal.id === data.currentMealId}
-            overrides={overrides}
-            onOpenItem={onOpenItem}
+            activeOptionId={optionOverrides[meal.id]}
+            nameOverrides={nameOverrides}
+            qtyOverrides={qtyOverrides}
+            onChooseOption={(option) => setChoice({ meal, option })}
+            onSubstitute={setSubItem}
+            onCombine={setCombineItem}
           />
         ))}
       </ScrollView>
 
       <SubstitutionSheet
-        item={activeItem}
-        onClose={onCloseSheet}
-        onSelect={onSelectAlternative}
+        item={subItem}
+        onClose={() => setSubItem(null)}
+        onSelect={handleSubstitute}
+      />
+      <CombineSheet
+        item={combineItem}
+        onClose={() => setCombineItem(null)}
+        onConfirm={handleCombine}
+      />
+      <RebalancePreviewSheet
+        meal={choice?.meal ?? null}
+        option={choice?.option ?? null}
+        onClose={() => setChoice(null)}
+        onConfirm={(option, outcome) => {
+          if (choice) handleConfirmRebalance(choice.meal, option, outcome);
+        }}
+      />
+      <DayTypePicker
+        visible={pickingDayType}
+        current={data.dayType.id}
+        options={data.availableDayTypes}
+        onPick={handleSwitchDayType}
+        onClose={() => setPickingDayType(false)}
       />
     </View>
   );
@@ -167,19 +257,29 @@ function ReadyView({
 function MealCard({
   meal,
   isCurrent,
-  overrides,
-  onOpenItem,
+  activeOptionId,
+  nameOverrides,
+  qtyOverrides,
+  onChooseOption,
+  onSubstitute,
+  onCombine,
 }: {
   readonly meal: MealDto;
   readonly isCurrent: boolean;
-  readonly overrides: Readonly<Record<string, ItemOverride>>;
-  readonly onOpenItem: (item: MealItemDto) => void;
+  readonly activeOptionId: string | undefined;
+  readonly nameOverrides: Readonly<Record<string, NameOverride>>;
+  readonly qtyOverrides: Readonly<Record<string, string>>;
+  readonly onChooseOption: (option: MealOptionDto) => void;
+  readonly onSubstitute: (item: MealItemDto) => void;
+  readonly onCombine: (item: MealItemDto) => void;
 }) {
+  const activeOption =
+    meal.options.find((o) => o.id === activeOptionId) ?? meal.defaultOption;
+
   return (
     <View style={[styles.mealCard, isCurrent && styles.mealCardCurrent]}>
       <View style={styles.mealHeader}>
         <Text style={styles.mealName}>{meal.name}</Text>
-        {/* FR-005a: horário quando definido (metadado informativo). */}
         {meal.horario ? (
           <Text style={styles.mealTime}>{meal.horario}</Text>
         ) : null}
@@ -187,21 +287,38 @@ function MealCard({
 
       {isCurrent ? <Text style={styles.nowBadge}>O agora</Text> : null}
 
-      {meal.defaultOption.items.map((item) => (
+      {activeOption.items.map((item) => (
         <ItemRow
           key={item.id}
           item={item}
-          override={overrides[item.id]}
-          onOpenItem={onOpenItem}
+          nameOverride={nameOverrides[item.id]}
+          qtyOverride={qtyOverrides[item.id]}
+          onSubstitute={onSubstitute}
+          onCombine={onCombine}
         />
       ))}
 
-      {/* FR-004: sinaliza outras opções sem expandi-las (fora de escopo). */}
-      {meal.otherOptionsCount > 0 ? (
-        <Text style={styles.otherOptions}>
-          {meal.defaultOption.label} · +{meal.otherOptionsCount}{" "}
-          {meal.otherOptionsCount === 1 ? "outra opção" : "outras opções"}
-        </Text>
+      {/* Fase 2 (P1): chips das opções — tocar uma diferente abre a prévia. */}
+      {meal.options.length > 1 ? (
+        <View style={styles.optionChips}>
+          {meal.options.map((o) => {
+            const active = o.id === activeOption.id;
+            return (
+              <Pressable
+                key={o.id}
+                style={[styles.chip, active && styles.chipActive]}
+                disabled={active}
+                onPress={() => onChooseOption(o)}
+              >
+                <Text
+                  style={[styles.chipText, active && styles.chipTextActive]}
+                >
+                  {o.label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
       ) : null}
     </View>
   );
@@ -209,50 +326,95 @@ function MealCard({
 
 function ItemRow({
   item,
-  override,
-  onOpenItem,
+  nameOverride,
+  qtyOverride,
+  onSubstitute,
+  onCombine,
 }: {
   readonly item: MealItemDto;
-  readonly override: ItemOverride | undefined;
-  readonly onOpenItem: (item: MealItemDto) => void;
+  readonly nameOverride: NameOverride | undefined;
+  readonly qtyOverride: string | undefined;
+  readonly onSubstitute: (item: MealItemDto) => void;
+  readonly onCombine: (item: MealItemDto) => void;
 }) {
-  const foodName = override ? override.foodName : item.food.name;
-  const quantityText = override
-    ? override.quantityLabel
-    : formatGrams(item.quantityGrams);
-  const nutritionLine = override ? null : formatNutritionLine(item);
-
-  const content = (
-    <View style={styles.itemBody}>
-      <View style={styles.itemTextCol}>
-        <Text style={styles.itemName}>{foodName}</Text>
-        {nutritionLine ? (
-          <Text style={styles.itemNutrition}>{nutritionLine}</Text>
-        ) : null}
-      </View>
-      <View style={styles.itemRightCol}>
-        <Text style={styles.itemQty}>{quantityText}</Text>
-        {/* "deixa trocar num toque": só sinaliza quando é substituível. */}
-        {item.substitutable ? (
-          <Text style={styles.swapHint}>Trocar ›</Text>
-        ) : null}
-      </View>
-    </View>
-  );
-
-  // FR-012 / SC-004: item não-substituível não tem gatilho de troca (não barra).
-  if (!item.substitutable) {
-    return <View style={styles.itemRow}>{content}</View>;
-  }
+  const foodName = nameOverride ? nameOverride.foodName : item.food.name;
+  const quantityText = nameOverride
+    ? nameOverride.quantityLabel
+    : (qtyOverride ?? formatGrams(item.quantityGrams));
+  // Mostra nutrição só no estado original (mudou de alimento/quantidade → some).
+  const nutritionLine =
+    nameOverride || qtyOverride ? null : formatNutritionLine(item);
 
   return (
-    <Pressable
-      style={styles.itemRow}
-      onPress={() => onOpenItem(item)}
-      accessibilityRole="button"
+    <View style={styles.itemRow}>
+      <View style={styles.itemBody}>
+        <View style={styles.itemTextCol}>
+          <Text style={styles.itemName}>{foodName}</Text>
+          {nutritionLine ? (
+            <Text style={styles.itemNutrition}>{nutritionLine}</Text>
+          ) : null}
+        </View>
+        <Text style={styles.itemQty}>{quantityText}</Text>
+      </View>
+
+      {/* "deixa trocar num toque" — só para item flexível e ainda no original. */}
+      {item.substitutable && !nameOverride ? (
+        <View style={styles.itemActions}>
+          <Pressable onPress={() => onSubstitute(item)}>
+            <Text style={styles.action}>Trocar ›</Text>
+          </Pressable>
+          <Pressable onPress={() => onCombine(item)}>
+            <Text style={styles.action}>Combinar 2 ›</Text>
+          </Pressable>
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
+function DayTypePicker({
+  visible,
+  current,
+  options,
+  onPick,
+  onClose,
+}: {
+  readonly visible: boolean;
+  readonly current: string;
+  readonly options: readonly DayTypeDto[];
+  readonly onPick: (id: string) => void;
+  readonly onClose: () => void;
+}) {
+  return (
+    <Modal
+      visible={visible}
+      transparent
+      animationType="slide"
+      onRequestClose={onClose}
     >
-      {content}
-    </Pressable>
+      <Pressable style={styles.backdrop} onPress={onClose}>
+        <Pressable style={styles.sheet} onPress={() => {}}>
+          <View style={styles.handle} />
+          <Text style={styles.sheetTitle}>Tipo de dia</Text>
+          {options.map((o) => {
+            const active = o.id === current;
+            return (
+              <Pressable
+                key={o.id}
+                style={[styles.dtRow, active && styles.dtRowActive]}
+                disabled={active}
+                onPress={() => onPick(o.id)}
+              >
+                <Text style={[styles.dtName, active && styles.dtNameActive]}>
+                  {active ? "✓ " : ""}
+                  {o.label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </Pressable>
+      </Pressable>
+    </Modal>
   );
 }
 
@@ -283,18 +445,19 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     paddingHorizontal: 16,
     marginBottom: 16,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
   },
   dayTypeLabel: { color: "#fff", fontSize: 18, fontWeight: "700" },
+  dayTypeSwitch: { color: "#c8e6c9", fontSize: 14, fontWeight: "600" },
   mealCard: {
     backgroundColor: "#fff",
     borderRadius: 12,
     padding: 16,
     marginBottom: 12,
   },
-  mealCardCurrent: {
-    borderWidth: 2,
-    borderColor: "#2e7d32",
-  },
+  mealCardCurrent: { borderWidth: 2, borderColor: "#2e7d32" },
   mealHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -323,15 +486,57 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   itemTextCol: { flexShrink: 1, paddingRight: 12 },
-  itemRightCol: { alignItems: "flex-end" },
   itemName: { fontSize: 16, color: "#1a1a1a" },
   itemNutrition: { fontSize: 13, color: "#888", marginTop: 2 },
   itemQty: { fontSize: 15, color: "#333", fontWeight: "600" },
-  swapHint: { fontSize: 13, color: "#1565c0", marginTop: 2 },
-  otherOptions: {
-    fontSize: 13,
-    color: "#888",
-    marginTop: 10,
-    fontStyle: "italic",
+  itemActions: { flexDirection: "row", gap: 16, marginTop: 6 },
+  action: { fontSize: 13, color: "#1565c0", fontWeight: "600" },
+  optionChips: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    marginTop: 12,
   },
+  chip: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 16,
+    backgroundColor: "#eef",
+    borderWidth: 1,
+    borderColor: "#dde",
+  },
+  chipActive: { backgroundColor: "#2e7d32", borderColor: "#2e7d32" },
+  chipText: { fontSize: 13, color: "#1565c0", fontWeight: "600" },
+  chipTextActive: { color: "#fff" },
+  // bottom-sheet (DayTypePicker)
+  backdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.4)",
+    justifyContent: "flex-end",
+  },
+  sheet: {
+    backgroundColor: "#fff",
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 28,
+  },
+  handle: {
+    alignSelf: "center",
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: "#d0d0d0",
+    marginBottom: 12,
+  },
+  sheetTitle: { fontSize: 18, fontWeight: "700", color: "#1a1a1a" },
+  dtRow: {
+    paddingVertical: 14,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: "#eee",
+  },
+  dtRowActive: {},
+  dtName: { fontSize: 16, color: "#1a1a1a" },
+  dtNameActive: { color: "#2e7d32", fontWeight: "700" },
 });

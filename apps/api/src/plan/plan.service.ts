@@ -10,7 +10,10 @@ import { toTodayResponse, type MealRow, type OptionRow } from './today.mapper';
 export class PlanService {
   constructor(@Inject(DB) private readonly db: Db) {}
 
-  async getToday(patientId: string): Promise<TodayResponse> {
+  async getToday(
+    patientId: string,
+    dayTypeId?: string,
+  ): Promise<TodayResponse> {
     // 1. Paciente (exposure).
     const [pat] = await this.db
       .select({
@@ -35,27 +38,51 @@ export class PlanService {
       .limit(1);
     if (!pln) throw new NotFoundException('plano ativo não encontrado');
 
-    // 3. day_type do dia corrente via day_schedule (weekday do servidor).
-    const weekday = new Date().getDay(); // 0=domingo .. 6=sábado
-    const [sched] = await this.db
-      .select({
-        dayTypeId: schema.dayType.id,
-        dayTypeName: schema.dayType.name,
-      })
-      .from(schema.daySchedule)
-      .innerJoin(
-        schema.dayType,
-        eq(schema.daySchedule.dayTypeId, schema.dayType.id),
-      )
-      .where(
-        and(
-          eq(schema.daySchedule.planId, pln.id),
-          eq(schema.daySchedule.weekday, weekday),
-        ),
-      )
-      .limit(1);
-    if (!sched)
-      throw new NotFoundException('sem programação para o dia corrente');
+    // 3. day_type: override explícito (Fase 2 — troca de tipo-de-dia, só
+    //    exibição) OU resolução pela programação semanal (weekday do servidor).
+    let resolved: { dayTypeId: string; dayTypeName: string };
+    if (dayTypeId) {
+      const [dt] = await this.db
+        .select({ id: schema.dayType.id, name: schema.dayType.name })
+        .from(schema.dayType)
+        .where(
+          and(
+            eq(schema.dayType.id, dayTypeId),
+            eq(schema.dayType.planId, pln.id),
+          ),
+        )
+        .limit(1);
+      if (!dt)
+        throw new NotFoundException(
+          'tipo-de-dia não encontrado no plano do paciente',
+        );
+      resolved = { dayTypeId: dt.id, dayTypeName: dt.name };
+    } else {
+      const weekday = new Date().getDay(); // 0=domingo .. 6=sábado
+      const [sched] = await this.db
+        .select({
+          dayTypeId: schema.dayType.id,
+          dayTypeName: schema.dayType.name,
+        })
+        .from(schema.daySchedule)
+        .innerJoin(
+          schema.dayType,
+          eq(schema.daySchedule.dayTypeId, schema.dayType.id),
+        )
+        .where(
+          and(
+            eq(schema.daySchedule.planId, pln.id),
+            eq(schema.daySchedule.weekday, weekday),
+          ),
+        )
+        .limit(1);
+      if (!sched)
+        throw new NotFoundException('sem programação para o dia corrente');
+      resolved = {
+        dayTypeId: sched.dayTypeId,
+        dayTypeName: sched.dayTypeName,
+      };
+    }
 
     // 4. Refeições do day_type (ordenadas por position).
     const meals = await this.db
@@ -66,7 +93,7 @@ export class PlanService {
         horario: schema.meal.horario,
       })
       .from(schema.meal)
-      .where(eq(schema.meal.dayTypeId, sched.dayTypeId))
+      .where(eq(schema.meal.dayTypeId, resolved.dayTypeId))
       .orderBy(asc(schema.meal.position));
     if (meals.length === 0)
       throw new NotFoundException('sem refeições para o dia corrente');
@@ -138,11 +165,18 @@ export class PlanService {
     // 6. "O agora" no v0: 1ª refeição por position (já ordenadas).
     const currentMealId = mealRows[0].id;
 
+    // 6b. Tipos-de-dia do plano (habilita a troca de cardápio no app — US3).
+    const dayTypes = await this.db
+      .select({ id: schema.dayType.id, name: schema.dayType.name })
+      .from(schema.dayType)
+      .where(eq(schema.dayType.planId, pln.id));
+
     // 7. Monta o DTO puro (gate de exposição aplicado lá).
     return toTodayResponse({
       patientId: pat.id,
       exposure: pat.exposure,
-      dayType: { id: sched.dayTypeId, label: sched.dayTypeName },
+      dayType: { id: resolved.dayTypeId, label: resolved.dayTypeName },
+      availableDayTypes: dayTypes.map((d) => ({ id: d.id, label: d.name })),
       currentMealId,
       meals: mealRows,
     });
