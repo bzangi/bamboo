@@ -103,7 +103,9 @@ export function rebalancearPorKcal(input: {
     let restante = deltaKcal;
     const maxPasses = estado.length + 2;
     for (let pass = 0; pass < maxPasses && restante > EPS; pass++) {
-      const ativos = estado.filter((s) => s.kpg > 0 && s.gramas - s.floor > EPS);
+      const ativos = estado.filter(
+        (s) => s.kpg > 0 && s.gramas - s.floor > EPS,
+      );
       if (ativos.length === 0) break;
       const somaPesos = ativos.reduce((acc, s) => acc + s.gramas * s.kpg, 0);
       if (somaPesos < EPS) break;
@@ -142,16 +144,19 @@ export function rebalancearPorKcal(input: {
     gramasNovo: s.gramas,
     medidaCaseira: medidaMaisProxima(s.gramas, s.a.medidas),
   }));
-  const deltaTotal = estado.reduce<Nutrientes>((acc, s) => {
-    const antes = nutrientesDaPorcao(s.a.macros, s.a.gramasAtual);
-    const depois = nutrientesDaPorcao(s.a.macros, s.gramas);
-    return somaVetores(acc, {
-      kcal: depois.kcal - antes.kcal,
-      carb: depois.carb - antes.carb,
-      protein: depois.protein - antes.protein,
-      fat: depois.fat - antes.fat,
-    });
-  }, { kcal: 0, carb: 0, protein: 0, fat: 0 });
+  const deltaTotal = estado.reduce<Nutrientes>(
+    (acc, s) => {
+      const antes = nutrientesDaPorcao(s.a.macros, s.a.gramasAtual);
+      const depois = nutrientesDaPorcao(s.a.macros, s.gramas);
+      return somaVetores(acc, {
+        kcal: depois.kcal - antes.kcal,
+        carb: depois.carb - antes.carb,
+        protein: depois.protein - antes.protein,
+        fat: depois.fat - antes.fat,
+      });
+    },
+    { kcal: 0, carb: 0, protein: 0, fat: 0 },
+  );
 
   return ok({
     kind: "rebalanceado",
@@ -203,7 +208,8 @@ export function previewTrocaOpcao(input: {
   readonly triggerPosition: number;
   readonly parametros: ParametrosAdaptacao;
 }): Result<RebalanceOutcome, RebalanceError> {
-  const { refeicoesDefault, diaComEscolha, triggerPosition, parametros } = input;
+  const { refeicoesDefault, diaComEscolha, triggerPosition, parametros } =
+    input;
 
   const alvo = alvoDoDia(refeicoesDefault);
   const totalAtual = somaNutrientes(diaComEscolha.flatMap((r) => r.itens));
@@ -215,7 +221,9 @@ export function previewTrocaOpcao(input: {
   const deltaKcal = totalAtual.kcal - alvo.kcal;
   const alavancas = diaComEscolha
     .filter((r) => r.position > triggerPosition)
-    .flatMap((r) => r.itens.filter(ehAlavanca).map((i) => toAlavanca(i, r.position)));
+    .flatMap((r) =>
+      r.itens.filter(ehAlavanca).map((i) => toAlavanca(i, r.position)),
+    );
 
   return rebalancearPorKcal({
     alavancas,
@@ -250,7 +258,9 @@ export function previewTrocaTipoDia(input: {
   const totalProjetado = somaVetores(consumido, restantePlanejado);
 
   if (
-    TODOS_DENTRO(avaliarFaixa(totalProjetado, alvoNovo, parametros.toleranciaPct))
+    TODOS_DENTRO(
+      avaliarFaixa(totalProjetado, alvoNovo, parametros.toleranciaPct),
+    )
   ) {
     return ok({ kind: "sem-acao" });
   }

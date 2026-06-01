@@ -71,7 +71,8 @@ export class PlanService {
     if (meals.length === 0)
       throw new NotFoundException('sem refeições para o dia corrente');
 
-    // 5. Para cada refeição: opção default + itens (com food) + contagem das outras.
+    // 5. Para cada refeição: TODAS as opções + itens (com food). (Fase 2: o
+    //    paciente pode ver/escolher outra opção — gatilho P1.)
     const mealRows: MealRow[] = [];
     for (const m of meals) {
       const options = await this.db
@@ -85,53 +86,52 @@ export class PlanService {
       if (options.length === 0)
         throw new NotFoundException(`refeição ${m.id} sem opções`);
 
-      const defaultOpt = options.find((o) => o.isDefault) ?? options[0];
-      const otherOptionsCount = options.length - 1;
+      const optionRows: OptionRow[] = [];
+      for (const opt of options) {
+        const items = await this.db
+          .select({
+            id: schema.mealItem.id,
+            quantityGrams: schema.mealItem.quantityGrams,
+            isLocked: schema.mealItem.isLocked,
+            substitutionGroupId: schema.mealItem.substitutionGroupId,
+            foodId: schema.food.id,
+            foodName: schema.food.name,
+            kcalPer100g: schema.food.kcalPer100g,
+            carbPer100g: schema.food.carbPer100g,
+            proteinPer100g: schema.food.proteinPer100g,
+            fatPer100g: schema.food.fatPer100g,
+          })
+          .from(schema.mealItem)
+          .innerJoin(schema.food, eq(schema.mealItem.foodId, schema.food.id))
+          .where(eq(schema.mealItem.mealOptionId, opt.id));
 
-      const items = await this.db
-        .select({
-          id: schema.mealItem.id,
-          quantityGrams: schema.mealItem.quantityGrams,
-          isLocked: schema.mealItem.isLocked,
-          substitutionGroupId: schema.mealItem.substitutionGroupId,
-          foodId: schema.food.id,
-          foodName: schema.food.name,
-          kcalPer100g: schema.food.kcalPer100g,
-          carbPer100g: schema.food.carbPer100g,
-          proteinPer100g: schema.food.proteinPer100g,
-          fatPer100g: schema.food.fatPer100g,
-        })
-        .from(schema.mealItem)
-        .innerJoin(schema.food, eq(schema.mealItem.foodId, schema.food.id))
-        .where(eq(schema.mealItem.mealOptionId, defaultOpt.id));
-
-      const optionRow: OptionRow = {
-        id: defaultOpt.id,
-        label: defaultOpt.label,
-        isDefault: defaultOpt.isDefault,
-        items: items.map((it) => ({
-          id: it.id,
-          quantityGrams: it.quantityGrams,
-          isLocked: it.isLocked,
-          substitutionGroupId: it.substitutionGroupId,
-          food: {
-            id: it.foodId,
-            name: it.foodName,
-            kcalPer100g: it.kcalPer100g,
-            carbPer100g: it.carbPer100g,
-            proteinPer100g: it.proteinPer100g,
-            fatPer100g: it.fatPer100g,
-          },
-        })),
-      };
+        optionRows.push({
+          id: opt.id,
+          label: opt.label,
+          isDefault: opt.isDefault,
+          items: items.map((it) => ({
+            id: it.id,
+            quantityGrams: it.quantityGrams,
+            isLocked: it.isLocked,
+            substitutionGroupId: it.substitutionGroupId,
+            food: {
+              id: it.foodId,
+              name: it.foodName,
+              kcalPer100g: it.kcalPer100g,
+              carbPer100g: it.carbPer100g,
+              proteinPer100g: it.proteinPer100g,
+              fatPer100g: it.fatPer100g,
+            },
+          })),
+        });
+      }
 
       mealRows.push({
         id: m.id,
         name: m.name,
         position: m.position,
         horario: m.horario,
-        defaultOption: optionRow,
-        otherOptionsCount,
+        options: optionRows,
       });
     }
 

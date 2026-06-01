@@ -6,6 +6,7 @@ import type {
   ExposureLevel,
   MealDto,
   MealItemDto,
+  MealOptionDto,
   NutritionDto,
   TodayResponse,
 } from '@bamboo/types';
@@ -40,8 +41,8 @@ export interface MealRow {
   readonly name: string;
   readonly position: number;
   readonly horario: string | null;
-  readonly defaultOption: OptionRow;
-  readonly otherOptionsCount: number;
+  // Fase 2: TODAS as opções da refeição (a default entre elas).
+  readonly options: readonly OptionRow[];
 }
 
 export interface TodayInput {
@@ -126,19 +127,26 @@ function normalizeHorario(horario: string | null): string | null {
   return m ? m[1] : horario;
 }
 
+function toOptionDto(opt: OptionRow, exposure: ExposureLevel): MealOptionDto {
+  return {
+    id: opt.id,
+    label: opt.label,
+    isDefault: opt.isDefault,
+    items: opt.items.map((it) => toItemDto(it, exposure)),
+  };
+}
+
 function toMealDto(meal: MealRow, exposure: ExposureLevel): MealDto {
+  const options = meal.options.map((o) => toOptionDto(o, exposure));
+  const defaultOption = options.find((o) => o.isDefault) ?? options[0];
   return {
     id: meal.id,
     name: meal.name,
     position: meal.position,
     horario: normalizeHorario(meal.horario),
-    defaultOption: {
-      id: meal.defaultOption.id,
-      label: meal.defaultOption.label,
-      isDefault: meal.defaultOption.isDefault,
-      items: meal.defaultOption.items.map((it) => toItemDto(it, exposure)),
-    },
-    otherOptionsCount: meal.otherOptionsCount,
+    options,
+    defaultOption,
+    otherOptionsCount: options.length - 1,
   };
 }
 

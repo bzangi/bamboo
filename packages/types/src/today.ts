@@ -50,8 +50,12 @@ export interface MealDto {
   readonly position: number;
   // Horário informativo "HH:MM"; ausente/null quando não definido.
   readonly horario?: string | null;
+  // Fase 2: TODAS as opções da refeição (a default marcada). Habilita o
+  // gatilho P1 (ver/escolher outra opção). defaultOption/otherOptionsCount
+  // mantidos por retrocompatibilidade com a Fase 1.
+  readonly options: readonly MealOptionDto[];
   readonly defaultOption: MealOptionDto;
-  // Sinaliza outras opções sem expandi-las no v0.
+  // Sinaliza outras opções (= options.length - 1).
   readonly otherOptionsCount: number;
 }
 

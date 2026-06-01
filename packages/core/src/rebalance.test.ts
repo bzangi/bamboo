@@ -51,9 +51,9 @@ describe("rebalancearPorKcal (primitivo)", () => {
       pisoPct: 50,
       totalAtual,
     });
-    expect(
-      r.ok && r.value.kind === "recusa-orientada" && r.value.motivo,
-    ).toBe("sem-alavanca");
+    expect(r.ok && r.value.kind === "recusa-orientada" && r.value.motivo).toBe(
+      "sem-alavanca",
+    );
   });
 
   it("reduzir: remove kcal da alavanca respeitando o piso", () => {
@@ -77,9 +77,9 @@ describe("rebalancearPorKcal (primitivo)", () => {
       pisoPct: 50,
       totalAtual,
     });
-    expect(
-      r.ok && r.value.kind === "recusa-orientada" && r.value.motivo,
-    ).toBe("estoura-piso");
+    expect(r.ok && r.value.kind === "recusa-orientada" && r.value.motivo).toBe(
+      "estoura-piso",
+    );
   });
 
   it("aumentar (opção mais leve) → distribui sem teto", () => {
@@ -135,7 +135,9 @@ describe("rebalancearPorKcal (primitivo)", () => {
       totalAtual,
     });
     if (r.ok && r.value.kind === "rebalanceado") {
-      expect(r.value.alavancas[0]!.gramasNovo).toBeGreaterThanOrEqual(50 - 1e-6);
+      expect(r.value.alavancas[0]!.gramasNovo).toBeGreaterThanOrEqual(
+        50 - 1e-6,
+      );
     } else throw new Error("esperava rebalanceado");
   });
 });
@@ -240,9 +242,9 @@ describe("previewTrocaOpcao (P1)", () => {
       triggerPosition: 2,
       parametros: PARAMETROS_SISTEMA,
     });
-    expect(
-      r.ok && r.value.kind === "recusa-orientada" && r.value.motivo,
-    ).toBe("sem-alavanca");
+    expect(r.ok && r.value.kind === "recusa-orientada" && r.value.motivo).toBe(
+      "sem-alavanca",
+    );
   });
 });
 
@@ -273,7 +275,10 @@ describe("previewTrocaTipoDia (P3, engine-level)", () => {
     const r = previewTrocaTipoDia({
       consumido: { kcal: 140, carb: 35, protein: 0, fat: 0 },
       refeicoesRestantesNovoTipo: [
-        { position: 2, itens: [itemDia("lev2", 100, { gramasPlanejado: 100 })] },
+        {
+          position: 2,
+          itens: [itemDia("lev2", 100, { gramasPlanejado: 100 })],
+        },
       ],
       refeicoesDefaultNovoTipo: defaultNovo,
       parametros: PARAMETROS_SISTEMA,
@@ -288,13 +293,16 @@ describe("previewTrocaTipoDia (P3, engine-level)", () => {
     const r = previewTrocaTipoDia({
       consumido: { kcal: 300, carb: 75, protein: 0, fat: 0 },
       refeicoesRestantesNovoTipo: [
-        { position: 2, itens: [itemDia("lev2", 100, { gramasPlanejado: 100 })] },
+        {
+          position: 2,
+          itens: [itemDia("lev2", 100, { gramasPlanejado: 100 })],
+        },
       ],
       refeicoesDefaultNovoTipo: defaultNovo,
       parametros: PARAMETROS_SISTEMA,
     });
-    expect(
-      r.ok && r.value.kind === "recusa-orientada" && r.value.motivo,
-    ).toBe("estoura-piso");
+    expect(r.ok && r.value.kind === "recusa-orientada" && r.value.motivo).toBe(
+      "estoura-piso",
+    );
   });
 });

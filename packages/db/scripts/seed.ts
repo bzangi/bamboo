@@ -454,7 +454,8 @@ async function seed(): Promise<SeedResult> {
       });
     }
 
-    // Almoço (12:30) — 1 opção: arroz (flexível, Carbo) + coxão mole (flexível, Proteína).
+    // Almoço (12:30) — 2 opções (default + uma mais pesada), pra o gatilho P1
+    // (rebalanceamento) também ser exercitável num dia de descanso.
     {
       const almoco = await insertMeal(descanso.id, "Almoço", 2, "12:30");
       const opt = await insertOption(almoco, "Padrão", true);
@@ -478,6 +479,27 @@ async function seed(): Promise<SeedResult> {
         quantityGrams: 80,
         isLocked: false,
         substitutionGroupId: null,
+      });
+
+      // Opção 2 (mais pesada): batata doce + patinho reforçados.
+      const opt2 = await insertOption(
+        almoco,
+        "Batata e carne (reforçado)",
+        false,
+      );
+      await insertItem({
+        mealOptionId: opt2,
+        foodName: "Batata doce cozida",
+        quantityGrams: 220,
+        isLocked: false,
+        substitutionGroupId: carbGroupId,
+      });
+      await insertItem({
+        mealOptionId: opt2,
+        foodName: "Patinho bovino grelhado",
+        quantityGrams: 150,
+        isLocked: false,
+        substitutionGroupId: proteinGroupId,
       });
     }
 
