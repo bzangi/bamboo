@@ -142,10 +142,17 @@ async function seed(): Promise<SeedResult> {
       return id;
     };
 
-    // -------- nutricionista --------
+    // -------- nutricionista (com config de adaptação — nível 2, Fase 2) --------
+    // Semeia o DEFAULT DA NUTRI (band/piso) iguais ao do sistema, só pra
+    // exercitar o caminho de leitura+resolução de 3 níveis na casca (FR-012a/c).
     const [nutri] = await tx
       .insert(nutritionist)
-      .values({ name: "Dra. Marina Lopes", email: "marina@bamboo.dev" })
+      .values({
+        name: "Dra. Marina Lopes",
+        email: "marina@bamboo.dev",
+        defaultBandTolerancePct: 10,
+        defaultFloorPct: 50,
+      })
       .returning({ id: nutritionist.id });
 
     // -------- paciente (exposure=macros para ver números na US1) --------
@@ -350,18 +357,24 @@ async function seed(): Promise<SeedResult> {
       });
 
       // Opção 2: batata doce (flexível, Carbo) + pescada (flexível, Proteína).
-      const opt2 = await insertOption(almoco, "Batata e peixe", false);
+      // Propositalmente MAIS PESADA que a default (mais carbo + proteína) —
+      // escolhê-la desequilibra o dia e dispara o rebalanceamento (gatilho P1).
+      const opt2 = await insertOption(
+        almoco,
+        "Batata e peixe (reforçado)",
+        false,
+      );
       await insertItem({
         mealOptionId: opt2,
         foodName: "Batata doce cozida",
-        quantityGrams: 180,
+        quantityGrams: 250,
         isLocked: false,
         substitutionGroupId: carbGroupId,
       });
       await insertItem({
         mealOptionId: opt2,
         foodName: "Filé de pescada frito",
-        quantityGrams: 130,
+        quantityGrams: 160,
         isLocked: false,
         substitutionGroupId: proteinGroupId,
       });

@@ -9,7 +9,7 @@ Reusa o schema da Fase 0/1 (`packages/db/src/schema.ts`). **Único acréscimo de
 Parâmetros de adaptação (faixa-alvo e piso) resolvem em 3 níveis (FR-012a–c). O nível **sistema** é constante no núcleo; os níveis **nutri** e **paciente** viram colunas nullable de config (semeadas no v0):
 
 | Tabela         | Campo                        | Tipo               | Null? | Motivo                                                                 |
-| -------------- | ---------------------------- | ------------------ | ----- | --------------------------------------------------------------------- |
+| -------------- | ---------------------------- | ------------------ | ----- | ---------------------------------------------------------------------- |
 | `nutritionist` | `default_band_tolerance_pct` | `double precision` | sim   | Default da nutri pra largura da faixa-alvo (% por nutriente). Nível 2. |
 | `nutritionist` | `default_floor_pct`          | `double precision` | sim   | Default da nutri pro piso (% da quantidade planejada). Nível 2.        |
 | `patient`      | `band_tolerance_pct`         | `double precision` | sim   | Override por paciente da largura da faixa-alvo. Nível 1 (vence).       |

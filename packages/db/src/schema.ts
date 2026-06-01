@@ -45,6 +45,10 @@ export const nutritionist = pgTable("nutritionist", {
   id: uuid("id").primaryKey().defaultRandom(),
   name: text("name").notNull(),
   email: text("email").notNull().unique(),
+  // Config de adaptação — default DA NUTRI (nível 2 da resolução de 3 níveis,
+  // Fase 2 / FR-012a). Nullable: null = cai pro default do sistema. Semeado no v0.
+  defaultBandTolerancePct: doublePrecision("default_band_tolerance_pct"),
+  defaultFloorPct: doublePrecision("default_floor_pct"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -61,6 +65,10 @@ export const patient = pgTable("patient", {
   // Perfil de flexibilidade (regras gerais da anamnese): começa simples e
   // cresce. A exposição decide quanto número o paciente vê.
   exposure: exposureLevel("exposure").default("hidden").notNull(),
+  // Config de adaptação — override DO PACIENTE (nível 1, vence; Fase 2 / FR-012a).
+  // Nullable: null = cai pro default da nutri, depois pro do sistema. Semeado no v0.
+  bandTolerancePct: doublePrecision("band_tolerance_pct"),
+  floorPct: doublePrecision("floor_pct"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

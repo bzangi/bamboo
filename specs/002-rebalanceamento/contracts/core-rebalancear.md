@@ -62,7 +62,10 @@ export function rebalancearPorKcal(input: {
 ```ts
 export function previewTrocaOpcao(input: {
   readonly refeicoesDefault: ReadonlyArray<{ readonly itens: ItemMacro[] }>; // pro alvo
-  readonly diaComEscolha: ReadonlyArray<{ readonly position: number; readonly itens: ItemPlano[] }>;
+  readonly diaComEscolha: ReadonlyArray<{
+    readonly position: number;
+    readonly itens: ItemPlano[];
+  }>;
   readonly triggerPosition: number;
   readonly parametros: ParametrosAdaptacao;
 }): Result<RebalanceOutcome, RebalanceError>;
@@ -77,8 +80,13 @@ export function previewTrocaOpcao(input: {
 ```ts
 export function previewTrocaTipoDia(input: {
   readonly consumido: Nutrientes; // o que já foi consumido (fonte = registro, fora de escopo no v0)
-  readonly refeicoesRestantesNovoTipo: ReadonlyArray<{ readonly position: number; readonly itens: ItemPlano[] }>;
-  readonly refeicoesDefaultNovoTipo: ReadonlyArray<{ readonly itens: ItemMacro[] }>;
+  readonly refeicoesRestantesNovoTipo: ReadonlyArray<{
+    readonly position: number;
+    readonly itens: ItemPlano[];
+  }>;
+  readonly refeicoesDefaultNovoTipo: ReadonlyArray<{
+    readonly itens: ItemMacro[];
+  }>;
   readonly parametros: ParametrosAdaptacao;
 }): Result<RebalanceOutcome, RebalanceError>;
 ```

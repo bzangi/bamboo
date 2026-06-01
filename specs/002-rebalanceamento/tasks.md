@@ -20,12 +20,12 @@ description: "Task list — feature 002-rebalanceamento"
 
 ## Mapeamento gatilho → story
 
-| Gatilho / camada                                  | Story | Onde mora                                  |
-| ------------------------------------------------- | ----- | ------------------------------------------ |
-| P1 — escolher opção desigual + prévia (motor+API) | US1   | `core` (motor) + `api` (POST option-choice)|
-| Regra de troca de tipo-de-dia no núcleo (FR-020)  | US1   | `core` (adaptador `previewTrocaTipoDia`)   |
-| P2 — combinação 1→2 (motor+API)                   | US2   | `core` (`combinar`) + `api` (POST combine) |
-| P3 — app mobile consome tudo + troca tipo-de-dia  | US3   | `mobile` + `?dayTypeId` no `/today`        |
+| Gatilho / camada                                  | Story | Onde mora                                   |
+| ------------------------------------------------- | ----- | ------------------------------------------- |
+| P1 — escolher opção desigual + prévia (motor+API) | US1   | `core` (motor) + `api` (POST option-choice) |
+| Regra de troca de tipo-de-dia no núcleo (FR-020)  | US1   | `core` (adaptador `previewTrocaTipoDia`)    |
+| P2 — combinação 1→2 (motor+API)                   | US2   | `core` (`combinar`) + `api` (POST combine)  |
+| P3 — app mobile consome tudo + troca tipo-de-dia  | US3   | `mobile` + `?dayTypeId` no `/today`         |
 
 ---
 

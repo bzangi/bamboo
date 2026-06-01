@@ -46,13 +46,19 @@ export function resolverParametros(niveis: {
 ```ts
 // Σ nutrientesDaPorcao(macros, gramas) sobre os itens.
 export function somaNutrientes(
-  itens: ReadonlyArray<{ readonly macros: FoodMacros; readonly gramas: number }>,
+  itens: ReadonlyArray<{
+    readonly macros: FoodMacros;
+    readonly gramas: number;
+  }>,
 ): Nutrientes;
 
 // Alvo do dia = soma das opções DEFAULT de todas as refeições do tipo-de-dia (FR-001).
 export function alvoDoDia(
   refeicoesDefault: ReadonlyArray<{
-    readonly itens: ReadonlyArray<{ readonly macros: FoodMacros; readonly gramas: number }>;
+    readonly itens: ReadonlyArray<{
+      readonly macros: FoodMacros;
+      readonly gramas: number;
+    }>;
   }>,
 ): Nutrientes;
 ```

@@ -50,6 +50,7 @@ Decisões técnicas que resolvem as áreas em aberto da spec, no formato Decisã
 ## D5 — Parâmetros (faixa, piso) em 3 níveis: colunas nullable + resolução pura
 
 **Decisão**:
+
 - **Defaults do sistema** (nível 3) = constantes no núcleo: `toleranciaPct = 10`, `pisoPct = 50`.
 - **Default da nutri** (nível 2) e **override do paciente** (nível 1) = **colunas nullable** em `nutritionist` e `patient` (config), semeadas no v0 (UI da nutri fora de escopo).
 - A **resolução** (`paciente ?? nutri ?? sistema`, por campo) é uma **função pura** no núcleo; a casca só lê as colunas e passa os valores.
