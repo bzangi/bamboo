@@ -26,6 +26,7 @@ import type {
   RebalanceOutcomeDto,
   RegistrationStatus,
   RegistroConsumo,
+  RegistroIntent,
   SubstitutionAlternativeDto,
   TodayResponse,
 } from "@bamboo/types";
@@ -235,14 +236,17 @@ export function HomeScreen() {
     [resetOverrides],
   );
 
-  // US1/US2 — registra "o agora" (feito/pulei) e recarrega o /today.
+  // US1/US2/US3 — registra "o agora" (feito/pulei), corrige (re-envia o outro
+  // intent numa registrada) ou desfaz (intent="desfazer") e recarrega o /today.
   // "nunca barra": o servidor responde 200 mesmo em no-op; em falha de rede só
-  // destrava os botões (sem bloquear a UI).
+  // destrava os botões (sem bloquear a UI). Ao desfazer, "o agora" re-ancora na
+  // refeição (vem do GET /today).
   // US2 ("troquei"): em "feito", se a refeição tem adequação ativa de sessão
   // (opção != default OU itens substituídos/combinados), envia o consumo pro
   // servidor DERIVAR "troquei" (FR-003). Sem adequação → "feito" puro (US1).
+  // pulei/desfazer não carregam consumo.
   const handleRegistrar = useCallback(
-    (meal: MealDto, intent: "feito" | "pulei") => {
+    (meal: MealDto, intent: RegistroIntent) => {
       if (!PATIENT_ID || registeringMealId) return;
       const mealId = meal.id;
       setRegisteringMealId(mealId);
@@ -391,7 +395,7 @@ function MealCard({
   readonly meal: MealDto;
   readonly isCurrent: boolean;
   readonly registering: boolean;
-  readonly onRegistrar: (meal: MealDto, intent: "feito" | "pulei") => void;
+  readonly onRegistrar: (meal: MealDto, intent: RegistroIntent) => void;
   readonly activeOptionId: string | undefined;
   readonly nameOverrides: Readonly<Record<string, NameOverride>>;
   readonly qtyOverrides: Readonly<Record<string, string>>;
@@ -413,24 +417,56 @@ function MealCard({
       </View>
 
       {/* Refeição registrada → badge do estado (FR-003: "troquei" derivado no
-          servidor); senão, se for "o agora", o marcador do momento. */}
+          servidor); senão, se for "o agora", o marcador do momento.
+          US3 "nunca barra": a registrada nunca tranca. O badge é tocável →
+          DESFAZER (vigente→null, "o agora" re-ancora aqui via /today). Ao lado,
+          uma correção discreta pulei↔feito (re-envia o outro intent; última-
+          escrita-vence no servidor). "troquei" corrige via ↺ desfazer + refazer
+          a troca (overrides de sessão não são reenviados numa correção). */}
       {meal.registro ? (
-        <View
-          style={[
-            styles.registroBadge,
-            meal.registro.state === "pulei" && styles.registroBadgePulei,
-            meal.registro.state === "troquei" && styles.registroBadgeTroquei,
-          ]}
-        >
-          <Text
+        <View style={styles.registroRow}>
+          <Pressable
             style={[
-              styles.registroBadgeText,
-              meal.registro.state === "troquei" &&
-                styles.registroBadgeTroqueiText,
+              styles.registroBadge,
+              meal.registro.state === "pulei" && styles.registroBadgePulei,
+              meal.registro.state === "troquei" && styles.registroBadgeTroquei,
             ]}
+            disabled={registering}
+            onPress={() => onRegistrar(meal, "desfazer")}
+            accessibilityRole="button"
+            accessibilityHint="Toque para desfazer este registro"
           >
-            {REGISTRO_LABEL[meal.registro.state]}
-          </Text>
+            <Text
+              style={[
+                styles.registroBadgeText,
+                meal.registro.state === "troquei" &&
+                  styles.registroBadgeTroqueiText,
+              ]}
+            >
+              {REGISTRO_LABEL[meal.registro.state]}
+            </Text>
+          </Pressable>
+          <Pressable
+            disabled={registering}
+            onPress={() => onRegistrar(meal, "desfazer")}
+          >
+            <Text style={styles.actionReset}>↺ desfazer</Text>
+          </Pressable>
+          {meal.registro.state === "pulei" ? (
+            <Pressable
+              disabled={registering}
+              onPress={() => onRegistrar(meal, "feito")}
+            >
+              <Text style={styles.action}>marcar feito ›</Text>
+            </Pressable>
+          ) : meal.registro.state === "feito" ? (
+            <Pressable
+              disabled={registering}
+              onPress={() => onRegistrar(meal, "pulei")}
+            >
+              <Text style={styles.action}>marcar pulei ›</Text>
+            </Pressable>
+          ) : null}
         </View>
       ) : isCurrent ? (
         <Text style={styles.nowBadge}>O agora</Text>
@@ -666,10 +702,15 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   doneBannerText: { color: "#2e7d32", fontSize: 16, fontWeight: "700" },
-  registroBadge: {
-    alignSelf: "flex-start",
+  registroRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    flexWrap: "wrap",
+    gap: 12,
     marginTop: 4,
     marginBottom: 8,
+  },
+  registroBadge: {
     paddingVertical: 4,
     paddingHorizontal: 10,
     borderRadius: 12,

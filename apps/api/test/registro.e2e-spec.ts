@@ -371,9 +371,10 @@ describe('POST /patients/:id/registro (US2) — derivação de "troquei"', () =>
   });
 
   afterAll(async () => {
+    // Só fecha a app desta suíte; o `pool` (módulo @bamboo/db) é COMPARTILHADO
+    // com a suíte US3 abaixo (mesmo arquivo/processo). O pool.end() único do
+    // arquivo migrou para o afterAll da US3 (última suíte).
     await app?.close();
-    // pool.end() único do arquivo: a US2 é a última suíte deste e2e-spec.
-    await pool.end();
   });
 
   it('POST feito com items=[substituto do MESMO grupo] → 200, vigente.state="troquei"', async () => {
@@ -456,6 +457,242 @@ describe('POST /patients/:id/registro (US2) — derivação de "troquei"', () =>
       .expect(200);
     expect(res.body.vigente?.state).toBe('feito');
     // desfaz para não vazar estado nas asserções seguintes (append-only).
+    await request(app.getHttpServer())
+      .post(`/patients/${patientId}/registro`)
+      .send({ mealId: almocoMealId, intent: 'desfazer' })
+      .expect(200);
+  });
+});
+
+// e2e US3 (test-first) — correção (última-escrita-vence), idempotência (0
+// duplicata observável), desfazer (tombstone → vigente null + "o agora" volta) e
+// desfazer + re-registrar com troca DIFERENTE (novo evento aceito após anulação).
+// Cobertura (contracts/http-registro.md "Cobertura e2e" US3 + quickstart 7-9):
+//   - CORREÇÃO: pulei → feito na MESMA refeição → vigente.state="feito".
+//   - IDEMPOTÊNCIA: feito + reenvio feito idêntico → 200 e vigente segue "feito".
+//   - DESFAZER: feito; GET /today (o agora avançou); desfazer → vigente=null e
+//       GET /today mostra a refeição como "o agora" de novo (currentMealId=ela,
+//       registro=null).
+//   - DESFAZER + RE-REGISTRAR DIFERENTE: troquei (opção não-default); desfazer;
+//       feito (default) → vigente.state="feito".
+//
+// Isolamento: as suítes US1/US2 (acima) rodam PRIMEIRO no mesmo arquivo
+// (sequencial, fileParallelism:false) e já fecharam suas asserções quando esta
+// começa. Cada caso de SUCESSO DESFAZ (intent="desfazer") o que registrou ao
+// final → mantém o escopo (paciente, refeição, dia) append-only-limpo. Alvo = o
+// "Almoço" de hoje (o seed dá ≥2 opções), distinto das asserções por-posição da
+// US1. O pool.end() único do arquivo vive no afterAll desta suíte (a última).
+describe('POST /patients/:id/registro (US3) — correção, idempotência, desfazer', () => {
+  let app: INestApplication;
+  let patientId: string;
+  let almocoMealId: string;
+  let nonDefaultOptionId: string;
+
+  beforeAll(async () => {
+    const [pat] = await db
+      .select({ id: schema.patient.id })
+      .from(schema.patient)
+      .limit(1);
+    patientId = pat.id;
+
+    const [pln] = await db
+      .select({ id: schema.plan.id })
+      .from(schema.plan)
+      .where(
+        and(
+          eq(schema.plan.patientId, patientId),
+          eq(schema.plan.isActive, true),
+        ),
+      )
+      .limit(1);
+
+    // day_type de hoje (mesma resolução do service: weekday do servidor).
+    const weekday = new Date().getDay();
+    const [sched] = await db
+      .select({ dayTypeId: schema.daySchedule.dayTypeId })
+      .from(schema.daySchedule)
+      .where(
+        and(
+          eq(schema.daySchedule.planId, pln.id),
+          eq(schema.daySchedule.weekday, weekday),
+        ),
+      )
+      .limit(1);
+    const dayTypeId = sched.dayTypeId;
+
+    // Refeição "Almoço" de hoje (o seed garante ≥2 opções nela). Alvo dos casos.
+    const [almoco] = await db
+      .select({ id: schema.meal.id })
+      .from(schema.meal)
+      .where(
+        and(
+          eq(schema.meal.dayTypeId, dayTypeId),
+          eq(schema.meal.name, 'Almoço'),
+        ),
+      )
+      .limit(1);
+    almocoMealId = almoco.id;
+
+    // Opção NÃO-default do almoço (para o re-registro DIFERENTE = troquei).
+    const [ndOpt] = await db
+      .select({ id: schema.mealOption.id })
+      .from(schema.mealOption)
+      .where(
+        and(
+          eq(schema.mealOption.mealId, almocoMealId),
+          eq(schema.mealOption.isDefault, false),
+        ),
+      )
+      .limit(1);
+    nonDefaultOptionId = ndOpt.id;
+
+    const moduleRef = await Test.createTestingModule({
+      imports: [RegistroModule, PlanModule],
+    }).compile();
+    app = moduleRef.createNestApplication();
+    await app.init();
+  });
+
+  afterAll(async () => {
+    await app?.close();
+    // pool.end() único do arquivo: a US3 é a última suíte deste e2e-spec.
+    await pool.end();
+  });
+
+  it('CORREÇÃO: pulei → feito na MESMA refeição → vigente.state="feito" (última-escrita-vence)', async () => {
+    const pulou = await request(app.getHttpServer())
+      .post(`/patients/${patientId}/registro`)
+      .send({ mealId: almocoMealId, intent: 'pulei' })
+      .expect(200);
+    expect(pulou.body.vigente).toEqual({ state: 'pulei' });
+
+    // corrige para "feito" sem desfazer antes: a última escrita vence.
+    const corrigiu = await request(app.getHttpServer())
+      .post(`/patients/${patientId}/registro`)
+      .send({ mealId: almocoMealId, intent: 'feito' })
+      .expect(200);
+    expect(corrigiu.body.mealId).toBe(almocoMealId);
+    expect(corrigiu.body.vigente).toEqual({ state: 'feito' });
+
+    // desfaz ao final (escopo append-only-limpo).
+    await request(app.getHttpServer())
+      .post(`/patients/${patientId}/registro`)
+      .send({ mealId: almocoMealId, intent: 'desfazer' })
+      .expect(200);
+  });
+
+  it('IDEMPOTÊNCIA: feito + reenvio feito idêntico → 200 e vigente segue "feito" (0 duplicata observável)', async () => {
+    const primeiro = await request(app.getHttpServer())
+      .post(`/patients/${patientId}/registro`)
+      .send({ mealId: almocoMealId, intent: 'feito' })
+      .expect(200);
+    expect(primeiro.body.vigente).toEqual({ state: 'feito' });
+
+    // reenvio idêntico → decidirRegistro = no-op no service; vigente inalterado.
+    const reenvio = await request(app.getHttpServer())
+      .post(`/patients/${patientId}/registro`)
+      .send({ mealId: almocoMealId, intent: 'feito' })
+      .expect(200);
+    expect(reenvio.body.vigente).toEqual({ state: 'feito' });
+
+    // 0 duplicata OBSERVÁVEL: o GET /today expõe um único estado vigente "feito".
+    const today = await request(app.getHttpServer())
+      .get(`/patients/${patientId}/today`)
+      .expect(200);
+    const alvo = (
+      today.body.meals as Array<{
+        id: string;
+        registro: { state: string } | null;
+      }>
+    ).find((m) => m.id === almocoMealId);
+    expect(alvo?.registro).toEqual({ state: 'feito' });
+
+    // desfaz ao final.
+    await request(app.getHttpServer())
+      .post(`/patients/${patientId}/registro`)
+      .send({ mealId: almocoMealId, intent: 'desfazer' })
+      .expect(200);
+  });
+
+  it('DESFAZER: feito → o agora avança; desfazer → vigente=null e GET /today devolve a refeição como "o agora"', async () => {
+    // Alvo = almoço. Os casos anteriores desta suíte o deixaram NÃO-registrado
+    // (último ato = desfazer) → é a refeição-alvo das asserções de "o agora".
+    const feito = await request(app.getHttpServer())
+      .post(`/patients/${patientId}/registro`)
+      .send({ mealId: almocoMealId, intent: 'feito' })
+      .expect(200);
+    expect(feito.body.vigente).toEqual({ state: 'feito' });
+    // "o agora" avançou: deixou de ser o almoço (foi p/ a próxima não-registrada,
+    // ou null se o dia concluiu — não dependemos da posição global).
+    expect(feito.body.currentMealId).not.toBe(almocoMealId);
+
+    // confirma no /today que o almoço saiu de "o agora" enquanto registrado.
+    const apos = await request(app.getHttpServer())
+      .get(`/patients/${patientId}/today`)
+      .expect(200);
+    expect(apos.body.currentMealId).not.toBe(almocoMealId);
+    const almocoApos = (
+      apos.body.meals as Array<{
+        id: string;
+        registro: { state: string } | null;
+        isCurrent: boolean;
+      }>
+    ).find((m) => m.id === almocoMealId);
+    expect(almocoApos?.registro).toEqual({ state: 'feito' });
+    expect(almocoApos?.isCurrent).toBe(false);
+
+    // desfaz → tombstone (state=null): vigente=null.
+    const desfez = await request(app.getHttpServer())
+      .post(`/patients/${patientId}/registro`)
+      .send({ mealId: almocoMealId, intent: 'desfazer' })
+      .expect(200);
+    expect(desfez.body.vigente).toBeNull();
+
+    // GET /today: o almoço volta a ser "o agora" (única não-registrada do dia,
+    // pois as demais seguem registradas pela US1) e seu registro é null.
+    const volta = await request(app.getHttpServer())
+      .get(`/patients/${patientId}/today`)
+      .expect(200);
+    expect(volta.body.currentMealId).toBe(almocoMealId);
+    const almocoVolta = (
+      volta.body.meals as Array<{
+        id: string;
+        registro: { state: string } | null;
+        isCurrent: boolean;
+      }>
+    ).find((m) => m.id === almocoMealId);
+    expect(almocoVolta?.registro).toBeNull();
+    expect(almocoVolta?.isCurrent).toBe(true);
+  });
+
+  it('DESFAZER + RE-REGISTRAR DIFERENTE: troquei (opção não-default) → desfazer → feito (default) → vigente.state="feito"', async () => {
+    // 1) troquei via opção NÃO-default.
+    const troquei = await request(app.getHttpServer())
+      .post(`/patients/${patientId}/registro`)
+      .send({
+        mealId: almocoMealId,
+        intent: 'feito',
+        consumo: { chosenOptionId: nonDefaultOptionId },
+      })
+      .expect(200);
+    expect(troquei.body.vigente).toEqual({ state: 'troquei' });
+
+    // 2) desfaz → vigente=null (anulação).
+    const desfez = await request(app.getHttpServer())
+      .post(`/patients/${patientId}/registro`)
+      .send({ mealId: almocoMealId, intent: 'desfazer' })
+      .expect(200);
+    expect(desfez.body.vigente).toBeNull();
+
+    // 3) re-registra DIFERENTE: feito na opção default → novo evento aceito após
+    //    a anulação (vigente era null → decidirRegistro=inserir, não no-op).
+    const refeito = await request(app.getHttpServer())
+      .post(`/patients/${patientId}/registro`)
+      .send({ mealId: almocoMealId, intent: 'feito' })
+      .expect(200);
+    expect(refeito.body.vigente).toEqual({ state: 'feito' });
+
+    // desfaz ao final (escopo append-only-limpo).
     await request(app.getHttpServer())
       .post(`/patients/${patientId}/registro`)
       .send({ mealId: almocoMealId, intent: 'desfazer' })
