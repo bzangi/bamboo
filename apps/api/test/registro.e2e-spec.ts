@@ -2,7 +2,7 @@ import { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { and, asc, eq, db, pool, schema } from '@bamboo/db';
+import { and, asc, eq, ne, db, pool, schema } from '@bamboo/db';
 import { RegistroModule } from '../src/registro/registro.module';
 import { PlanModule } from '../src/plan/plan.module';
 
@@ -68,8 +68,10 @@ describe('POST /patients/:id/registro (US1) + reflexo no GET /today', () => {
   });
 
   afterAll(async () => {
+    // Só fecha a app desta suíte; o `pool` (módulo @bamboo/db) é COMPARTILHADO
+    // com a suíte US2 abaixo (mesmo arquivo/processo). Fechar aqui derrubaria as
+    // queries do beforeAll da US2 → o pool.end() único fica no afterAll da US2.
     await app?.close();
-    await pool.end();
   });
 
   it('estado inicial: GET /today → currentMealId = 1ª, toda refeição registro=null, diaConcluido=false', async () => {
@@ -216,5 +218,247 @@ describe('POST /patients/:id/registro (US1) + reflexo no GET /today', () => {
       .post(`/patients/${patientId}/registro`)
       .send({ mealId: mealIds[0], intent: 'troquei' })
       .expect(400);
+  });
+});
+
+// e2e US2 (test-first) — derivação de "troquei" (FR-003): o cliente NUNCA envia
+// "troquei"; o servidor o deriva de consumo.items (substituição within-group,
+// grupos RESOLVIDOS NO BANCO) ou de consumo.chosenOptionId (opção não-default).
+// Cobertura (contracts/http-registro.md "Cobertura e2e" US2):
+//   - feito + items=[{itemId, foodId=substituto-do-mesmo-grupo, gramas}] → troquei
+//   - feito + chosenOptionId=opção NÃO-default → troquei
+//   - feito + items com foodId de OUTRO grupo → 422 (consumo-fora-do-grupo)
+//   - feito + substituicao com items=[] → 422 (consumo-invalido) OU n/a pelo shape
+//
+// Isolamento: a suíte US1 (acima) roda PRIMEIRO no mesmo arquivo (sequencial,
+// fileParallelism:false) e suas asserções já fecharam quando esta começa. Ainda
+// assim, cada caso US2 DESFAZ (intent="desfazer") o que registrou ao final, pra
+// manter o escopo (paciente, refeição, dia) append-only-limpo e não influenciar
+// casos vizinhos. Alvo = o "Almoço" de hoje (o seed dá ≥2 opções + item flexível
+// com grupo), distinto das asserções por-posição da US1.
+describe('POST /patients/:id/registro (US2) — derivação de "troquei"', () => {
+  let app: INestApplication;
+  let patientId: string;
+  let almocoMealId: string;
+  let defaultOptionId: string;
+  let nonDefaultOptionId: string;
+  let flexItemId: string; // item flexível (com grupo) da opção default
+  let sameGroupFoodId: string; // food do MESMO grupo do flexItem (substituto real)
+  let otherGroupFoodId: string; // food de OUTRO grupo (caso 422)
+
+  beforeAll(async () => {
+    const [pat] = await db
+      .select({ id: schema.patient.id })
+      .from(schema.patient)
+      .limit(1);
+    patientId = pat.id;
+
+    const [pln] = await db
+      .select({ id: schema.plan.id })
+      .from(schema.plan)
+      .where(
+        and(
+          eq(schema.plan.patientId, patientId),
+          eq(schema.plan.isActive, true),
+        ),
+      )
+      .limit(1);
+
+    // day_type de hoje (mesma resolução do service: weekday do servidor).
+    const weekday = new Date().getDay();
+    const [sched] = await db
+      .select({ dayTypeId: schema.daySchedule.dayTypeId })
+      .from(schema.daySchedule)
+      .where(
+        and(
+          eq(schema.daySchedule.planId, pln.id),
+          eq(schema.daySchedule.weekday, weekday),
+        ),
+      )
+      .limit(1);
+    const dayTypeId = sched.dayTypeId;
+
+    // Refeição "Almoço" de hoje (o seed garante ≥2 opções nela, em treino e
+    // descanso). Cai aqui independentemente do tipo-de-dia que hoje resolver.
+    const [almoco] = await db
+      .select({ id: schema.meal.id })
+      .from(schema.meal)
+      .where(
+        and(
+          eq(schema.meal.dayTypeId, dayTypeId),
+          eq(schema.meal.name, 'Almoço'),
+        ),
+      )
+      .limit(1);
+    almocoMealId = almoco.id;
+
+    // Opção default e uma NÃO-default da refeição.
+    const [defOpt] = await db
+      .select({ id: schema.mealOption.id })
+      .from(schema.mealOption)
+      .where(
+        and(
+          eq(schema.mealOption.mealId, almocoMealId),
+          eq(schema.mealOption.isDefault, true),
+        ),
+      )
+      .limit(1);
+    defaultOptionId = defOpt.id;
+
+    const [ndOpt] = await db
+      .select({ id: schema.mealOption.id })
+      .from(schema.mealOption)
+      .where(
+        and(
+          eq(schema.mealOption.mealId, almocoMealId),
+          eq(schema.mealOption.isDefault, false),
+        ),
+      )
+      .limit(1);
+    nonDefaultOptionId = ndOpt.id;
+
+    // Item FLEXÍVEL (com grupo) da opção default → o que será substituído.
+    const flexItems = await db
+      .select({
+        id: schema.mealItem.id,
+        foodId: schema.mealItem.foodId,
+        groupId: schema.mealItem.substitutionGroupId,
+      })
+      .from(schema.mealItem)
+      .where(
+        and(
+          eq(schema.mealItem.mealOptionId, defaultOptionId),
+          eq(schema.mealItem.isLocked, false),
+        ),
+      )
+      .orderBy(asc(schema.mealItem.id));
+    const flex = flexItems.find((i) => i.groupId !== null);
+    if (!flex || flex.groupId === null) {
+      throw new Error('seed sem item flexível com grupo na opção default');
+    }
+    flexItemId = flex.id;
+    const flexGroupId = flex.groupId;
+
+    // Substituto DO MESMO grupo (food≠ do item) via food_substitution_group.
+    const [same] = await db
+      .select({ foodId: schema.foodSubstitutionGroup.foodId })
+      .from(schema.foodSubstitutionGroup)
+      .where(
+        and(
+          eq(schema.foodSubstitutionGroup.groupId, flexGroupId),
+          ne(schema.foodSubstitutionGroup.foodId, flex.foodId),
+        ),
+      )
+      .limit(1);
+    if (!same)
+      throw new Error('seed sem substituto no mesmo grupo do flexItem');
+    sameGroupFoodId = same.foodId;
+
+    // Food de OUTRO grupo (groupId ≠ do flexItem) → caso 422 fora-do-grupo.
+    const [other] = await db
+      .select({ foodId: schema.foodSubstitutionGroup.foodId })
+      .from(schema.foodSubstitutionGroup)
+      .where(ne(schema.foodSubstitutionGroup.groupId, flexGroupId))
+      .limit(1);
+    if (!other) throw new Error('seed sem food de outro grupo');
+    otherGroupFoodId = other.foodId;
+
+    const moduleRef = await Test.createTestingModule({
+      imports: [RegistroModule, PlanModule],
+    }).compile();
+    app = moduleRef.createNestApplication();
+    await app.init();
+  });
+
+  afterAll(async () => {
+    await app?.close();
+    // pool.end() único do arquivo: a US2 é a última suíte deste e2e-spec.
+    await pool.end();
+  });
+
+  it('POST feito com items=[substituto do MESMO grupo] → 200, vigente.state="troquei"', async () => {
+    const res = await request(app.getHttpServer())
+      .post(`/patients/${patientId}/registro`)
+      .send({
+        mealId: almocoMealId,
+        intent: 'feito',
+        consumo: {
+          items: [
+            {
+              itemId: flexItemId,
+              foodId: sameGroupFoodId,
+              quantityGrams: 120,
+            },
+          ],
+        },
+      })
+      .expect(200);
+
+    expect(res.body.mealId).toBe(almocoMealId);
+    expect(res.body.vigente).toEqual({ state: 'troquei' });
+
+    // desfaz pra não influenciar os casos vizinhos (escopo append-only-limpo).
+    await request(app.getHttpServer())
+      .post(`/patients/${patientId}/registro`)
+      .send({ mealId: almocoMealId, intent: 'desfazer' })
+      .expect(200);
+  });
+
+  it('POST feito com chosenOptionId NÃO-default → 200, vigente.state="troquei"', async () => {
+    const res = await request(app.getHttpServer())
+      .post(`/patients/${patientId}/registro`)
+      .send({
+        mealId: almocoMealId,
+        intent: 'feito',
+        consumo: { chosenOptionId: nonDefaultOptionId },
+      })
+      .expect(200);
+
+    expect(res.body.vigente).toEqual({ state: 'troquei' });
+
+    await request(app.getHttpServer())
+      .post(`/patients/${patientId}/registro`)
+      .send({ mealId: almocoMealId, intent: 'desfazer' })
+      .expect(200);
+  });
+
+  it('POST feito com items.foodId de OUTRO grupo → 422 (consumo-fora-do-grupo, DB-resolvido)', async () => {
+    await request(app.getHttpServer())
+      .post(`/patients/${patientId}/registro`)
+      .send({
+        mealId: almocoMealId,
+        intent: 'feito',
+        consumo: {
+          items: [
+            {
+              itemId: flexItemId,
+              foodId: otherGroupFoodId,
+              quantityGrams: 120,
+            },
+          ],
+        },
+      })
+      .expect(422);
+  });
+
+  it('POST feito com consumo.items=[] (lista vazia = sem substituição) → feito, não troquei', async () => {
+    // items=[] significa "não substituí nada" → SEM adequação → feito (não 422).
+    // A casca só monta substituicao-combinacao com itens não-vazio; a guarda de
+    // "itens vazio → consumo-invalido" do core é invariante defensiva, coberta no
+    // unit de packages/core, não exercível por este payload.
+    const res = await request(app.getHttpServer())
+      .post(`/patients/${patientId}/registro`)
+      .send({
+        mealId: almocoMealId,
+        intent: 'feito',
+        consumo: { items: [] },
+      })
+      .expect(200);
+    expect(res.body.vigente?.state).toBe('feito');
+    // desfaz para não vazar estado nas asserções seguintes (append-only).
+    await request(app.getHttpServer())
+      .post(`/patients/${patientId}/registro`)
+      .send({ mealId: almocoMealId, intent: 'desfazer' })
+      .expect(200);
   });
 });

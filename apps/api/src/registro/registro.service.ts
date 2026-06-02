@@ -11,8 +11,10 @@ import {
   decidirRegistro,
   derivarOAgora,
   estadoVigente,
+  type Adequacao,
   type AlvoRegistro,
   type EventoRegistro,
+  type ItemConsumido,
 } from '@bamboo/core';
 import { and, asc, eq, inArray, schema, sql } from '@bamboo/db';
 import type { RegistroRequest, RegistroResponse } from '@bamboo/types';
@@ -25,11 +27,13 @@ const UUID_RE =
 
 const INTENTS = ['feito', 'pulei', 'desfazer'] as const;
 
-// Casca imperativa (US1): I/O via Drizzle dentro de db.transaction + advisory
-// lock por (paciente, refeição, dia), orquestra o núcleo puro (classificarEstado,
+// Casca imperativa: I/O via Drizzle dentro de db.transaction + advisory lock por
+// (paciente, refeição, dia), orquestra o núcleo puro (classificarEstado,
 // estadoVigente, decidirRegistro, derivarOAgora), persiste append-only e converte
 // Result/ausências → HttpException na borda (opção 1). Sem serializar entidade
-// crua (mapper puro). US1 trata só feito|pulei|desfazer — consumo.items é US2.
+// crua (mapper puro). Trata feito|pulei|desfazer (US1) e deriva troquei (US2)
+// resolvendo opção não-default / substituição within-group NO BANCO (nunca do
+// payload), gravando chosen_meal_option_id + meal_event_item na mesma transação.
 @Injectable()
 export class RegistroService {
   constructor(@Inject(DB) private readonly db: Db) {}
@@ -47,6 +51,35 @@ export class RegistroService {
     }
     if (body.dayTypeId !== undefined && !UUID_RE.test(body.dayTypeId)) {
       throw new BadRequestException('dayTypeId deve ser UUID');
+    }
+    // consumo só faz sentido em "feito" (deriva troquei). Em pulei/desfazer é
+    // ignorado pelo core; aqui só validamos a estrutura quando presente.
+    if (body.consumo) {
+      const { chosenOptionId, items } = body.consumo;
+      if (chosenOptionId !== undefined && !UUID_RE.test(chosenOptionId)) {
+        throw new BadRequestException('consumo.chosenOptionId deve ser UUID');
+      }
+      if (items !== undefined) {
+        for (const it of items) {
+          if (!UUID_RE.test(it?.itemId ?? '')) {
+            throw new BadRequestException(
+              'consumo.items[].itemId deve ser UUID',
+            );
+          }
+          if (!UUID_RE.test(it?.foodId ?? '')) {
+            throw new BadRequestException(
+              'consumo.items[].foodId deve ser UUID',
+            );
+          }
+          // gramas ≤ 0 / não-número é integridade de payload (400); o core ainda
+          // reconfirma como consumo-invalido (422) na borda do negócio.
+          if (typeof it.quantityGrams !== 'number' || it.quantityGrams <= 0) {
+            throw new BadRequestException(
+              'consumo.items[].quantityGrams deve ser número > 0',
+            );
+          }
+        }
+      }
     }
 
     // weekday e loggedDate vêm da MESMA fonte que o /today (localToday) — sem isso,
@@ -157,15 +190,118 @@ export class RegistroService {
       }));
       const vigente = estadoVigente(eventos);
 
-      // 7. Monta o alvo (US1: feito|pulei|desfazer). troquei/itens é US2 —
-      //    consumo.items é ignorado nesta task.
+      // 7. Resolução de adequação NO BANCO (deriva troquei, FR-003). Só em
+      //    intent="feito" com sinais de adequação: opção não-default OU items.
+      //    Tudo resolvido no banco (jamais confiar no payload). Resolve também a
+      //    opção cumprida (chosenMealOptionId) p/ gravar no evento.
+      //
+      //    adequacao=null            → feito (US1 intacto: opção default / sem items)
+      //    opcao-nao-default         → troquei (chosenOptionId resolve p/ is_default=false)
+      //    substituicao-combinacao   → troquei (items resolvidos por grupo no banco)
+      let adequacao: Adequacao | null = null;
+      // Opção cumprida gravada no evento: default em feito/troquei-por-subst.;
+      //   a própria opção não-default em troquei-por-opção.
+      let cumpridaMealOptionId: string | null = null;
+      // Linhas de consumo efetivo (filhas meal_event_item) p/ troquei por
+      //   substituição. Materializadas na resolução do banco (foodId+gramas do
+      //   payload, já validados estruturalmente), inseridas só se virar troquei.
+      let consumoRows: ReadonlyArray<{
+        readonly foodId: string;
+        readonly quantityGrams: number;
+      }> = [];
+
+      if (body.intent === 'feito' && body.consumo) {
+        const { chosenOptionId, items } = body.consumo;
+
+        // 7a. chosenOptionId → carrega is_default validando pertencer à refeição.
+        if (chosenOptionId) {
+          const [opt] = await tx
+            .select({
+              id: schema.mealOption.id,
+              isDefault: schema.mealOption.isDefault,
+            })
+            .from(schema.mealOption)
+            .where(
+              and(
+                eq(schema.mealOption.id, chosenOptionId),
+                eq(schema.mealOption.mealId, body.mealId),
+              ),
+            )
+            .limit(1);
+          if (!opt)
+            throw new NotFoundException(
+              'opção não pertence à refeição do plano',
+            );
+          cumpridaMealOptionId = opt.id; // opção cumprida = a escolhida (default ou não)
+          if (!opt.isDefault) {
+            adequacao = { kind: 'opcao-nao-default', mealOptionId: opt.id };
+          }
+        }
+
+        // 7b. items → resolve grupos no banco (grupo esperado do item do plano +
+        //     grupo do food consumido). Substituição/combinação ⇒ troquei.
+        if (items && items.length > 0) {
+          const itens: ItemConsumido[] = [];
+          for (const it of items) {
+            // groupIdEsperado = meal_item.substitutionGroupId, validando que o
+            //   item pertence à refeição-alvo (meal_item→meal_option→meal). 404
+            //   se não pertence OU se o item do plano não tem grupo (não-trocável).
+            const [mi] = await tx
+              .select({
+                substitutionGroupId: schema.mealItem.substitutionGroupId,
+              })
+              .from(schema.mealItem)
+              .innerJoin(
+                schema.mealOption,
+                eq(schema.mealItem.mealOptionId, schema.mealOption.id),
+              )
+              .where(
+                and(
+                  eq(schema.mealItem.id, it.itemId),
+                  eq(schema.mealOption.mealId, body.mealId),
+                ),
+              )
+              .limit(1);
+            if (!mi || mi.substitutionGroupId == null)
+              throw new NotFoundException(
+                'item do plano não pertence à refeição ou não é trocável',
+              );
+
+            // groupId do food consumido via food_substitution_group. 404 se o
+            //   food não tem grupo (não dá p/ classificar pertencimento).
+            const [fsg] = await tx
+              .select({ groupId: schema.foodSubstitutionGroup.groupId })
+              .from(schema.foodSubstitutionGroup)
+              .where(eq(schema.foodSubstitutionGroup.foodId, it.foodId))
+              .limit(1);
+            if (!fsg)
+              throw new NotFoundException(
+                'alimento consumido não pertence a nenhum grupo',
+              );
+
+            itens.push({
+              groupIdEsperado: mi.substitutionGroupId,
+              groupId: fsg.groupId,
+              gramas: it.quantityGrams,
+            });
+          }
+          adequacao = { kind: 'substituicao-combinacao', itens };
+          consumoRows = items.map((it) => ({
+            foodId: it.foodId,
+            quantityGrams: it.quantityGrams,
+          }));
+        }
+      }
+
+      // 8. Monta o alvo (núcleo): desfazer; senão classificarEstado com a
+      //    adequação DB-resolvida (deriva feito/troquei/pulei).
       let alvo: AlvoRegistro;
       if (body.intent === 'desfazer') {
         alvo = { kind: 'desfazer' };
       } else {
         const classificado = classificarEstado({
           marcacao: body.intent === 'feito' ? 'consumiu' : 'nao-consumiu',
-          adequacao: null,
+          adequacao,
         });
         if (!classificado.ok) {
           throw match(classificado.error)
@@ -185,38 +321,59 @@ export class RegistroService {
         alvo = { kind: 'marcar', estado: classificado.value };
       }
 
-      // 8. Idempotência alvo-vs-vigente (núcleo). no-op → não insere.
+      // 9. Idempotência alvo-vs-vigente (núcleo). no-op → não insere.
       const decisao = decidirRegistro({ vigente, alvo });
       if (decisao.kind === 'inserir') {
-        // chosen_meal_option_id: a opção default da refeição quando feito
-        //   (snapshot da opção cumprida); NULL em pulei/desfazer.
+        // chosen_meal_option_id: a opção cumprida (snapshot auto-contido),
+        //   gravada em feito E troquei; NULL em pulei/desfazer.
+        //   - troquei-por-opção → a própria opção não-default (cumpridaMealOptionId).
+        //   - feito / troquei-por-substituição → a opção default da refeição.
         let chosenMealOptionId: string | null = null;
-        if (decisao.state === 'feito') {
-          const [defaultOpt] = await tx
-            .select({ id: schema.mealOption.id })
-            .from(schema.mealOption)
-            .where(
-              and(
-                eq(schema.mealOption.mealId, body.mealId),
-                eq(schema.mealOption.isDefault, true),
-              ),
-            )
-            .limit(1);
-          chosenMealOptionId = defaultOpt?.id ?? null;
+        if (decisao.state === 'feito' || decisao.state === 'troquei') {
+          if (cumpridaMealOptionId) {
+            chosenMealOptionId = cumpridaMealOptionId;
+          } else {
+            const [defaultOpt] = await tx
+              .select({ id: schema.mealOption.id })
+              .from(schema.mealOption)
+              .where(
+                and(
+                  eq(schema.mealOption.mealId, body.mealId),
+                  eq(schema.mealOption.isDefault, true),
+                ),
+              )
+              .limit(1);
+            chosenMealOptionId = defaultOpt?.id ?? null;
+          }
         }
 
-        await tx.insert(schema.mealEvent).values({
-          patientId,
-          planId: pln.id,
-          mealId: body.mealId,
-          dayTypeId,
-          chosenMealOptionId,
-          state: decisao.state,
-          loggedDate,
-        });
+        const [evento] = await tx
+          .insert(schema.mealEvent)
+          .values({
+            patientId,
+            planId: pln.id,
+            mealId: body.mealId,
+            dayTypeId,
+            chosenMealOptionId,
+            state: decisao.state,
+            loggedDate,
+          })
+          .returning({ id: schema.mealEvent.id });
+
+        // troquei por substituição/combinação: grava o consumo efetivo (filhas)
+        //   na MESMA transação. Outros estados não geram filhas.
+        if (decisao.state === 'troquei' && consumoRows.length > 0) {
+          await tx.insert(schema.mealEventItem).values(
+            consumoRows.map((r) => ({
+              mealEventId: evento.id,
+              foodId: r.foodId,
+              quantityGrams: r.quantityGrams,
+            })),
+          );
+        }
       }
 
-      // 9. Re-derivar "o agora": todas as refeições do dia (mesma ordem do plano)
+      // 10. Re-derivar "o agora": todas as refeições do dia (mesma ordem do plano)
       //    + estado vigente de cada uma após a operação.
       const refeicoesDoDia = await tx
         .select({ id: schema.meal.id, position: schema.meal.position })

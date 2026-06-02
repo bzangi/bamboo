@@ -25,6 +25,7 @@ import type {
   MealOptionDto,
   RebalanceOutcomeDto,
   RegistrationStatus,
+  RegistroConsumo,
   SubstitutionAlternativeDto,
   TodayResponse,
 } from "@bamboo/types";
@@ -49,6 +50,15 @@ interface NameOverride {
   readonly quantityLabel: string;
 }
 
+// US2 — consumo efetivo de um item trocado/combinado, já materializado
+// (foodId + gramas). É o que vai no POST registro.consumo.items para o
+// servidor derivar "troquei". Combinação gera 2 entradas pro mesmo itemId.
+interface ConsumoItem {
+  readonly itemId: string;
+  readonly foodId: string;
+  readonly quantityGrams: number;
+}
+
 export function HomeScreen() {
   const [state, setState] = useState<ScreenState>({ status: "loading" });
   // Troca de tipo-de-dia (só exibição): recarrega o /today com este dayTypeId.
@@ -64,6 +74,11 @@ export function HomeScreen() {
   const [optionOverrides, setOptionOverrides] = useState<
     Readonly<Record<string, string>>
   >({}); // mealId -> optionId ativa
+  // US2: consumo efetivo (foodId + gramas) por item trocado/combinado, pro
+  // POST registro derivar "troquei". itemId -> 1..2 alimentos consumidos.
+  const [consumoOverrides, setConsumoOverrides] = useState<
+    Readonly<Record<string, readonly ConsumoItem[]>>
+  >({});
 
   // Sheets abertos.
   const [subItem, setSubItem] = useState<MealItemDto | null>(null);
@@ -109,6 +124,7 @@ export function HomeScreen() {
     setNameOverrides({});
     setQtyOverrides({});
     setOptionOverrides({});
+    setConsumoOverrides({});
   }, []);
 
   // US2 — aplica a substituição (estado local).
@@ -122,6 +138,13 @@ export function HomeScreen() {
             ? `${alt.medidaCaseira.label} (${formatGrams(alt.gramas)})`
             : formatGrams(alt.gramas),
         },
+      }));
+      // Consumo efetivo: 1 alimento substituto, pra derivar "troquei" no POST.
+      setConsumoOverrides((prev) => ({
+        ...prev,
+        [item.id]: [
+          { itemId: item.id, foodId: alt.foodId, quantityGrams: alt.gramas },
+        ],
       }));
       setSubItem(null);
     },
@@ -143,6 +166,15 @@ export function HomeScreen() {
             foodName: `${p0.food.name} + ${p1.food.name}`,
             quantityLabel: `${label(p0)} + ${label(p1)}`,
           },
+        }));
+        // Consumo efetivo: 2 alimentos do mesmo grupo, ambos no mesmo itemId;
+        // o servidor resolve o grupo por itemId e valida cada food.
+        setConsumoOverrides((prev) => ({
+          ...prev,
+          [item.id]: [
+            { itemId: item.id, foodId: p0.food.id, quantityGrams: p0.gramas },
+            { itemId: item.id, foodId: p1.food.id, quantityGrams: p1.gramas },
+          ],
         }));
       }
       setCombineItem(null);
@@ -186,6 +218,12 @@ export function HomeScreen() {
       delete next[itemId];
       return next;
     });
+    setConsumoOverrides((prev) => {
+      if (!(itemId in prev)) return prev;
+      const next = { ...prev };
+      delete next[itemId];
+      return next;
+    });
   }, []);
 
   const handleSwitchDayType = useCallback(
@@ -197,21 +235,44 @@ export function HomeScreen() {
     [resetOverrides],
   );
 
-  // US1 — registra "o agora" (feito/pulei) e recarrega o /today.
+  // US1/US2 — registra "o agora" (feito/pulei) e recarrega o /today.
   // "nunca barra": o servidor responde 200 mesmo em no-op; em falha de rede só
   // destrava os botões (sem bloquear a UI).
+  // US2 ("troquei"): em "feito", se a refeição tem adequação ativa de sessão
+  // (opção != default OU itens substituídos/combinados), envia o consumo pro
+  // servidor DERIVAR "troquei" (FR-003). Sem adequação → "feito" puro (US1).
   const handleRegistrar = useCallback(
-    (mealId: string, intent: "feito" | "pulei") => {
+    (meal: MealDto, intent: "feito" | "pulei") => {
       if (!PATIENT_ID || registeringMealId) return;
+      const mealId = meal.id;
       setRegisteringMealId(mealId);
-      postRegistro(API_URL, PATIENT_ID, { mealId, intent, dayTypeId })
+
+      let consumo: RegistroConsumo | undefined;
+      if (intent === "feito") {
+        const activeOption =
+          meal.options.find((o) => o.id === optionOverrides[mealId]) ??
+          meal.defaultOption;
+        // Itens consumidos só da opção ativa (substituídos/combinados nela).
+        const items = activeOption.items.flatMap(
+          (it) => consumoOverrides[it.id] ?? [],
+        );
+        const optionNaoDefault = !activeOption.isDefault;
+        if (optionNaoDefault || items.length > 0) {
+          consumo = {
+            chosenOptionId: activeOption.id,
+            ...(items.length > 0 ? { items } : {}),
+          };
+        }
+      }
+
+      postRegistro(API_URL, PATIENT_ID, { mealId, intent, dayTypeId, consumo })
         .then(() => load(dayTypeId))
         .catch(() => {
           // mantém a tela; o paciente pode tentar de novo.
         })
         .finally(() => setRegisteringMealId(null));
     },
-    [dayTypeId, load, registeringMealId],
+    [consumoOverrides, dayTypeId, load, optionOverrides, registeringMealId],
   );
 
   if (state.status === "loading") {
@@ -330,7 +391,7 @@ function MealCard({
   readonly meal: MealDto;
   readonly isCurrent: boolean;
   readonly registering: boolean;
-  readonly onRegistrar: (mealId: string, intent: "feito" | "pulei") => void;
+  readonly onRegistrar: (meal: MealDto, intent: "feito" | "pulei") => void;
   readonly activeOptionId: string | undefined;
   readonly nameOverrides: Readonly<Record<string, NameOverride>>;
   readonly qtyOverrides: Readonly<Record<string, string>>;
@@ -358,9 +419,16 @@ function MealCard({
           style={[
             styles.registroBadge,
             meal.registro.state === "pulei" && styles.registroBadgePulei,
+            meal.registro.state === "troquei" && styles.registroBadgeTroquei,
           ]}
         >
-          <Text style={styles.registroBadgeText}>
+          <Text
+            style={[
+              styles.registroBadgeText,
+              meal.registro.state === "troquei" &&
+                styles.registroBadgeTroqueiText,
+            ]}
+          >
             {REGISTRO_LABEL[meal.registro.state]}
           </Text>
         </View>
@@ -410,14 +478,14 @@ function MealCard({
           <Pressable
             style={[styles.registroBtn, styles.registroBtnFeito]}
             disabled={registering}
-            onPress={() => onRegistrar(meal.id, "feito")}
+            onPress={() => onRegistrar(meal, "feito")}
           >
             <Text style={styles.registroBtnFeitoText}>Feito</Text>
           </Pressable>
           <Pressable
             style={[styles.registroBtn, styles.registroBtnPulei]}
             disabled={registering}
-            onPress={() => onRegistrar(meal.id, "pulei")}
+            onPress={() => onRegistrar(meal, "pulei")}
           >
             <Text style={styles.registroBtnPuleiText}>Pulei</Text>
           </Pressable>
@@ -608,7 +676,9 @@ const styles = StyleSheet.create({
     backgroundColor: "#e8f5e9",
   },
   registroBadgePulei: { backgroundColor: "#f0f0f0" },
+  registroBadgeTroquei: { backgroundColor: "#e3f2fd" },
   registroBadgeText: { fontSize: 13, fontWeight: "700", color: "#2e7d32" },
+  registroBadgeTroqueiText: { color: "#1565c0" },
   registroActions: { flexDirection: "row", gap: 12, marginTop: 12 },
   registroBtn: {
     flex: 1,

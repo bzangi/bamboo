@@ -57,9 +57,9 @@ Registrar / corrigir / desfazer o estado de **uma refeição num dia**. `@HttpCo
 {
   "mealId": "uuid",
   "loggedDate": "2026-06-02",
-  "vigente": { "state": "feito" },     // ou troquei | pulei | null (após desfazer)
-  "currentMealId": "uuid",             // 1ª refeição não-registrada após a operação; null se dia concluído
-  "diaConcluido": false
+  "vigente": { "state": "feito" }, // ou troquei | pulei | null (após desfazer)
+  "currentMealId": "uuid", // 1ª refeição não-registrada após a operação; null se dia concluído
+  "diaConcluido": false,
 }
 ```
 
@@ -67,11 +67,11 @@ Nunca devolve número de adesão/percentual (FR-016).
 
 ### Erros
 
-| Status | Quando |
-|--------|--------|
-| 400 | corpo estruturalmente inválido (UUID/enum/gramas ≤ 0 ou não-número) |
-| 404 | paciente sem plano ativo; refeição/opção/item não pertence ao plano do paciente |
-| 422 | food consumido fora do grupo do item (DB-resolvido); itens vazio em troquei-por-substituição |
+| Status | Quando                                                                                       |
+| ------ | -------------------------------------------------------------------------------------------- |
+| 400    | corpo estruturalmente inválido (UUID/enum/gramas ≤ 0 ou não-número)                          |
+| 404    | paciente sem plano ativo; refeição/opção/item não pertence ao plano do paciente              |
+| 422    | food consumido fora do grupo do item (DB-resolvido); itens vazio em troquei-por-substituição |
 
 ## `GET /patients/:patientId/today` (estendido)
 
@@ -91,7 +91,11 @@ Sem mudança de assinatura. Passa a:
 export type RegistroIntent = "feito" | "pulei" | "desfazer";
 export type RegistroConsumo = {
   readonly chosenOptionId?: string; // opcional: ausente → servidor assume a opção default
-  readonly items?: ReadonlyArray<{ readonly itemId: string; readonly foodId: string; readonly quantityGrams: number }>;
+  readonly items?: ReadonlyArray<{
+    readonly itemId: string;
+    readonly foodId: string;
+    readonly quantityGrams: number;
+  }>;
 };
 export type RegistroRequest = {
   readonly mealId: string;
@@ -115,4 +119,4 @@ export type RegistroResponse = {
 - **US3**: pulei→feito (correção) → vigente feito; reenvio idêntico → 0 duplicata observável (vigente igual); desfazer → vigente null e "o agora" volta; **desfazer + re-registrar com troca diferente** → novo troquei gravado.
 - **Dia concluído**: registrar a última → `currentMealId=null`, `diaConcluido=true`, 200.
 - **LGPD/IDOR**: POST com `mealId` de plano de OUTRO paciente sob `:patientId` de A → 404 e nada gravado.
-- **Bordas**: 400 (gramas ≤ 0 / UUID inválido); 422 (`foodId` fora do grupo do item, DB-resolvido); 422 (itens vazio em troquei-por-substituição).
+- **Bordas**: 400 (gramas ≤ 0 / UUID inválido); 422 (`foodId` fora do grupo do item, DB-resolvido); `consumo.items: []` (lista vazia) = **sem substituição** → `feito` (200), não 422 — a casca só monta `substituicao-combinacao` com itens não-vazio; a guarda "itens vazio → consumo-invalido" do core é invariante defensiva, exercida no unit de `packages/core`, não por este payload.
