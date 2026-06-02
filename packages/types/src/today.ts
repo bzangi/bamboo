@@ -6,6 +6,10 @@ import type { HouseholdMeasureDto } from "./substitution.js";
 
 export type ExposureLevel = "hidden" | "percent" | "macros" | "full_kcal";
 
+// Fase 3 (registro pendurado na consulta): estado vigente de uma refeição no
+// dia. "troquei" é derivado no servidor; "feito"/"pulei" vêm da intent.
+export type RegistrationStatus = "feito" | "troquei" | "pulei";
+
 // Nutrição da porção filtrada pelo gate de exposição (montada na borda):
 //  - hidden    -> o item NÃO traz nutrition (campo ausente).
 //  - percent   -> só proporções dos macros (carbPct/proteinPct/fatPct), sem gramas/kcal.
@@ -63,6 +67,10 @@ export interface MealDto {
   readonly defaultOption: MealOptionDto;
   // Sinaliza outras opções (= options.length - 1).
   readonly otherOptionsCount: number;
+  // Fase 3: estado vigente do registro desta refeição hoje; null = não-registrada.
+  readonly registro: { readonly state: RegistrationStatus } | null;
+  // Fase 3: é a refeição "o agora" (1ª não-registrada na ordem do plano).
+  readonly isCurrent: boolean;
 }
 
 export interface DayTypeDto {
@@ -76,7 +84,10 @@ export interface TodayResponse {
   readonly dayType: DayTypeDto;
   // Fase 2: tipos-de-dia do plano (habilita a troca de cardápio no app — US3).
   readonly availableDayTypes: readonly DayTypeDto[];
-  // v0: a 1ª refeição por position.
-  readonly currentMealId: string;
+  // Fase 3: 1ª refeição NÃO-REGISTRADA na ordem do plano; null se dia concluído.
+  // (v0 era a 1ª por position, estática; sem eventos no dia, segue sendo a 1ª.)
+  readonly currentMealId: string | null;
+  // Fase 3: true quando todas as refeições do dia estão registradas.
+  readonly diaConcluido: boolean;
   readonly meals: readonly MealDto[];
 }

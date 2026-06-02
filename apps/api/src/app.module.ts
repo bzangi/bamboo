@@ -6,6 +6,7 @@ import { PlanModule } from './plan/plan.module';
 import { SubstitutionModule } from './substitution/substitution.module';
 import { RebalanceModule } from './rebalance/rebalance.module';
 import { CombinationModule } from './combination/combination.module';
+import { RegistroModule } from './registro/registro.module';
 
 @Module({
   imports: [
@@ -14,6 +15,7 @@ import { CombinationModule } from './combination/combination.module';
     SubstitutionModule,
     RebalanceModule,
     CombinationModule,
+    RegistroModule,
   ],
   controllers: [AppController],
   providers: [AppService],

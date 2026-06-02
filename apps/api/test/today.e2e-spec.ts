@@ -58,7 +58,7 @@ describe('GET /patients/:id/today (US1)', () => {
     await pool.end();
   });
 
-  it('retorna dayType com label, refeições ordenadas e currentMealId = 1ª', async () => {
+  it('retorna dayType com label, refeições ordenadas e "o agora" = 1ª não-registrada (Fase 3)', async () => {
     const res = await request(app.getHttpServer())
       .get(`/patients/${patientId}/today`)
       .expect(200);
@@ -76,11 +76,43 @@ describe('GET /patients/:id/today (US1)', () => {
     const sorted = [...positions].sort((a, b) => a - b);
     expect(positions).toEqual(sorted);
 
-    // currentMealId = 1ª refeição por position (v0).
-    expect(body.currentMealId).toBe(body.meals[0].id);
+    // Fase 3: campos de registro por refeição + diaConcluido no topo.
+    // "o agora" = 1ª refeição NÃO-registrada na ordem do plano (não mais a 1ª
+    // estática). Robusto a estado deixado por outras suítes na mesma sessão de
+    // banco (registro.e2e roda antes; pode haver eventos do dia).
+    expect(typeof body.diaConcluido).toBe('boolean');
+    const meals = body.meals as Array<{
+      id: string;
+      registro: { state: string } | null;
+      isCurrent: boolean;
+      defaultOption: { id: string; isDefault: boolean; items: unknown[] };
+      otherOptionsCount: number;
+    }>;
+    for (const m of meals) {
+      // registro: estado vigente ou null (não-registrada).
+      if (m.registro !== null) {
+        expect(['feito', 'troquei', 'pulei']).toContain(m.registro.state);
+      }
+      expect(typeof m.isCurrent).toBe('boolean');
+    }
+
+    const firstUnregistered = meals.find((m) => m.registro === null);
+    if (firstUnregistered) {
+      expect(body.diaConcluido).toBe(false);
+      // currentMealId = a 1ª não-registrada; e exatamente ela tem isCurrent.
+      expect(body.currentMealId).toBe(firstUnregistered.id);
+      const currents = meals.filter((m) => m.isCurrent);
+      expect(currents.length).toBe(1);
+      expect(currents[0].id).toBe(firstUnregistered.id);
+    } else {
+      // todas registradas → dia concluído, "o agora" nulo, ninguém isCurrent.
+      expect(body.diaConcluido).toBe(true);
+      expect(body.currentMealId).toBeNull();
+      expect(meals.every((m) => !m.isCurrent)).toBe(true);
+    }
 
     // cada refeição expõe a defaultOption + otherOptionsCount.
-    for (const m of body.meals) {
+    for (const m of meals) {
       expect(m.defaultOption).toBeDefined();
       expect(m.defaultOption.isDefault).toBe(true);
       expect(Array.isArray(m.defaultOption.items)).toBe(true);

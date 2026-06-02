@@ -16,7 +16,7 @@ import {
   Text,
   View,
 } from "react-native";
-import { getToday } from "@bamboo/api-client";
+import { getToday, postRegistro } from "@bamboo/api-client";
 import type {
   CombinePartDto,
   DayTypeDto,
@@ -24,6 +24,7 @@ import type {
   MealItemDto,
   MealOptionDto,
   RebalanceOutcomeDto,
+  RegistrationStatus,
   SubstitutionAlternativeDto,
   TodayResponse,
 } from "@bamboo/types";
@@ -72,6 +73,10 @@ export function HomeScreen() {
     readonly option: MealOptionDto;
   } | null>(null);
   const [pickingDayType, setPickingDayType] = useState(false);
+  // US1: refeição em curso de registro (trava os botões e evita toque duplo).
+  const [registeringMealId, setRegisteringMealId] = useState<string | null>(
+    null,
+  );
 
   const load = useCallback((dt?: string) => {
     if (!PATIENT_ID) {
@@ -192,6 +197,23 @@ export function HomeScreen() {
     [resetOverrides],
   );
 
+  // US1 — registra "o agora" (feito/pulei) e recarrega o /today.
+  // "nunca barra": o servidor responde 200 mesmo em no-op; em falha de rede só
+  // destrava os botões (sem bloquear a UI).
+  const handleRegistrar = useCallback(
+    (mealId: string, intent: "feito" | "pulei") => {
+      if (!PATIENT_ID || registeringMealId) return;
+      setRegisteringMealId(mealId);
+      postRegistro(API_URL, PATIENT_ID, { mealId, intent, dayTypeId })
+        .then(() => load(dayTypeId))
+        .catch(() => {
+          // mantém a tela; o paciente pode tentar de novo.
+        })
+        .finally(() => setRegisteringMealId(null));
+    },
+    [dayTypeId, load, registeringMealId],
+  );
+
   if (state.status === "loading") {
     return (
       <View style={styles.centerScreen}>
@@ -230,11 +252,21 @@ export function HomeScreen() {
           ) : null}
         </Pressable>
 
+        {/* FR (US1): dia concluído = todas as refeições registradas. Sem "o
+            agora"; estado de encerramento, "nunca barra". */}
+        {data.diaConcluido ? (
+          <View style={styles.doneBanner}>
+            <Text style={styles.doneBannerText}>Dia concluído ✓</Text>
+          </View>
+        ) : null}
+
         {orderedMeals.map((meal) => (
           <MealCard
             key={meal.id}
             meal={meal}
             isCurrent={meal.id === data.currentMealId}
+            registering={registeringMealId === meal.id}
+            onRegistrar={handleRegistrar}
             activeOptionId={optionOverrides[meal.id]}
             nameOverrides={nameOverrides}
             qtyOverrides={qtyOverrides}
@@ -275,9 +307,18 @@ export function HomeScreen() {
   );
 }
 
+// US1: rótulo do estado vigente exibido no badge (em vez das ações).
+const REGISTRO_LABEL: Readonly<Record<RegistrationStatus, string>> = {
+  feito: "✓ Feito",
+  troquei: "⇄ Troquei",
+  pulei: "✕ Pulei",
+};
+
 function MealCard({
   meal,
   isCurrent,
+  registering,
+  onRegistrar,
   activeOptionId,
   nameOverrides,
   qtyOverrides,
@@ -288,6 +329,8 @@ function MealCard({
 }: {
   readonly meal: MealDto;
   readonly isCurrent: boolean;
+  readonly registering: boolean;
+  readonly onRegistrar: (mealId: string, intent: "feito" | "pulei") => void;
   readonly activeOptionId: string | undefined;
   readonly nameOverrides: Readonly<Record<string, NameOverride>>;
   readonly qtyOverrides: Readonly<Record<string, string>>;
@@ -308,7 +351,22 @@ function MealCard({
         ) : null}
       </View>
 
-      {isCurrent ? <Text style={styles.nowBadge}>O agora</Text> : null}
+      {/* Refeição registrada → badge do estado (FR-003: "troquei" derivado no
+          servidor); senão, se for "o agora", o marcador do momento. */}
+      {meal.registro ? (
+        <View
+          style={[
+            styles.registroBadge,
+            meal.registro.state === "pulei" && styles.registroBadgePulei,
+          ]}
+        >
+          <Text style={styles.registroBadgeText}>
+            {REGISTRO_LABEL[meal.registro.state]}
+          </Text>
+        </View>
+      ) : isCurrent ? (
+        <Text style={styles.nowBadge}>O agora</Text>
+      ) : null}
 
       {activeOption.items.map((item) => (
         <ItemRow
@@ -342,6 +400,27 @@ function MealCard({
               </Pressable>
             );
           })}
+        </View>
+      ) : null}
+
+      {/* US1: ações de registro do "o agora" (só feito/pulei; "troquei" é
+          derivado no servidor). Some assim que a refeição já tem registro. */}
+      {isCurrent && !meal.registro ? (
+        <View style={styles.registroActions}>
+          <Pressable
+            style={[styles.registroBtn, styles.registroBtnFeito]}
+            disabled={registering}
+            onPress={() => onRegistrar(meal.id, "feito")}
+          >
+            <Text style={styles.registroBtnFeitoText}>Feito</Text>
+          </Pressable>
+          <Pressable
+            style={[styles.registroBtn, styles.registroBtnPulei]}
+            disabled={registering}
+            onPress={() => onRegistrar(meal.id, "pulei")}
+          >
+            <Text style={styles.registroBtnPuleiText}>Pulei</Text>
+          </Pressable>
         </View>
       ) : null}
     </View>
@@ -510,6 +589,41 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
     letterSpacing: 0.5,
   },
+  doneBanner: {
+    backgroundColor: "#e8f5e9",
+    borderRadius: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    marginBottom: 12,
+    alignItems: "center",
+  },
+  doneBannerText: { color: "#2e7d32", fontSize: 16, fontWeight: "700" },
+  registroBadge: {
+    alignSelf: "flex-start",
+    marginTop: 4,
+    marginBottom: 8,
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: 12,
+    backgroundColor: "#e8f5e9",
+  },
+  registroBadgePulei: { backgroundColor: "#f0f0f0" },
+  registroBadgeText: { fontSize: 13, fontWeight: "700", color: "#2e7d32" },
+  registroActions: { flexDirection: "row", gap: 12, marginTop: 12 },
+  registroBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 10,
+    alignItems: "center",
+  },
+  registroBtnFeito: { backgroundColor: "#2e7d32" },
+  registroBtnFeitoText: { color: "#fff", fontSize: 15, fontWeight: "700" },
+  registroBtnPulei: {
+    backgroundColor: "#fff",
+    borderWidth: 1,
+    borderColor: "#ccc",
+  },
+  registroBtnPuleiText: { color: "#666", fontSize: 15, fontWeight: "700" },
   itemRow: {
     paddingVertical: 12,
     borderTopWidth: StyleSheet.hairlineWidth,

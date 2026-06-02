@@ -16,6 +16,7 @@ import {
   boolean,
   timestamp,
   time,
+  date,
   pgEnum,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
@@ -37,6 +38,15 @@ export const equivalenceBasis = pgEnum("equivalence_basis", [
   "protein",
   "fat",
   "kcal",
+]);
+
+// Estado de uma marcação de registro (feito/troquei/pulei). Exatamente 3 valores
+// (FR-002). Ausência de estado vigente = nenhum evento OU evento mais recente
+// com state NULL (anulação/desfazer) — ver meal_event.state.
+export const mealEventState = pgEnum("meal_event_state", [
+  "feito",
+  "troquei",
+  "pulei",
 ]);
 
 /* ============ pessoas ============ */
@@ -200,6 +210,54 @@ export const mealItem = pgTable("meal_item", {
   ),
 });
 
+/* ============ registro pendurado na consulta (append-only) ============ */
+
+// Evento de registro de uma refeição num dia (feito/troquei/pulei). Append-only:
+// toda transição (incl. correção e desfazer) é um INSERT; o estado anterior nunca
+// é mutado. Estado vigente por (patient, meal, logged_date) = evento de maior
+// created_at; state NULL = anulação (desfazer) → volta a "não-registrada".
+export const mealEvent = pgTable("meal_event", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  patientId: uuid("patient_id")
+    .references(() => patient.id)
+    .notNull(),
+  planId: uuid("plan_id")
+    .references(() => plan.id)
+    .notNull(),
+  mealId: uuid("meal_id")
+    .references(() => meal.id)
+    .notNull(),
+  // Tipo-de-dia em vigor no momento do registro (default ou override de sessão),
+  // gravado como snapshot — não materializa day_selection.
+  dayTypeId: uuid("day_type_id")
+    .references(() => dayType.id)
+    .notNull(),
+  // Opção efetivamente cumprida; gravada em `feito` E `troquei`. NULL em
+  // `pulei`/desfazer.
+  chosenMealOptionId: uuid("chosen_meal_option_id").references(
+    () => mealOption.id,
+  ),
+  // NULL = evento de anulação (desfazer).
+  state: mealEventState("state"),
+  // Dia-calendário do registro; parte da chave (paciente, refeição, dia).
+  loggedDate: date("logged_date").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Consumo efetivo do "troquei por substituição/combinação" (filha de meal_event).
+// FK→food garante "dentro da lista" (barra comida-fora-da-lista). Presente apenas
+// em "troquei por substituição"; "troquei por opção" usa só chosenMealOptionId.
+export const mealEventItem = pgTable("meal_event_item", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  mealEventId: uuid("meal_event_id")
+    .references(() => mealEvent.id)
+    .notNull(),
+  foodId: uuid("food_id")
+    .references(() => food.id)
+    .notNull(),
+  quantityGrams: doublePrecision("quantity_grams").notNull(),
+});
+
 /* ============ relations (principais) ============ */
 
 export const planRelations = relations(plan, ({ many, one }) => ({
@@ -234,11 +292,35 @@ export const mealItemRelations = relations(mealItem, ({ one }) => ({
   }),
 }));
 
+export const mealEventRelations = relations(mealEvent, ({ many, one }) => ({
+  patient: one(patient, {
+    fields: [mealEvent.patientId],
+    references: [patient.id],
+  }),
+  plan: one(plan, { fields: [mealEvent.planId], references: [plan.id] }),
+  meal: one(meal, { fields: [mealEvent.mealId], references: [meal.id] }),
+  dayType: one(dayType, {
+    fields: [mealEvent.dayTypeId],
+    references: [dayType.id],
+  }),
+  chosenMealOption: one(mealOption, {
+    fields: [mealEvent.chosenMealOptionId],
+    references: [mealOption.id],
+  }),
+  items: many(mealEventItem),
+}));
+
+export const mealEventItemRelations = relations(mealEventItem, ({ one }) => ({
+  event: one(mealEvent, {
+    fields: [mealEventItem.mealEventId],
+    references: [mealEvent.id],
+  }),
+  food: one(food, { fields: [mealEventItem.foodId], references: [food.id] }),
+}));
+
 /* ============ ADIADO pra fases posteriores ============
  * - cycle: ciclo de acompanhamento; passa a wrappar e versionar os planos.
  * - day_selection: qual tipo-de-dia o paciente seguiu em cada data (default vs override).
- * - meal_event / log: feito/troquei/pulei + o que comeu de fato
- *     (alimenta adesão E é o gatilho do rebalanceamento por consumo real).
  * - adherence / cycle_report: métricas da Fase 3.
  * - índices e constraints de performance (deixar pra quando o acesso estabilizar).
  */

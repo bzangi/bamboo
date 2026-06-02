@@ -2,8 +2,10 @@
 // serializar entidade do Drizzle crua). Sem I/O, sem throw, sem mutação.
 // Aplica o gate de exposição (FR-005) na borda.
 import {
+  derivarOAgora,
   medidaMaisProxima,
   nutrientesDaPorcao,
+  type EstadoRegistro,
   type FoodMacros,
 } from '@bamboo/core';
 import type {
@@ -66,6 +68,9 @@ export interface MealRow {
   readonly horario: string | null;
   // Fase 2: TODAS as opções da refeição (a default entre elas).
   readonly options: readonly OptionRow[];
+  // Fase 3: estado vigente do registro desta refeição hoje (last-wins/tombstone,
+  // resolvido na casca via estadoVigente). null = não-registrada / sem eventos.
+  readonly estadoVigente: EstadoRegistro | null;
 }
 
 export interface TodayInput {
@@ -76,7 +81,8 @@ export interface TodayInput {
     readonly id: string;
     readonly label: string;
   }[];
-  readonly currentMealId: string;
+  // Fase 3: "o agora" é DERIVADO aqui (1ª refeição não-registrada na ordem do
+  // plano) via derivarOAgora — não vem mais pronto da casca.
   readonly meals: readonly MealRow[];
 }
 
@@ -164,7 +170,11 @@ function toOptionDto(opt: OptionRow, exposure: ExposureLevel): MealOptionDto {
   };
 }
 
-function toMealDto(meal: MealRow, exposure: ExposureLevel): MealDto {
+function toMealDto(
+  meal: MealRow,
+  exposure: ExposureLevel,
+  currentMealId: string | null,
+): MealDto {
   const options = meal.options.map((o) => toOptionDto(o, exposure));
   const defaultOption = options.find((o) => o.isDefault) ?? options[0];
   return {
@@ -175,11 +185,26 @@ function toMealDto(meal: MealRow, exposure: ExposureLevel): MealDto {
     options,
     defaultOption,
     otherOptionsCount: options.length - 1,
+    registro: meal.estadoVigente ? { state: meal.estadoVigente } : null,
+    isCurrent: meal.id === currentMealId,
   };
 }
 
 /** Monta a TodayResponse a partir do agregado lido do banco. Função pura. */
 export function toTodayResponse(input: TodayInput): TodayResponse {
+  // "O agora" derivado: 1ª refeição não-registrada na ordem do plano. Todas
+  // registradas → dia-concluido (currentMealId null). Sem eventos no dia, todos
+  // os estados são null → o agora = 1ª refeição (retrocompat com a Fase 1/2).
+  const oAgora = derivarOAgora({
+    refeicoes: input.meals.map((m) => ({ mealId: m.id, ordem: m.position })),
+    vigentes: input.meals.map((m) => ({
+      mealId: m.id,
+      estado: m.estadoVigente,
+    })),
+  });
+  const currentMealId = oAgora.kind === 'refeicao' ? oAgora.mealId : null;
+  const diaConcluido = oAgora.kind === 'dia-concluido';
+
   return {
     patientId: input.patientId,
     exposure: input.exposure,
@@ -188,7 +213,8 @@ export function toTodayResponse(input: TodayInput): TodayResponse {
       id: d.id,
       label: d.label,
     })),
-    currentMealId: input.currentMealId,
-    meals: input.meals.map((m) => toMealDto(m, input.exposure)),
+    currentMealId,
+    diaConcluido,
+    meals: input.meals.map((m) => toMealDto(m, input.exposure, currentMealId)),
   };
 }

@@ -35,6 +35,8 @@ import {
   meal,
   mealOption,
   mealItem,
+  mealEvent,
+  mealEventItem,
 } from "../src/index.js";
 
 /* ============================================================
@@ -96,6 +98,8 @@ const GROUPS = [
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
 async function clearPlanTables(tx: Tx): Promise<void> {
+  await tx.execute(sql`DELETE FROM ${mealEventItem}`);
+  await tx.execute(sql`DELETE FROM ${mealEvent}`);
   await tx.execute(sql`DELETE FROM ${mealItem}`);
   await tx.execute(sql`DELETE FROM ${mealOption}`);
   await tx.execute(sql`DELETE FROM ${meal}`);

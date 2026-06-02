@@ -15,6 +15,13 @@
       "when": 1780286790783,
       "tag": "0001_easy_malcolm_colcord",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1780428766463,
+      "tag": "0002_clear_cammi",
+      "breakpoints": true
     }
   ]
 }

@@ -52,7 +52,7 @@ describe('GET /patients/:id/today?dayTypeId (US3 — troca de tipo-de-dia)', () 
     await pool.end();
   });
 
-  it('exibe o tipo-de-dia pedido e re-ancora "o agora" na 1ª refeição', async () => {
+  it('exibe o tipo-de-dia pedido e re-ancora "o agora" na 1ª NÃO-registrada do cardápio', async () => {
     const res = await request(app.getHttpServer())
       .get(`/patients/${patientId}/today`)
       .query({ dayTypeId: targetDayTypeId })
@@ -61,12 +61,29 @@ describe('GET /patients/:id/today?dayTypeId (US3 — troca de tipo-de-dia)', () 
     expect(res.body.dayType.id).toBe(targetDayTypeId);
     expect(res.body.dayType.label).toBe(targetDayTypeName);
     expect(res.body.meals.length).toBeGreaterThan(0);
-    // "o agora" = 1ª refeição por position (re-ancorada no novo cardápio).
-    expect(res.body.currentMealId).toBe(res.body.meals[0].id);
     const positions = res.body.meals.map(
       (m: { position: number }) => m.position,
     );
     expect(positions).toEqual([...positions].sort((a, b) => a - b));
+
+    // Fase 3: "o agora" = 1ª refeição NÃO-registrada do cardápio exibido (não
+    // mais a 1ª estática). Robusto a eventos deixados por outras suítes na
+    // mesma sessão de banco.
+    expect(typeof res.body.diaConcluido).toBe('boolean');
+    const meals = res.body.meals as Array<{
+      id: string;
+      registro: { state: string } | null;
+      isCurrent: boolean;
+    }>;
+    const firstUnregistered = meals.find((m) => m.registro === null);
+    if (firstUnregistered) {
+      expect(res.body.diaConcluido).toBe(false);
+      expect(res.body.currentMealId).toBe(firstUnregistered.id);
+      expect(firstUnregistered.isCurrent).toBe(true);
+    } else {
+      expect(res.body.diaConcluido).toBe(true);
+      expect(res.body.currentMealId).toBeNull();
+    }
   });
 
   it('dayTypeId fora do plano → 404', async () => {

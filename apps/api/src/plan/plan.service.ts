@@ -1,7 +1,9 @@
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
-import { and, asc, eq, schema } from '@bamboo/db';
+import { and, asc, eq, inArray, schema } from '@bamboo/db';
+import { estadoVigente, type EstadoRegistro } from '@bamboo/core';
 import type { TodayResponse } from '@bamboo/types';
 import { DB, type Db } from '../db/db.module';
+import { localToday } from '../local-date';
 import { toTodayResponse, type MealRow, type OptionRow } from './today.mapper';
 
 // Casca imperativa: faz I/O (Drizzle), orquestra o mapper puro, converte
@@ -98,6 +100,44 @@ export class PlanService {
     if (meals.length === 0)
       throw new NotFoundException('sem refeições para o dia corrente');
 
+    // Fase 3: estado vigente do registro de cada refeição HOJE. Carrega TODOS os
+    // eventos do dia (paciente, plano, logged_date de hoje, mealId IN ids) numa
+    // query e reduz por refeição com estadoVigente (last-wins/tombstone) do core
+    // — mesmo padrão agregado de measureRows→measuresByFood; o core é robusto à
+    // ordem (usa `seq`), então não precisa de DISTINCT ON nem ORDER BY.
+    const loggedDate = localToday();
+    const mealIds = meals.map((m) => m.id);
+    const eventRows = await this.db
+      .select({
+        mealId: schema.mealEvent.mealId,
+        state: schema.mealEvent.state,
+        createdAt: schema.mealEvent.createdAt,
+      })
+      .from(schema.mealEvent)
+      .where(
+        and(
+          eq(schema.mealEvent.patientId, patientId),
+          eq(schema.mealEvent.planId, pln.id),
+          eq(schema.mealEvent.loggedDate, loggedDate),
+          inArray(schema.mealEvent.mealId, mealIds),
+        ),
+      );
+    const eventsByMeal = new Map<
+      string,
+      { seq: number; state: EstadoRegistro | null }[]
+    >();
+    for (const ev of eventRows) {
+      const list = eventsByMeal.get(ev.mealId) ?? [];
+      // seq = ordem total por created_at (microssegundo); o advisory lock no
+      // INSERT garante estritamente crescente por (paciente, refeição, dia).
+      list.push({ seq: ev.createdAt.getTime(), state: ev.state });
+      eventsByMeal.set(ev.mealId, list);
+    }
+    const estadoPorMeal = new Map<string, EstadoRegistro | null>();
+    for (const m of meals) {
+      estadoPorMeal.set(m.id, estadoVigente(eventsByMeal.get(m.id) ?? []));
+    }
+
     // Medidas caseiras de todos os alimentos (1 query; agrupa em memória) — pra
     // exibir o planejado em unidade/fatia (o mapper escolhe a preferida).
     const measureRows = await this.db
@@ -179,11 +219,12 @@ export class PlanService {
         position: m.position,
         horario: m.horario,
         options: optionRows,
+        estadoVigente: estadoPorMeal.get(m.id) ?? null,
       });
     }
 
-    // 6. "O agora" no v0: 1ª refeição por position (já ordenadas).
-    const currentMealId = mealRows[0].id;
+    // 6. "O agora" é derivado no mapper (1ª refeição não-registrada na ordem do
+    //    plano) a partir de mealRows[].estadoVigente — não mais estático.
 
     // 6b. Tipos-de-dia do plano (habilita a troca de cardápio no app — US3).
     const dayTypes = await this.db
@@ -191,13 +232,12 @@ export class PlanService {
       .from(schema.dayType)
       .where(eq(schema.dayType.planId, pln.id));
 
-    // 7. Monta o DTO puro (gate de exposição aplicado lá).
+    // 7. Monta o DTO puro (gate de exposição + derivação de "o agora" lá).
     return toTodayResponse({
       patientId: pat.id,
       exposure: pat.exposure,
       dayType: { id: resolved.dayTypeId, label: resolved.dayTypeName },
       availableDayTypes: dayTypes.map((d) => ({ id: d.id, label: d.name })),
-      currentMealId,
       meals: mealRows,
     });
   }

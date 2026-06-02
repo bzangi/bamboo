@@ -89,6 +89,16 @@ export class MealOptionModel {
   items!: MealItemModel[];
 }
 
+// Fase 3 — estado vigente do registro da refeição no dia.
+export class MealRegistroModel {
+  @ApiProperty({
+    enum: ['feito', 'troquei', 'pulei'],
+    example: 'feito',
+    description: 'estado vigente (troquei é derivado no servidor)',
+  })
+  state!: string;
+}
+
 export class MealModel {
   @ApiProperty({ type: String, format: 'uuid' })
   id!: string;
@@ -111,6 +121,19 @@ export class MealModel {
     description: 'nº de outras opções da refeição (não expandidas no v0)',
   })
   otherOptionsCount!: number;
+  @ApiProperty({
+    type: MealRegistroModel,
+    nullable: true,
+    description:
+      'Fase 3: estado vigente do registro desta refeição hoje; null = não-registrada',
+  })
+  registro!: MealRegistroModel | null;
+  @ApiProperty({
+    type: Boolean,
+    example: false,
+    description: 'Fase 3: é "o agora" (1ª não-registrada na ordem do plano)',
+  })
+  isCurrent!: boolean;
 }
 
 export class DayTypeModel {
@@ -134,9 +157,18 @@ export class TodayResponseModel {
   @ApiProperty({
     type: String,
     format: 'uuid',
-    description: 'a refeição do momento (v0: 1ª por position)',
+    nullable: true,
+    description:
+      'Fase 3: 1ª refeição NÃO-registrada na ordem do plano; null se dia concluído',
   })
-  currentMealId!: string;
+  currentMealId!: string | null;
+  @ApiProperty({
+    type: Boolean,
+    example: false,
+    description:
+      'Fase 3: true quando todas as refeições do dia estão registradas',
+  })
+  diaConcluido!: boolean;
   @ApiProperty({ type: [MealModel] })
   meals!: MealModel[];
 }
