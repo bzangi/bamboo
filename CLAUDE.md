@@ -265,15 +265,17 @@ Dado de saúde desde a Fase 0: controle de acesso, criptografia, consentimento. 
 
 Feature ativa: **003-registro-consulta** (registro pendurado na consulta:
 feito/troquei/pulei). Fase 3.
-Estado: **spec aprovada + plano gerado** (aguardando gate Plan → Tasks). Decisões de fronteira:
-captura o evento + avança "o agora"; troquei DERIVADO da troca/combinação/opção existente (sem
-3º botão); correção última-escrita-vence sobre log append-only (`meal_event` + `meal_event_item`,
-`state` enum NULLABLE = anulação); idempotência por estado-alvo (transação + advisory lock);
-motor por consumo real fica DORMENTE. Núcleo puro em `packages/core/src/registro.ts` (4 funções);
-casca nova `apps/api/src/registro`; `/today` estendido (currentMealId = 1ª não-registrada).
-Contexto técnico no plano: `specs/003-registro-consulta/plan.md` — companheiros: `spec.md`,
-`research.md` (decisões D1–D11), `data-model.md`, `contracts/` (core + HTTP), `quickstart.md`.
+Estado: **implementada e testada** (US1+US2+US3). Tabelas append-only `meal_event` +
+`meal_event_item` (`state` enum NULLABLE = anulação/desfazer), migration 0002; núcleo puro
+`packages/core/src/registro.ts` (classificarEstado/estadoVigente/decidirRegistro/derivarOAgora);
+casca `apps/api/src/registro` (POST registro: db.transaction + advisory lock, pertencimento LGPD,
+troquei DERIVADO com grupos resolvidos no banco); `/today` estendido (currentMealId = 1ª
+não-registrada, `registro`/`isCurrent`/`diaConcluido`); mobile feito/pulei/troquei/desfazer.
+Decisões de fronteira: captura + avança "o agora"; troquei nunca é botão; correção
+última-escrita-vence; idempotência por estado-alvo; motor por consumo real fica DORMENTE.
+**Verde: 85 testes core + 45 e2e.** Contexto técnico no plano: `specs/003-registro-consulta/plan.md`
+— companheiros: `spec.md`, `research.md` (D1–D11), `data-model.md`, `contracts/`, `quickstart.md`.
 `.specify/feature.json` aponta a feature. Anteriores (concluídas): `specs/001-alca-do-paciente/`
-(Fase 0/1), `specs/002-rebalanceamento/` (Fase 2 — implementada e testada, 58 core + 27 e2e).
+(Fase 0/1), `specs/002-rebalanceamento/` (Fase 2).
 
 <!-- SPECKIT END -->

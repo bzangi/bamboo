@@ -4,12 +4,12 @@ Como provar a feature ponta a ponta e a ordem TDD de implementação. Pré-requi
 
 ## Ordem de implementação (TDD, respeitando dependências)
 
-1. **Schema** (`packages/db`): adicionar enum `meal_event_state` + tabelas `meal_event`/`meal_event_item` + relations em `schema.ts`; `pnpm --filter @bamboo/db db:generate` (gera `0002_*.sql`); `db:migrate`. Ajustar `seed.ts` (limpeza filhas→pais). — *bloqueia todo o resto.*
-2. **Núcleo puro** (`packages/core`): escrever `registro.test.ts` (falha primeiro), depois `registro.ts` (4 funções), exportar no `index.ts`. `pnpm --filter @bamboo/core test` verde. — *depende de nada; pode ir em paralelo ao 1.*
-3. **Tipos** (`packages/types`): `registro.ts` (`RegistroRequest`/`Response`) + estender `today.ts` (`currentMealId` nullable, `diaConcluido`, `registro`/`isCurrent` por refeição). — *depende de 2 (reusa `EstadoRegistro`).*
-4. **Casca — registro** (`apps/api/src/registro`): escrever `registro.e2e-spec.ts` (falha primeiro), depois module/controller/service/mapper; registrar no `app.module.ts`. — *depende de 1,2,3.*
-5. **Casca — today** (`apps/api/src/plan`): estender `getToday` (carregar estado vigente do dia, derivar "o agora" via core) + `today.mapper.ts`. Atualizar `today*.e2e-spec.ts` para `currentMealId` nullable + `registro`/`isCurrent`. — *depende de 1,2,3.*
-6. **Mobile** (`apps/mobile`): botões feito/pulei em "o agora", badges de estado nas registradas, POST registro carregando o consumo de sessão (opção + overrides) para derivar troquei. — *depende de 4,5.*
+1. **Schema** (`packages/db`): adicionar enum `meal_event_state` + tabelas `meal_event`/`meal_event_item` + relations em `schema.ts`; `pnpm --filter @bamboo/db db:generate` (gera `0002_*.sql`); `db:migrate`. Ajustar `seed.ts` (limpeza filhas→pais). — _bloqueia todo o resto._
+2. **Núcleo puro** (`packages/core`): escrever `registro.test.ts` (falha primeiro), depois `registro.ts` (4 funções), exportar no `index.ts`. `pnpm --filter @bamboo/core test` verde. — _depende de nada; pode ir em paralelo ao 1._
+3. **Tipos** (`packages/types`): `registro.ts` (`RegistroRequest`/`Response`) + estender `today.ts` (`currentMealId` nullable, `diaConcluido`, `registro`/`isCurrent` por refeição). — _depende de 2 (reusa `EstadoRegistro`)._
+4. **Casca — registro** (`apps/api/src/registro`): escrever `registro.e2e-spec.ts` (falha primeiro), depois module/controller/service/mapper; registrar no `app.module.ts`. — _depende de 1,2,3._
+5. **Casca — today** (`apps/api/src/plan`): estender `getToday` (carregar estado vigente do dia, derivar "o agora" via core) + `today.mapper.ts`. Atualizar `today*.e2e-spec.ts` para `currentMealId` nullable + `registro`/`isCurrent`. — _depende de 1,2,3._
+6. **Mobile** (`apps/mobile`): botões feito/pulei em "o agora", badges de estado nas registradas, POST registro carregando o consumo de sessão (opção + overrides) para derivar troquei. — _depende de 4,5._
 7. **Done**: `pnpm lint` + `pnpm format` (raiz) verdes.
 
 ## Cenário de aceitação (manual / e2e)

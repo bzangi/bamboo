@@ -12,17 +12,17 @@ Exatamente 3 valores (FR-002). **Não** existe valor para "não registrada" nem 
 
 ## Tabela `meal_event` (evento de registro, append-only)
 
-| Coluna | Tipo | Null | Descrição |
-|--------|------|------|-----------|
-| `id` | uuid PK defaultRandom | — | Identidade do evento |
-| `patient_id` | uuid → patient | NOT NULL | Âncora paciente (FR-005); base do pertencimento LGPD (FR-017) |
-| `plan_id` | uuid → plan | NOT NULL | Ancora direto no plano, v0 sem ciclo (FR-015) |
-| `meal_id` | uuid → meal | NOT NULL | Refeição registrada; granularidade-base (FR-005) |
-| `day_type_id` | uuid → day_type | NOT NULL | Tipo-de-dia **em vigor no momento** (default ou override de sessão), snapshot — sem materializar `day_selection` (FR-014) |
-| `logged_date` | date | NOT NULL | Dia-calendário do registro; parte da chave (paciente, refeição, dia) |
-| `state` | meal_event_state | **NULL** | `feito`/`troquei`/`pulei` numa marcação; **NULL = evento de anulação (desfazer)** (FR-002, FR-010) |
-| `chosen_meal_option_id` | uuid → meal_option | NULL | Opção efetivamente cumprida; gravada em **`feito` E `troquei`** (a opção cumprida, default ou não — snapshot auto-contido); NULL em `pulei`/`desfazer` |
-| `created_at` | timestamp defaultNow | NOT NULL | Carimbo de ordenação; **estado vigente = evento de maior `created_at`** por (paciente, refeição, dia). O advisory lock por escopo (ver http-registro) serializa os INSERTs → `created_at` é estritamente crescente por (paciente, refeição, dia), sem empate; é o `seq` que o núcleo consome |
+| Coluna                  | Tipo                  | Null     | Descrição                                                                                                                                                                                                                                                                                    |
+| ----------------------- | --------------------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `id`                    | uuid PK defaultRandom | —        | Identidade do evento                                                                                                                                                                                                                                                                         |
+| `patient_id`            | uuid → patient        | NOT NULL | Âncora paciente (FR-005); base do pertencimento LGPD (FR-017)                                                                                                                                                                                                                                |
+| `plan_id`               | uuid → plan           | NOT NULL | Ancora direto no plano, v0 sem ciclo (FR-015)                                                                                                                                                                                                                                                |
+| `meal_id`               | uuid → meal           | NOT NULL | Refeição registrada; granularidade-base (FR-005)                                                                                                                                                                                                                                             |
+| `day_type_id`           | uuid → day_type       | NOT NULL | Tipo-de-dia **em vigor no momento** (default ou override de sessão), snapshot — sem materializar `day_selection` (FR-014)                                                                                                                                                                    |
+| `logged_date`           | date                  | NOT NULL | Dia-calendário do registro; parte da chave (paciente, refeição, dia)                                                                                                                                                                                                                         |
+| `state`                 | meal_event_state      | **NULL** | `feito`/`troquei`/`pulei` numa marcação; **NULL = evento de anulação (desfazer)** (FR-002, FR-010)                                                                                                                                                                                           |
+| `chosen_meal_option_id` | uuid → meal_option    | NULL     | Opção efetivamente cumprida; gravada em **`feito` E `troquei`** (a opção cumprida, default ou não — snapshot auto-contido); NULL em `pulei`/`desfazer`                                                                                                                                       |
+| `created_at`            | timestamp defaultNow  | NOT NULL | Carimbo de ordenação; **estado vigente = evento de maior `created_at`** por (paciente, refeição, dia). O advisory lock por escopo (ver http-registro) serializa os INSERTs → `created_at` é estritamente crescente por (paciente, refeição, dia), sem empate; é o `seq` que o núcleo consome |
 
 **Estado vigente** (derivado, não persistido): para cada (`patient_id`, `meal_id`, `logged_date`), o evento de maior `created_at`. Se seu `state` ∈ {feito,troquei,pulei} → esse é o vigente; se `state` NULL (anulação) ou não há evento → **não-registrada**.
 
@@ -32,12 +32,12 @@ Query de leitura (casca): `SELECT DISTINCT ON (meal_id) meal_id, state FROM meal
 
 ## Tabela `meal_event_item` (consumo efetivo do "troquei", filha)
 
-| Coluna | Tipo | Null | Descrição |
-|--------|------|------|-----------|
-| `id` | uuid PK defaultRandom | — | Identidade da linha |
-| `meal_event_id` | uuid → meal_event | NOT NULL | Evento pai |
-| `food_id` | uuid → food | NOT NULL | Alimento efetivamente consumido — FK→food **garante "dentro da lista"** (FR-004a); barra comida-fora-da-lista (Fase 4) |
-| `quantity_grams` | double precision | NOT NULL | Quantidade efetiva consumida |
+| Coluna           | Tipo                  | Null     | Descrição                                                                                                              |
+| ---------------- | --------------------- | -------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `id`             | uuid PK defaultRandom | —        | Identidade da linha                                                                                                    |
+| `meal_event_id`  | uuid → meal_event     | NOT NULL | Evento pai                                                                                                             |
+| `food_id`        | uuid → food           | NOT NULL | Alimento efetivamente consumido — FK→food **garante "dentro da lista"** (FR-004a); barra comida-fora-da-lista (Fase 4) |
+| `quantity_grams` | double precision      | NOT NULL | Quantidade efetiva consumida                                                                                           |
 
 Presente **apenas** em "troquei por substituição/combinação" (FR-004a). "troquei por opção" usa só `chosen_meal_option_id` do pai (FR-004b). `feito`/`pulei`/`desfazer` não geram filhas.
 

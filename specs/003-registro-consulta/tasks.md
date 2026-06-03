@@ -25,7 +25,7 @@ description: "Task list — Registro pendurado na consulta (feito/troquei/pulei)
 
 **Purpose**: garantir que o ferramental de migration/seed roda neste ambiente antes de mexer no schema.
 
-- [ ] T001 Verificar que `drizzle-kit` e `tsx` executam (com `DATABASE_URL` no `.env` da raiz): rodar `pnpm --filter @bamboo/db db:generate --help` e `node --import tsx --eval ""` sem erro (ver MEMORY sobre build-scripts no sandbox; usar `allowBuilds` se travar no install).
+- [x] T001 Verificar que `drizzle-kit` e `tsx` executam (com `DATABASE_URL` no `.env` da raiz): rodar `pnpm --filter @bamboo/db db:generate --help` e `node --import tsx --eval ""` sem erro (ver MEMORY sobre build-scripts no sandbox; usar `allowBuilds` se travar no install).
 
 ---
 
@@ -35,14 +35,14 @@ description: "Task list — Registro pendurado na consulta (feito/troquei/pulei)
 
 **⚠️ CRITICAL**: nenhuma user story começa antes desta fase.
 
-- [ ] T002 [P] Adicionar `pgEnum("meal_event_state", ["feito","troquei","pulei"])` + tabela `mealEvent` (FKs patient/plan/meal/dayType notNull, `chosenMealOptionId` nullable, `state` enum **NULLABLE**, `loggedDate date` notNull, `createdAt` defaultNow) + tabela filha `mealEventItem` (`mealEventId`/`foodId` notNull, `quantityGrams doublePrecision`) + `mealEventRelations`/`mealEventItemRelations`; remover a linha `meal_event / log` do bloco ADIADO em `packages/db/src/schema.ts` (data-model.md).
-- [ ] T003 Gerar e aplicar a migration: `pnpm --filter @bamboo/db db:generate` (→ `packages/db/migrations/0002_*.sql` + `_journal.json`) e `pnpm --filter @bamboo/db db:migrate` (depende de T002; NÃO escrever SQL à mão).
-- [ ] T004 [P] Em `packages/db/scripts/seed.ts`, adicionar como duas PRIMEIRAS linhas de `clearPlanTables(tx)`: `await tx.execute(sql`DELETE FROM ${mealEventItem}`)` e `await tx.execute(sql`DELETE FROM ${mealEvent}`)` (antes de `meal_item`); importar `mealEvent`/`mealEventItem` (depende de T002).
-- [ ] T005 [P] Criar `packages/types/src/registro.ts` (`RegistroIntent`, `RegistroConsumo` com `chosenOptionId?`/`items?`, `RegistroRequest`, `RegistroResponse`) e exportar em `packages/types/src/index.ts` (contracts/http-registro.md).
-- [ ] T006 [P] Estender `packages/types/src/today.ts`: `RegistrationStatus = "feito"|"troquei"|"pulei"`; em `MealDto` adicionar `registro: { state: RegistrationStatus } | null` e `isCurrent: boolean`; em `TodayResponse` tornar `currentMealId: string | null` e adicionar `diaConcluido: boolean`.
-- [ ] T007 [P] **[TDD]** Escrever `packages/core/src/registro.test.ts` (Vitest) que FALHA, cobrindo: `classificarEstado` (pulei; feito; troquei-por-opção; troquei-por-substituição válida; itens vazio→`consumo-invalido`; `consumo-fora-do-grupo`; gramas ≤ 0→`consumo-invalido`; ordem de guarda grupo-antes-de-gramas; troca-desfeita→feito); `estadoVigente` (vazio→null; maior seq vence; array fora de ordem; tombstone→null; feito→pulei→feito→desfazer→null); `decidirRegistro` (no-op/inserir/desfazer); `derivarOAgora` (1ª não-registrada; ausente do map=não-registrada; refeição esquecida; dia-concluido; lista vazia) — ver contracts/core-registro.md.
-- [ ] T008 Implementar `packages/core/src/registro.ts` (tipos + as 4 funções puras: `classificarEstado`/`estadoVigente`/`decidirRegistro`/`derivarOAgora`) até T007 passar; `export * from "./registro.js"` em `packages/core/src/index.ts` (depende de T007; zero I/O/throw/mutação).
-- [ ] T009 Scaffold do módulo em `apps/api/src/registro/`: `registro.module.ts` (imports `[DbModule]`), `registro.controller.ts` (`@Controller('patients')`, `@Post(':patientId/registro')` `@HttpCode(200)` `ParseUUIDPipe`), `registro.service.ts` (esqueleto: `@Inject(DB)`, validação de borda `UUID_RE`+enum→`BadRequestException`, ainda sem regra), `registro.mapper.ts`; registrar `RegistroModule` em `apps/api/src/app.module.ts` (depende de T005, T008).
+- [x] T002 [P] Adicionar `pgEnum("meal_event_state", ["feito","troquei","pulei"])` + tabela `mealEvent` (FKs patient/plan/meal/dayType notNull, `chosenMealOptionId` nullable, `state` enum **NULLABLE**, `loggedDate date` notNull, `createdAt` defaultNow) + tabela filha `mealEventItem` (`mealEventId`/`foodId` notNull, `quantityGrams doublePrecision`) + `mealEventRelations`/`mealEventItemRelations`; remover a linha `meal_event / log` do bloco ADIADO em `packages/db/src/schema.ts` (data-model.md).
+- [x] T003 Gerar e aplicar a migration: `pnpm --filter @bamboo/db db:generate` (→ `packages/db/migrations/0002_*.sql` + `_journal.json`) e `pnpm --filter @bamboo/db db:migrate` (depende de T002; NÃO escrever SQL à mão).
+- [x] T004 [P] Em `packages/db/scripts/seed.ts`, adicionar como duas PRIMEIRAS linhas de `clearPlanTables(tx)`: `await tx.execute(sql`DELETE FROM ${mealEventItem}`)` e `await tx.execute(sql`DELETE FROM ${mealEvent}`)` (antes de `meal_item`); importar `mealEvent`/`mealEventItem` (depende de T002).
+- [x] T005 [P] Criar `packages/types/src/registro.ts` (`RegistroIntent`, `RegistroConsumo` com `chosenOptionId?`/`items?`, `RegistroRequest`, `RegistroResponse`) e exportar em `packages/types/src/index.ts` (contracts/http-registro.md).
+- [x] T006 [P] Estender `packages/types/src/today.ts`: `RegistrationStatus = "feito"|"troquei"|"pulei"`; em `MealDto` adicionar `registro: { state: RegistrationStatus } | null` e `isCurrent: boolean`; em `TodayResponse` tornar `currentMealId: string | null` e adicionar `diaConcluido: boolean`.
+- [x] T007 [P] **[TDD]** Escrever `packages/core/src/registro.test.ts` (Vitest) que FALHA, cobrindo: `classificarEstado` (pulei; feito; troquei-por-opção; troquei-por-substituição válida; itens vazio→`consumo-invalido`; `consumo-fora-do-grupo`; gramas ≤ 0→`consumo-invalido`; ordem de guarda grupo-antes-de-gramas; troca-desfeita→feito); `estadoVigente` (vazio→null; maior seq vence; array fora de ordem; tombstone→null; feito→pulei→feito→desfazer→null); `decidirRegistro` (no-op/inserir/desfazer); `derivarOAgora` (1ª não-registrada; ausente do map=não-registrada; refeição esquecida; dia-concluido; lista vazia) — ver contracts/core-registro.md.
+- [x] T008 Implementar `packages/core/src/registro.ts` (tipos + as 4 funções puras: `classificarEstado`/`estadoVigente`/`decidirRegistro`/`derivarOAgora`) até T007 passar; `export * from "./registro.js"` em `packages/core/src/index.ts` (depende de T007; zero I/O/throw/mutação).
+- [x] T009 Scaffold do módulo em `apps/api/src/registro/`: `registro.module.ts` (imports `[DbModule]`), `registro.controller.ts` (`@Controller('patients')`, `@Post(':patientId/registro')` `@HttpCode(200)` `ParseUUIDPipe`), `registro.service.ts` (esqueleto: `@Inject(DB)`, validação de borda `UUID_RE`+enum→`BadRequestException`, ainda sem regra), `registro.mapper.ts`; registrar `RegistroModule` em `apps/api/src/app.module.ts` (depende de T005, T008).
 
 **Checkpoint**: schema migrado, núcleo verde, tipos e módulo prontos — stories podem começar.
 
@@ -54,13 +54,13 @@ description: "Task list — Registro pendurado na consulta (feito/troquei/pulei)
 
 **Independent Test**: com plano semeado, POST feito na 1ª refeição → 200, `currentMealId` avança, GET /today reflete `registro.state` e `isCurrent`; reload + reabrir sessão mantêm o estado; registrar a última → `diaConcluido`.
 
-- [ ] T010 [P] [US1] **[TDD]** Criar `apps/api/test/registro.e2e-spec.ts` (Vitest) que FALHA, cobrindo US1: POST feito (sem `consumo`→assume default) avança "o agora"; POST pulei avança; GET /today reflete `registro.state`/`isCurrent`; persistência após reload e após nova consulta (SC-006); registrar a última → `currentMealId=null`+`diaConcluido=true`; 404 paciente sem plano (quickstart passos 1-3, 6, 10, 13).
-- [ ] T011 [US1] Implementar o caminho feito/pulei em `apps/api/src/registro/registro.service.ts` dentro de `db.transaction` + `pg_advisory_xact_lock(hash(patientId,mealId,loggedDate))`: resolver plano ativo + `dayTypeId` em vigor + `loggedDate`; **pertencimento** (meal→dayType→plan(isActive)→patient, 404); carregar histórico→`estadoVigente`; `classificarEstado` (consumiu+sem adequação→feito / não-consumiu→pulei); `decidirRegistro`; INSERT `meal_event` (`chosen_meal_option_id` = opção default em feito); `derivarOAgora`; `Result`→`HttpException` via `match().exhaustive()` (depende de T009; contracts/http-registro.md).
-- [ ] T012 [US1] Implementar `apps/api/src/registro/registro.mapper.ts` (função pura entidade→`RegistroResponse`: `vigente`, `currentMealId`, `diaConcluido`; sem entidade Drizzle crua, sem número) (depende de T011).
-- [ ] T013 [US1] Estender `GET /today`: em `apps/api/src/plan/plan.service.ts` carregar estado vigente do dia (`selectDistinctOn([mealEvent.mealId]).orderBy(asc(mealId),desc(createdAt))` OU carregar+reduzir com `estadoVigente` do core) por (paciente, plano, `loggedDate` de hoje); em `apps/api/src/plan/today.mapper.ts` derivar `currentMealId` via `derivarOAgora` + `registro`/`isCurrent` por refeição + `diaConcluido` (depende de T008, T002).
-- [ ] T014 [P] [US1] Atualizar e2e existentes `apps/api/test/today.e2e-spec.ts` / `today-options.e2e-spec.ts` / `today-daytype.e2e-spec.ts` para `currentMealId` nullable + novos campos; atualizar o modelo Swagger em `apps/api/src/docs/swagger.models.ts` (+ `gen-openapi.ts`) com `registro`/`isCurrent`/`diaConcluido` e `currentMealId` nullable (depende de T013).
-- [ ] T015 [P] [US1] Em `packages/api-client/src` adicionar método tipado `POST /patients/:id/registro` (RegistroRequest→RegistroResponse) e ajustar os tipos do `getToday` (currentMealId nullable + registro/isCurrent + diaConcluido) (depende de T005, T006).
-- [ ] T016 [US1] Mobile `apps/mobile/src/HomeScreen.tsx`: botões **feito**/**pulei** no card de "o agora" (MealCard), badge do estado registrado nas refeições já registradas, estado "dia concluído"; chamar o registro e recarregar o /today; tratar `currentMealId` nullable (depende de T015).
+- [x] T010 [P] [US1] **[TDD]** Criar `apps/api/test/registro.e2e-spec.ts` (Vitest) que FALHA, cobrindo US1: POST feito (sem `consumo`→assume default) avança "o agora"; POST pulei avança; GET /today reflete `registro.state`/`isCurrent`; persistência após reload e após nova consulta (SC-006); registrar a última → `currentMealId=null`+`diaConcluido=true`; 404 paciente sem plano (quickstart passos 1-3, 6, 10, 13).
+- [x] T011 [US1] Implementar o caminho feito/pulei em `apps/api/src/registro/registro.service.ts` dentro de `db.transaction` + `pg_advisory_xact_lock(hash(patientId,mealId,loggedDate))`: resolver plano ativo + `dayTypeId` em vigor + `loggedDate`; **pertencimento** (meal→dayType→plan(isActive)→patient, 404); carregar histórico→`estadoVigente`; `classificarEstado` (consumiu+sem adequação→feito / não-consumiu→pulei); `decidirRegistro`; INSERT `meal_event` (`chosen_meal_option_id` = opção default em feito); `derivarOAgora`; `Result`→`HttpException` via `match().exhaustive()` (depende de T009; contracts/http-registro.md).
+- [x] T012 [US1] Implementar `apps/api/src/registro/registro.mapper.ts` (função pura entidade→`RegistroResponse`: `vigente`, `currentMealId`, `diaConcluido`; sem entidade Drizzle crua, sem número) (depende de T011).
+- [x] T013 [US1] Estender `GET /today`: em `apps/api/src/plan/plan.service.ts` carregar estado vigente do dia (`selectDistinctOn([mealEvent.mealId]).orderBy(asc(mealId),desc(createdAt))` OU carregar+reduzir com `estadoVigente` do core) por (paciente, plano, `loggedDate` de hoje); em `apps/api/src/plan/today.mapper.ts` derivar `currentMealId` via `derivarOAgora` + `registro`/`isCurrent` por refeição + `diaConcluido` (depende de T008, T002).
+- [x] T014 [P] [US1] Atualizar e2e existentes `apps/api/test/today.e2e-spec.ts` / `today-options.e2e-spec.ts` / `today-daytype.e2e-spec.ts` para `currentMealId` nullable + novos campos; atualizar o modelo Swagger em `apps/api/src/docs/swagger.models.ts` (+ `gen-openapi.ts`) com `registro`/`isCurrent`/`diaConcluido` e `currentMealId` nullable (depende de T013).
+- [x] T015 [P] [US1] Em `packages/api-client/src` adicionar método tipado `POST /patients/:id/registro` (RegistroRequest→RegistroResponse) e ajustar os tipos do `getToday` (currentMealId nullable + registro/isCurrent + diaConcluido) (depende de T005, T006).
+- [x] T016 [US1] Mobile `apps/mobile/src/HomeScreen.tsx`: botões **feito**/**pulei** no card de "o agora" (MealCard), badge do estado registrado nas refeições já registradas, estado "dia concluído"; chamar o registro e recarregar o /today; tratar `currentMealId` nullable (depende de T015).
 
 **Checkpoint**: MVP — registrar feito/pulei num toque com "o agora" avançando, ponta a ponta.
 
@@ -72,9 +72,9 @@ description: "Task list — Registro pendurado na consulta (feito/troquei/pulei)
 
 **Independent Test**: POST feito com `items` (within-group, grupos resolvidos no banco) → `vigente.state="troquei"`; POST feito com `chosenOptionId` não-default → `troquei`; food fora do grupo → 422.
 
-- [ ] T017 [P] [US2] **[TDD]** Estender `apps/api/test/registro.e2e-spec.ts` (FALHA primeiro): feito com `items` within-group → `troquei` com `meal_event_item`; feito com `chosenOptionId` não-default → `troquei`; 422 `consumo-fora-do-grupo` (foodId de outro grupo); 422 itens vazio em troquei-por-substituição (quickstart passos 4, 5, 12).
-- [ ] T018 [US2] Estender `apps/api/src/registro/registro.service.ts`: resolver `is_default` da `chosenOptionId`; **resolver no banco** `groupIdEsperado` (`meal_item.substitutionGroupId`) e o grupo do food consumido (`food_substitution_group`) reusando os joins de `apps/api/src/substitution/substitution.service.ts`; montar `Adequacao` (opcao-nao-default | substituicao-combinacao); `classificarEstado` (ramos troquei); INSERT das linhas `meal_event_item` + `chosen_meal_option_id` (depende de T011).
-- [ ] T019 [US2] Mobile `apps/mobile/src/HomeScreen.tsx`: ao marcar **feito** numa refeição com substituição/combinação/opção-não-default ativa, enviar `consumo { chosenOptionId, items }` (estado de sessão) para o servidor derivar `troquei`; badge "troquei" (depende de T016, T018).
+- [x] T017 [P] [US2] **[TDD]** Estender `apps/api/test/registro.e2e-spec.ts` (FALHA primeiro): feito com `items` within-group → `troquei` com `meal_event_item`; feito com `chosenOptionId` não-default → `troquei`; 422 `consumo-fora-do-grupo` (foodId de outro grupo); 422 itens vazio em troquei-por-substituição (quickstart passos 4, 5, 12).
+- [x] T018 [US2] Estender `apps/api/src/registro/registro.service.ts`: resolver `is_default` da `chosenOptionId`; **resolver no banco** `groupIdEsperado` (`meal_item.substitutionGroupId`) e o grupo do food consumido (`food_substitution_group`) reusando os joins de `apps/api/src/substitution/substitution.service.ts`; montar `Adequacao` (opcao-nao-default | substituicao-combinacao); `classificarEstado` (ramos troquei); INSERT das linhas `meal_event_item` + `chosen_meal_option_id` (depende de T011).
+- [x] T019 [US2] Mobile `apps/mobile/src/HomeScreen.tsx`: ao marcar **feito** numa refeição com substituição/combinação/opção-não-default ativa, enviar `consumo { chosenOptionId, items }` (estado de sessão) para o servidor derivar `troquei`; badge "troquei" (depende de T016, T018).
 
 **Checkpoint**: US1 + US2 funcionando — troquei capturado como subproduto.
 
@@ -86,9 +86,9 @@ description: "Task list — Registro pendurado na consulta (feito/troquei/pulei)
 
 **Independent Test**: pulei→feito reflete feito; reenvio idêntico → 0 duplicata observável; desfazer → vigente null e "o agora" volta; desfazer+re-registrar troca diferente → novo troquei.
 
-- [ ] T020 [P] [US3] **[TDD]** Estender `apps/api/test/registro.e2e-spec.ts` (FALHA primeiro): pulei→feito (correção, vigente=feito); reenvio idêntico do mesmo estado → 200, 0 duplicata observável; `intent:"desfazer"` → vigente null + "o agora" re-ancora; desfazer + re-registrar com troca diferente → novo `troquei` (quickstart passos 7, 8, 9).
-- [ ] T021 [US3] Estender `apps/api/src/registro/registro.service.ts`: tratar `intent="desfazer"` (INSERT evento com `state=NULL`, tombstone); correção entre estados já decidida por `decidirRegistro`/`estadoVigente` (garantir no-op vs inserir); re-derivar "o agora" após correção/desfazer (depende de T011).
-- [ ] T022 [US3] Mobile `apps/mobile/src/HomeScreen.tsx`: afordância de **corrigir**/**desfazer** nas refeições já registradas; ao desfazer, "o agora" re-ancora na refeição (depende de T016, T021).
+- [x] T020 [P] [US3] **[TDD]** Estender `apps/api/test/registro.e2e-spec.ts` (FALHA primeiro): pulei→feito (correção, vigente=feito); reenvio idêntico do mesmo estado → 200, 0 duplicata observável; `intent:"desfazer"` → vigente null + "o agora" re-ancora; desfazer + re-registrar com troca diferente → novo `troquei` (quickstart passos 7, 8, 9).
+- [x] T021 [US3] Estender `apps/api/src/registro/registro.service.ts`: tratar `intent="desfazer"` (INSERT evento com `state=NULL`, tombstone); correção entre estados já decidida por `decidirRegistro`/`estadoVigente` (garantir no-op vs inserir); re-derivar "o agora" após correção/desfazer (depende de T011).
+- [x] T022 [US3] Mobile `apps/mobile/src/HomeScreen.tsx`: afordância de **corrigir**/**desfazer** nas refeições já registradas; ao desfazer, "o agora" re-ancora na refeição (depende de T016, T021).
 
 **Checkpoint**: as 3 stories independentes e funcionando.
 
@@ -96,9 +96,9 @@ description: "Task list — Registro pendurado na consulta (feito/troquei/pulei)
 
 ## Phase 6: Polish & Cross-Cutting
 
-- [ ] T023 [P] Rodar o cenário do `quickstart.md` ponta a ponta (seed → 13 passos) e confirmar cada Success Criteria (SC-001..SC-006).
-- [ ] T024 [P] Atualizar `docs/estado-atual.md` (Fase 3 — registro implementado) e o bloco SPECKIT do `CLAUDE.md` (status → implementada e testada).
-- [ ] T025 **Done de task** (Constituição IV / CLAUDE.md): `pnpm --filter @bamboo/core test` + `pnpm --filter @bamboo/api test:e2e` verdes; `pnpm lint` + `pnpm format` na raiz verdes.
+- [x] T023 [P] Rodar o cenário do `quickstart.md` ponta a ponta (seed → 13 passos) e confirmar cada Success Criteria (SC-001..SC-006).
+- [x] T024 [P] Atualizar `docs/estado-atual.md` (Fase 3 — registro implementado) e o bloco SPECKIT do `CLAUDE.md` (status → implementada e testada).
+- [x] T025 **Done de task** (Constituição IV / CLAUDE.md): `pnpm --filter @bamboo/core test` + `pnpm --filter @bamboo/api test:e2e` verdes; `pnpm lint` + `pnpm format` na raiz verdes.
 
 ---
 

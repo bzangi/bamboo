@@ -11,7 +11,7 @@ export type EstadoRegistro = "feito" | "troquei" | "pulei";
 // pela casca (meal_item.substitutionGroupId e food_substitution_group), NUNCA do payload.
 export type ItemConsumido = {
   readonly groupIdEsperado: string; // grupo do item do plano substituído (DB)
-  readonly groupId: string;         // grupo do alimento consumido (DB)
+  readonly groupId: string; // grupo do alimento consumido (DB)
   readonly gramas: number;
 };
 
@@ -20,7 +20,10 @@ export type ItemConsumido = {
 //  - resolve grupos dos itens no banco → emite "substituicao-combinacao" (itens não-vazio);
 //  - sem opção não-default e sem itens → passa adequacao = null (→ feito).
 export type Adequacao =
-  | { readonly kind: "substituicao-combinacao"; readonly itens: ReadonlyArray<ItemConsumido> }
+  | {
+      readonly kind: "substituicao-combinacao";
+      readonly itens: ReadonlyArray<ItemConsumido>;
+    }
   | { readonly kind: "opcao-nao-default"; readonly mealOptionId: string };
 
 export type ClassificacaoError =
@@ -92,7 +95,7 @@ decidirRegistro(input: {
 - `alvo = { kind:"marcar", estado:E }`: se `vigente === E` → `{ kind:"no-op" }`; senão `{ kind:"inserir", state:E }`.
 - `alvo = { kind:"desfazer" }`: se `vigente === null` → `{ kind:"no-op" }`; senão `{ kind:"inserir", state:null }`.
 
-> **Limitação v0 consciente (correção de conteúdo do troquei)**: a idempotência é por **rótulo de estado**. Alterar o *conteúdo* de um troquei já vigente (outra opção não-default, outros alimentos/gramas) **não** é feito re-tocando "feito" — pela UX a refeição registrada exibe o estado, não a UI de troca. Para mudar o consumo, o paciente **desfaz** (→ vigente `null`) e **re-registra** com o novo consumo (que então insere, pois vigente é `null`). Logo a comparação por rótulo é suficiente e não há perda silenciosa: o caminho de UX para corrigir um troquei passa por `desfazer`. Correção direta troquei→troquei-distinto **sem desfazer** está fora de escopo no v0.
+> **Limitação v0 consciente (correção de conteúdo do troquei)**: a idempotência é por **rótulo de estado**. Alterar o _conteúdo_ de um troquei já vigente (outra opção não-default, outros alimentos/gramas) **não** é feito re-tocando "feito" — pela UX a refeição registrada exibe o estado, não a UI de troca. Para mudar o consumo, o paciente **desfaz** (→ vigente `null`) e **re-registra** com o novo consumo (que então insere, pois vigente é `null`). Logo a comparação por rótulo é suficiente e não há perda silenciosa: o caminho de UX para corrigir um troquei passa por `desfazer`. Correção direta troquei→troquei-distinto **sem desfazer** está fora de escopo no v0.
 
 ### `derivarOAgora` — invariante "o agora" (FR-006, FR-007, FR-008, FR-013)
 
@@ -110,10 +113,10 @@ derivarOAgora(input: {
 
 ## Erros → HTTP (na casca, opção 1)
 
-| Erro do núcleo | HTTP |
-|----------------|------|
+| Erro do núcleo          | HTTP                     |
+| ----------------------- | ------------------------ |
 | `consumo-fora-do-grupo` | 422 Unprocessable Entity |
-| `consumo-invalido` | 422 Unprocessable Entity |
+| `consumo-invalido`      | 422 Unprocessable Entity |
 
 `match(error).with(...).exhaustive()`.
 

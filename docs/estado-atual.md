@@ -93,7 +93,7 @@ Detalhamento do paradigma com exemplos canônicos em `CLAUDE.md`; invariantes go
 | 0 — Fundação | monorepo, NestJS+Postgres+Drizzle+migrations, schema, ingestão TACO | **Implementada** |
 | 1 — O batimento | seed de plano + Home "o agora" + substituir dentro do grupo (recálculo + medida caseira) | **Implementada** |
 | 2 — Rebalanceamento | recálculo multi-refeição, gatilhos, piso, prévia antes de confirmar | **Implementada** (`002-rebalanceamento`) |
-| 3 — Inteligência da nutri | registro (feito/troquei/pulei), ciclo, adesão, **relatório de ciclo**, UI da nutri (web) | Não iniciada |
+| 3 — Inteligência da nutri | **registro (feito/troquei/pulei) — implementada e testada** (`003-registro-consulta`); ciclo, adesão, **relatório de ciclo**, UI da nutri (web) — não iniciados | Em andamento |
 | 4 — Reduzir fricção | import por IA (PDF→estruturado), offline, notificações, comida fora da lista | Não iniciada |
 | 5+ — Negócio | billing, Pix/Stripe, deploy/infra | Não iniciada |
 
@@ -110,7 +110,8 @@ Detalhamento do paradigma com exemplos canônicos em `CLAUDE.md`; invariantes go
 - **Base TACO:** `food` (macros/100g), `food_household_measure` (medidas caseiras).
 - **Grupos:** `substitution_group` (+ `basis`), `food_substitution_group` (carrega `reference_portion_grams` — o que faz a conta de substituição existir).
 - **Plano:** `plan` (direto no paciente no v0), `day_type`, `day_schedule` (weekday→tipo-de-dia), `meal` (+ `horario` informativo), `meal_option` (itens penduram aqui — suporta os "3 almoços"), `meal_item` (`is_locked` + `substitution_group_id` = a marcação de flexibilidade).
-- **Adiado (não existe ainda):** `cycle`, `day_selection`, `meal_event`/log, `adherence`/`cycle_report`, índices/constraints de performance.
+- **Fase 3 (registro):** `meal_event` + `meal_event_item` (append-only, `state` enum NULLABLE = anulação) — migration `0002_clear_cammi.sql`.
+- **Adiado (não existe ainda):** `cycle`, `day_selection`, `adherence`/`cycle_report`, índices/constraints de performance.
 
 ---
 
