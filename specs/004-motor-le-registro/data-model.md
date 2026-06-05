@@ -10,12 +10,12 @@
 
 ## Escrita do registro (Fase 3) — ajuste D3b
 
-No `registro.service`, ao gravar **troquei**, materializar e gravar em `meal_event_item` o consumo COMPLETO:
+No `registro.service`, ao gravar **troquei**, materializar e gravar em `meal_event_item` o consumo COMPLETO (**lógica de carga nova**: carregar todos os `meal_item` da opção cumprida, não só os trocados):
 
 | Sub-caso de troquei | `chosen_meal_option_id` | `meal_event_item` (gravado) |
 |---------------------|--------------------------|------------------------------|
-| por substituição/combinação | a opção cumprida (default) | TODOS os itens da opção, com os trocados sobrepostos por `consumo.items` (pareados por `itemId`) |
-| por opção não-default | a opção não-default cumprida | TODOS os itens dessa opção |
+| por substituição/combinação | a opção cumprida (default) | todos os itens da opção, com **overlay por `itemId`**: para cada `itemId` em `consumo.items`, remove a linha do plano e insere TODAS as entradas desse `itemId` (1..N — combinação 1→2 = 2 entradas) |
+| por opção não-default | a opção não-default cumprida | todos os itens dessa opção (sem overlay) |
 
 `feito`/`pulei`/`desfazer`: **sem** `meal_event_item` (feito deriva da `chosen_meal_option_id`).
 
@@ -35,6 +35,8 @@ Macros via `food.*Per100g` × gramas (`nutrientesDaPorcao`/`somaNutrientes`, cor
 ### Consumido-até-agora (vetor agregado)
 
 `consumido: { kcal, carb, protein, fat }` = soma do consumo real de **todas** as refeições registradas (vigentes) do **dia corrente** (`localToday()`), do plano ativo — **type-agnostic** (qualquer tipo-de-dia). Grandeza **interna** do motor — não exposta ao paciente (FR-015). Usada por `previewTrocaTipoDia`.
+
+> **Troca de tipo-de-dia — evitar double-count**: as refeições do novo tipo passadas como **restantes** (alavancas) são só as dos **slots NÃO registrados hoje** (pareado por `position`). Os slots já comidos entram via `consumido`; somar também o equivalente planejado do novo tipo contaria o slot 2× (`totalProjetado` inflado). Pareamento por position (v0; `day_selection` resolve exato depois).
 
 > **Carga**: `meal_event` filtrado por **(patientId, planId, loggedDate=`localToday()`)** — NUNCA restrito a `mealId IN (refeições do tipo)`, senão a troca de tipo zeraria o consumido.
 

@@ -33,16 +33,18 @@ Decisões aterradas no código real (investigação + verificação adversarial 
 
 ## D3b — **Mudança na escrita do registro (Fase 3)**: `meal_event_item` = snapshot completo do troquei
 
-**Decisão** (consequência de "troquei exato"): `registro.service`, ao gravar um **troquei**, grava em `meal_event_item` o **conjunto COMPLETO** de itens consumidos da refeição, não só os trocados:
+**Decisão** (consequência de "troquei exato"): `registro.service`, ao gravar um **troquei**, materializa e grava em `meal_event_item` o **snapshot COMPLETO** do consumo (todos os itens da refeição como comida), não só os trocados. **NÃO é "só mais linhas" — é lógica de carga NOVA** (hoje o service só grava `consumo.items` e, no troquei-por-opção, grava ZERO linhas):
 
-- troquei-por-substituição/combinação → a opção cumprida (default) com os itens sobrepostos pelos `consumo.items` (pareados por `itemId`); grava TODOS os itens resultantes.
-- troquei-por-opção-não-default → grava TODOS os itens da opção não-default cumprida.
+1. Carregar **todos os `meal_item`** da opção cumprida (`id`, `food_id`, `quantity_grams`) — inclui travados e não-trocados.
+2. **Overlay por `itemId`** (troquei-por-substituição/combinação): para cada `itemId` presente em `consumo.items`, **remover** a linha do plano daquele `itemId` e **inserir todas** as entradas de `consumo.items` desse `itemId` (1..N — a combinação 1→2 manda 2 entradas pro mesmo `itemId`).
+3. Gravar TODAS as linhas resultantes (travados + flexíveis-mantidos + substitutos/combinados).
+4. troquei-por-opção-não-default → grava todos os itens da opção não-default (sem overlay).
 
 `feito`/`pulei`/`desfazer` seguem sem `meal_event_item`.
 
-**Rationale**: a Fase 3 gravava só os deltas (itens trocados), impossibilitando o total exato (não há vínculo item→substituto). O snapshot completo torna `consumido(troquei) = soma(meal_event_item)` exato e auto-contido — alinhado à intenção original da Fase 3 ("snapshot do consumido é auto-contido"). **Sem migration** (a tabela já tem food+gramas; muda só QUANTAS linhas se grava) e **sem mudança no mobile** (o servidor reconstrói o conjunto a partir da opção + overrides que o app já envia).
+**Rationale**: a Fase 3 gravava só os deltas (itens trocados), impossibilitando o total exato. O snapshot completo torna `consumido(troquei) = soma(meal_event_item)` exato e auto-contido. **Sem migration** (a tabela já tem food+gramas) e **sem mudança no mobile** (o servidor reconstrói da opção cumprida + os overrides que o app já envia). `consumo.items[].itemId` = o `meal_item.id` planejado sendo substituído (confirmado no contrato da Fase 3) — o pareamento por `itemId` é factível.
 
-**Impacto**: atualizar os e2e de troquei da Fase 3 (`registro.e2e-spec.ts`): troquei agora cria `meal_event_item` = refeição inteira (não 1 linha), inclusive troquei-por-opção (antes: nenhuma linha).
+**Impacto**: atualizar os e2e de troquei da Fase 3 (`registro.e2e-spec.ts`): troquei cria `meal_event_item` = refeição inteira (não 1 linha), inclusive troquei-por-opção (antes: nenhuma linha) e combinação (2 linhas pro slot combinado). É lógica nova no service, não tweak.
 
 **Alternativas**: aproximação v0 (troquei-substituição conta como planejado) — **rejeitada pelo dono** (queria exato) · adicionar vínculo `replaces_meal_item_id` (rejeitado: migration + mais complexo que gravar o snapshot completo).
 
@@ -56,13 +58,17 @@ Decisões aterradas no código real (investigação + verificação adversarial 
 
 ## D5 — Troca de tipo-de-dia: **override ativo = sempre ajustado** (decisão do dono)
 
-**Decisão**: `getToday`, **sempre que há `?dayTypeId` override** (o paciente está vendo um tipo-de-dia escolhido) **e** há consumo hoje, computa o `consumido` (D4) e chama `previewTrocaTipoDia` para o novo tipo; aplica as gramas ajustadas (D7). **Sem `?dayTypeId`** (tipo-de-dia padrão por weekday): **nunca** ajusta — só exibe (Q1: registrar não auto-recalcula o padrão).
+**Decisão**: `getToday`, **sempre que há `?dayTypeId` override** (o paciente está vendo um tipo-de-dia escolhido) **e** há consumo hoje, computa o `consumido` (D4) e chama `previewTrocaTipoDia`; aplica as gramas ajustadas (D7). **Sem `?dayTypeId`** (tipo-de-dia padrão por weekday): **nunca** ajusta — só exibe (Q1: registrar não auto-recalcula o padrão).
+
+**Evita double-count (BLOCKER da verificação)**: `previewTrocaTipoDia` recebe como `refeicoesRestantesNovoTipo` **apenas as refeições do novo tipo nos slots AINDA NÃO registrados hoje** — NÃO todas. Os slots já registrados (café/almoço/… comidos sob qualquer tipo) já entram via `consumido`; somar também o equivalente planejado do novo tipo contaria o slot duas vezes (`totalProjetado` inflado → reduz o resto erradamente). **Pareamento de slot por `position`** (v0): um slot registrado hoje exclui a refeição de mesma `position` do novo tipo das restantes. (O nome do parâmetro da Fase 2 — "restantes" — já previa isso.)
+
+> **Limitação v0 do pareamento**: pareia por `position`, assumindo que os tipos-de-dia têm slots alinhados (café=1, almoço=2…). Se os tipos tiverem nº/ordem de refeições diferentes, o pareamento é aproximado. `day_selection` (instância por data) resolve exato em fase posterior.
 
 **Rationale**: o app **persiste** o `?dayTypeId` e reenvia em todo reload (HomeScreen.tsx useState L66 + `load(dayTypeId)` pós-registro). Logo "só no toque de trocar" não se sustenta sem um sinal novo. O dono escolheu: **enquanto um tipo-de-dia override está ativo, o cardápio sempre reflete o consumido** (qualquer reload). O tipo padrão (sem override) continua sem auto-ajuste por registro — preserva o espírito do Q1. Sem mudança no app.
 
 **Alternativas**: sinal efêmero de "troquei agora" (`?reason=daytype-switch`) — **rejeitado pelo dono** (exige mudança no app + param novo).
 
-> **Quirk v0 (documentar)**: tipo-de-dia é template (sem `day_selection`). Ao ver um override, as refeições do novo tipo são linhas diferentes (nenhuma registrada sob elas) → todas são alavancas; o `consumido` (das registradas de hoje, de qualquer tipo) entra como vetor e ajusta o novo cardápio. O **número fecha** (cardápio ajustado pelo total consumido), mas a **marcação "feito" por-refeição não aparece** no novo tipo (linhas diferentes). Aceitável no v0; `day_selection` (instância por data) resolve em fase posterior.
+> **Quirk v0 (documentar)**: tipo-de-dia é template (sem `day_selection`). Ao ver um override, as refeições do novo tipo nos **slots não comidos** são alavancas; os slots **já comidos** (pareados por position) saem das restantes e entram via `consumido`. O **número fecha** (cardápio ajustado pelo total consumido, sem double-count), mas a **marcação "feito" por-refeição não aparece** no novo tipo (linhas diferentes) e o slot comido aparece no planejado (não-ajustável). Aceitável no v0; `day_selection` resolve em fase posterior.
 
 ## D6 — `rebalance.service` monta o dia com consumo real
 
@@ -88,7 +94,13 @@ Decisões aterradas no código real (investigação + verificação adversarial 
 
 **Decisão**: Se um `feito` tiver `chosen_meal_option_id` nulo (a coluna é nullable; o seed "tudo flexível" pode não ter default explícito), o consumo usa a **opção default vigente da refeição** (ou, se ausente, a primeira opção) — nunca zero.
 
-**Rationale**: evita que um feito vire consumo zero (déficit falso). Adicionar teste.
+**Rationale**: evita que um feito vire consumo zero (déficit falso). **Nota**: eventos gravados pelo `registro.service` atual SEMPRE têm `chosen_meal_option_id` em feito (fallback já aplicado na escrita); o fallback de LEITURA cobre apenas eventos legados/seed manual — é defensivo, não caso comum. Adicionar teste.
+
+## D11 — Correção de conteúdo de troquei: o consumido reflete o ÚLTIMO troquei persistido
+
+**Decisão**: `consumido(troquei) = soma(meal_event_item)` do evento **vigente** (último). A Fase 3 já definiu que corrigir o *conteúdo* de um troquei se faz **desfazer → re-registrar** (correção troquei→troquei-distinto sem desfazer é fora de escopo / no-op pela idempotência por estado). Logo o motor sempre lê o consumo do troquei efetivamente vigente; não há ambiguidade.
+
+**Rationale**: alinha o consumo-real com a semântica de correção da Fase 3 (last-write-wins por estado; conteúdo novo do troquei exige desfazer+re-registrar). Documentado para o implementador não tentar "mesclar" troquei sobre troquei.
 
 ## D10 — Recusa orientada: mapear o motivo
 
@@ -98,7 +110,7 @@ Decisões aterradas no código real (investigação + verificação adversarial 
 
 ## Riscos / notas
 
-- **previewTrocaTipoDia**: "restantes do novo tipo" = **todas** as refeições do novo tipo (sem `day_selection`/instância por horário, não há "posteriores ao momento" no v0). Documentado junto ao quirk.
+- **previewTrocaTipoDia**: "restantes do novo tipo" = refeições do novo tipo nos **slots não registrados hoje** (pareado por position) — NÃO todas (evita double-count, ver D5).
 - **consumido=0** (início do dia / sem registro): `previewTrocaTipoDia` já devolve `sem-acao` → cardápio no planejado. Teste já existe (`rebalance.test.ts` "início do dia"); **confirmar que segue verde** (não é caso novo).
 - **Casamento ajuste→item por `itemId`** (não position): os `itemId` são únicos por `meal_item`; positions colidem entre tipos. O e2e de troca-de-tipo deve assertar que as gramas ajustadas caem nos itens do **novo** tipo.
 - **Exposição (FR-015)**: o `/today` já filtra nutrition pelo gate; gramas ajustadas são ação, não número de adesão; nenhum total/desvio vai pro paciente.

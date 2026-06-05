@@ -35,8 +35,8 @@ const alavancas = diaComEscolha
 
 **Não muda.** Já recebe `consumido: Nutrientes` + `refeicoesRestantesNovoTipo` + `refeicoesDefaultNovoTipo`; calcula `totalProjetado = consumido + restantePlanejado`, `deltaKcal = totalProjetado − alvoNovo`, e rebalanceia. A casca (`getToday`, na troca de tipo-de-dia) passa a chamá-lo com:
 
-- `consumido` = agregado das registradas de hoje (real).
-- `refeicoesRestantesNovoTipo` = **todas** as refeições do novo tipo (nenhuma registrada sob ele) — cada uma com `isRegistered:false`.
+- `consumido` = agregado das registradas de hoje (real, type-agnostic).
+- `refeicoesRestantesNovoTipo` = refeições do novo tipo nos **slots AINDA NÃO registrados hoje** (pareado por `position`) — **NÃO todas** (somar todas + consumido contaria o slot comido 2×). Cada uma com `isRegistered:false`.
 - `refeicoesDefaultNovoTipo` = defaults do novo tipo (alvo).
 
 Saída: `RebalanceOutcome` (`rebalanceado` com `AlavancaAjustada[]` itemId→gramasNovo+medidaCaseira | `sem-acao` | `recusa-orientada`).

@@ -73,6 +73,8 @@ O paciente já comeu parte do dia e troca o tipo-de-dia (ex.: de treino para des
 1. **Given** refeições já registradas hoje, **When** o paciente troca o tipo-de-dia, **Then** o cardápio do novo tipo é exibido com as refeições recalculadas pelo consumido-até-agora (alvo do novo tipo − consumido), reaproximando do alvo dentro de faixa + piso.
 2. **Given** nenhuma refeição registrada ainda, **When** o paciente troca o tipo-de-dia, **Then** o novo cardápio aparece no **planejado** (sem ajuste), como hoje.
 3. **Given** o consumido projeta o novo dia fora da faixa, **When** a troca é exibida, **Then** o ajuste aparece **direto no cardápio** (sem passo de confirmação separado).
+4. **Given** um tipo-de-dia override ativo e consumo registrado, **When** o paciente recarrega a tela (sem novo toque no seletor), **Then** o cardápio segue ajustado; **e** no tipo-de-dia **padrão** (sem override), recarregar após registrar **não** ajusta o cardápio.
+5. **Given** o café já registrado (slot do tipo anterior), **When** o paciente troca de tipo-de-dia, **Then** o slot do café conta **uma única vez** (pelo consumido) — a refeição equivalente do novo tipo sai das restantes; só os slots não comidos são recalculados.
 
 ---
 
@@ -114,6 +116,8 @@ O paciente já comeu parte do dia e troca o tipo-de-dia (ex.: de treino para des
 - **FR-011**: Ao trocar o tipo-de-dia, o sistema MUST recalcular as quantidades das refeições do **novo** tipo-de-dia considerando o **consumido-até-agora**, comparando contra o alvo do novo tipo (mesmas regras de direção/piso dos FR-009/FR-010).
 - **FR-012**: O **consumido-até-agora** MUST ser a soma do consumo real das refeições registradas (estado vigente) do **dia corrente**, do plano ativo, resolvida a cada exibição — **sem** persistir o tipo-de-dia escolhido.
 - **FR-013**: O recálculo da troca de tipo-de-dia MUST aparecer **direto no cardápio** exibido, sem passo de confirmação separado.
+- **FR-013a**: Enquanto houver um **tipo-de-dia escolhido (override) ativo**, o cardápio MUST refletir o consumido a **cada exibição** (não só no toque de trocar). No **tipo-de-dia padrão** (sem override), o sistema MUST NOT auto-recalcular o cardápio por registro — só exibe (preserva "registrar não é gatilho"). _(Decisão Q2 revisada: o app mantém o tipo-de-dia escolhido entre telas.)_
+- **FR-013b**: Ao recalcular um tipo-de-dia com consumo, o sistema MUST contar cada refeição (slot) **uma única vez** — os slots já registrados hoje entram pelo consumido e MUST ser excluídos das refeições restantes do novo tipo (evita contagem dupla).
 
 #### Transversais
 
