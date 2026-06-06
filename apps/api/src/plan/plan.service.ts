@@ -1,9 +1,18 @@
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { and, asc, eq, inArray, schema } from '@bamboo/db';
-import { estadoVigente, type EstadoRegistro } from '@bamboo/core';
+import {
+  PARAMETROS_SISTEMA,
+  estadoVigente,
+  previewTrocaTipoDia,
+  resolverParametros,
+  type EstadoRegistro,
+  type ItemDia,
+  type RefeicaoDia,
+} from '@bamboo/core';
 import type { TodayResponse } from '@bamboo/types';
 import { DB, type Db } from '../db/db.module';
 import { localToday } from '../local-date';
+import { carregarConsumoDoDia } from '../registro-consumo';
 import { toTodayResponse, type MealRow, type OptionRow } from './today.mapper';
 
 // Casca imperativa: faz I/O (Drizzle), orquestra o mapper puro, converte
@@ -16,11 +25,15 @@ export class PlanService {
     patientId: string,
     dayTypeId?: string,
   ): Promise<TodayResponse> {
-    // 1. Paciente (exposure).
+    // 1. Paciente (exposure + config de adaptação nível 1, p/ a troca de
+    //    tipo-de-dia recalcular pelo consumido — US3).
     const [pat] = await this.db
       .select({
         id: schema.patient.id,
         exposure: schema.patient.exposure,
+        bandTolerancePct: schema.patient.bandTolerancePct,
+        floorPct: schema.patient.floorPct,
+        nutritionistId: schema.patient.nutritionistId,
       })
       .from(schema.patient)
       .where(eq(schema.patient.id, patientId))
@@ -232,13 +245,128 @@ export class PlanService {
       .from(schema.dayType)
       .where(eq(schema.dayType.planId, pln.id));
 
-    // 7. Monta o DTO puro (gate de exposição + derivação de "o agora" lá).
-    return toTodayResponse({
-      patientId: pat.id,
-      exposure: pat.exposure,
-      dayType: { id: resolved.dayTypeId, label: resolved.dayTypeName },
-      availableDayTypes: dayTypes.map((d) => ({ id: d.id, label: d.name })),
-      meals: mealRows,
+    // 7. US3 (Fase 4) — recalcular pelo CONSUMIDO na troca de tipo-de-dia. SÓ
+    //    quando há `dayTypeId` (override ativo) E consumo registrado hoje. O tipo
+    //    padrão por weekday (sem override) NUNCA auto-ajusta (Q1/FR-013a).
+    const ajuste = dayTypeId
+      ? await this.calcularAjusteTrocaTipoDia(patientId, pln.id, pat, mealRows)
+      : undefined;
+
+    // 8. Monta o DTO puro (gate de exposição + derivação de "o agora" lá; ajuste
+    //    aplicado só aos itens flexíveis da opção default — US3).
+    return toTodayResponse(
+      {
+        patientId: pat.id,
+        exposure: pat.exposure,
+        dayType: { id: resolved.dayTypeId, label: resolved.dayTypeName },
+        availableDayTypes: dayTypes.map((d) => ({ id: d.id, label: d.name })),
+        meals: mealRows,
+      },
+      ajuste,
+    );
+  }
+
+  // US3 (Fase 4) — calcula o mapa itemId→gramasNovo das alavancas recalculadas
+  // pela troca de tipo-de-dia, lendo o CONSUMO REAL do dia. Casca de leitura:
+  // I/O + orquestra o núcleo puro (previewTrocaTipoDia). Não lança — "nunca
+  // barra": qualquer desfecho ≠ rebalanceado devolve undefined (mostra planejado;
+  // /today não tem superfície de recusa). Decisões D5/D7, contracts/http-motor.md.
+  private async calcularAjusteTrocaTipoDia(
+    patientId: string,
+    planId: string,
+    pat: {
+      readonly bandTolerancePct: number | null;
+      readonly floorPct: number | null;
+      readonly nutritionistId: string;
+    },
+    mealRows: readonly MealRow[],
+  ): Promise<ReadonlyMap<string, number> | undefined> {
+    // 1. Parâmetros de adaptação (resolução de 3 níveis: paciente > nutri >
+    //    sistema), mesmo padrão do rebalance.service.
+    const [nutri] = await this.db
+      .select({
+        defaultBandTolerancePct: schema.nutritionist.defaultBandTolerancePct,
+        defaultFloorPct: schema.nutritionist.defaultFloorPct,
+      })
+      .from(schema.nutritionist)
+      .where(eq(schema.nutritionist.id, pat.nutritionistId))
+      .limit(1);
+    const parametros = resolverParametros({
+      sistema: PARAMETROS_SISTEMA,
+      nutri: {
+        toleranciaPct: nutri?.defaultBandTolerancePct ?? undefined,
+        pisoPct: nutri?.defaultFloorPct ?? undefined,
+      },
+      paciente: {
+        toleranciaPct: pat.bandTolerancePct ?? undefined,
+        pisoPct: pat.floorPct ?? undefined,
+      },
     });
+
+    // 2. Consumo real do dia (helper de casca, type-agnostic por paciente+plano+
+    //    localToday). Sem consumo → nada a ajustar (mostra o planejado).
+    const consumoDia = await carregarConsumoDoDia(this.db, {
+      patientId,
+      planId,
+    });
+    if (consumoDia.porMeal.size === 0) return undefined;
+
+    // 3. Slots JÁ registrados hoje, por position (type-agnostic). Pareia os slots
+    //    entre tipos-de-dia: a refeição já comida entra via `consumido`; sua
+    //    posição correspondente no NOVO tipo SAI das restantes (evita double-count
+    //    — FR-013b).
+    const registeredPositions = new Set(
+      [...consumoDia.porMeal.values()].map((c) => c.position),
+    );
+
+    // 4. Cardápio do NOVO tipo (= mealRows já carregados): opção default de cada
+    //    refeição. `refeicoesDefaultNovoTipo` = alvo (todas); `restantes` = só os
+    //    slots NÃO registrados (alavancas vivem aqui).
+    const defaultDe = (m: MealRow): OptionRow =>
+      m.options.find((o) => o.isDefault) ?? m.options[0];
+
+    const refeicoesDefaultNovoTipo = mealRows.map((m) => ({
+      itens: defaultDe(m).items.map((it) => ({
+        macros: {
+          carbPer100g: it.food.carbPer100g,
+          proteinPer100g: it.food.proteinPer100g,
+          fatPer100g: it.food.fatPer100g,
+          kcalPer100g: it.food.kcalPer100g,
+        },
+        gramas: it.quantityGrams,
+      })),
+    }));
+
+    const refeicoesRestantesNovoTipo: RefeicaoDia[] = mealRows
+      .filter((m) => !registeredPositions.has(m.position))
+      .map((m) => {
+        const itens: ItemDia[] = defaultDe(m).items.map((it) => ({
+          itemId: it.id,
+          macros: {
+            carbPer100g: it.food.carbPer100g,
+            proteinPer100g: it.food.proteinPer100g,
+            fatPer100g: it.food.fatPer100g,
+            kcalPer100g: it.food.kcalPer100g,
+          },
+          gramas: it.quantityGrams,
+          gramasPlanejado: it.quantityGrams,
+          isLocked: it.isLocked,
+          groupId: it.substitutionGroupId,
+          medidas: it.measures,
+        }));
+        return { position: m.position, isRegistered: false, itens };
+      });
+
+    // 5. Núcleo puro. Só 'rebalanceado' produz ajuste; qualquer outro desfecho
+    //    (sem-acao / recusa-orientada / entrada-invalida) → undefined (planejado).
+    const r = previewTrocaTipoDia({
+      consumido: consumoDia.consumido,
+      refeicoesRestantesNovoTipo,
+      refeicoesDefaultNovoTipo,
+      parametros,
+    });
+    if (!r.ok || r.value.kind !== 'rebalanceado') return undefined;
+
+    return new Map(r.value.alavancas.map((a) => [a.itemId, a.gramasNovo]));
   }
 }

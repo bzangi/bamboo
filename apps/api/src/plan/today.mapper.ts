@@ -139,17 +139,27 @@ export function nutritionFor(
   return { ...macros, kcal: Math.round(n.kcal) };
 }
 
-function toItemDto(item: ItemRow, exposure: ExposureLevel): MealItemDto {
+function toItemDto(
+  item: ItemRow,
+  exposure: ExposureLevel,
+  // Fase 4 (US3): ajuste do rebalanceamento por troca de tipo-de-dia. Mapa
+  // itemId→gramasNovo já restrito às alavancas (itens flexíveis) da opção default.
+  // Quando o item está no mapa, exibe a grama AJUSTADA (medida/nutrition
+  // recomputadas); senão, o planejado. Casamento por itemId.
+  ajuste?: ReadonlyMap<string, number>,
+): MealItemDto {
   const substitutable = !item.isLocked && item.substitutionGroupId != null;
-  const nutrition = nutritionFor(item.food, item.quantityGrams, exposure);
+  const ajustado = ajuste?.get(item.id);
+  const gramas = ajustado ?? item.quantityGrams;
+  const nutrition = nutritionFor(item.food, gramas, exposure);
   return {
     id: item.id,
     food: { id: item.food.id, name: item.food.name },
-    quantityGrams: item.quantityGrams,
+    quantityGrams: gramas,
     isLocked: item.isLocked,
     substitutionGroupId: item.substitutionGroupId,
     substitutable,
-    medidaCaseira: medidaPlanejada(item.quantityGrams, item.measures),
+    medidaCaseira: medidaPlanejada(gramas, item.measures),
     ...(nutrition ? { nutrition } : {}),
   };
 }
@@ -161,12 +171,19 @@ function normalizeHorario(horario: string | null): string | null {
   return m ? m[1] : horario;
 }
 
-function toOptionDto(opt: OptionRow, exposure: ExposureLevel): MealOptionDto {
+function toOptionDto(
+  opt: OptionRow,
+  exposure: ExposureLevel,
+  // Fase 4 (US3): ajuste aplicado SÓ à opção DEFAULT (passado undefined nas
+  // alternativas — só a default é o cardápio em curso a ajustar).
+  ajuste?: ReadonlyMap<string, number>,
+): MealOptionDto {
+  const ajusteDaOpcao = opt.isDefault ? ajuste : undefined;
   return {
     id: opt.id,
     label: opt.label,
     isDefault: opt.isDefault,
-    items: opt.items.map((it) => toItemDto(it, exposure)),
+    items: opt.items.map((it) => toItemDto(it, exposure, ajusteDaOpcao)),
   };
 }
 
@@ -174,8 +191,9 @@ function toMealDto(
   meal: MealRow,
   exposure: ExposureLevel,
   currentMealId: string | null,
+  ajuste?: ReadonlyMap<string, number>,
 ): MealDto {
-  const options = meal.options.map((o) => toOptionDto(o, exposure));
+  const options = meal.options.map((o) => toOptionDto(o, exposure, ajuste));
   const defaultOption = options.find((o) => o.isDefault) ?? options[0];
   return {
     id: meal.id,
@@ -190,8 +208,20 @@ function toMealDto(
   };
 }
 
-/** Monta a TodayResponse a partir do agregado lido do banco. Função pura. */
-export function toTodayResponse(input: TodayInput): TodayResponse {
+/**
+ * Monta a TodayResponse a partir do agregado lido do banco. Função pura.
+ *
+ * `ajuste` (Fase 4 / US3): mapa itemId→gramasNovo das alavancas recalculadas na
+ * troca de tipo-de-dia (override ativo + consumo hoje). A casca já o restringe
+ * aos itens flexíveis (alavancas) das refeições NÃO registradas; aqui ele é
+ * aplicado SÓ aos itens da opção DEFAULT cujo itemId está no mapa, recomputando
+ * gramas/medida/nutrition. Ausente (undefined) → tudo no planejado ("nunca
+ * barra"; o tipo padrão por weekday nunca auto-ajusta — Q1/FR-013a).
+ */
+export function toTodayResponse(
+  input: TodayInput,
+  ajuste?: ReadonlyMap<string, number>,
+): TodayResponse {
   // "O agora" derivado: 1ª refeição não-registrada na ordem do plano. Todas
   // registradas → dia-concluido (currentMealId null). Sem eventos no dia, todos
   // os estados são null → o agora = 1ª refeição (retrocompat com a Fase 1/2).
@@ -215,6 +245,8 @@ export function toTodayResponse(input: TodayInput): TodayResponse {
     })),
     currentMealId,
     diaConcluido,
-    meals: input.meals.map((m) => toMealDto(m, input.exposure, currentMealId)),
+    meals: input.meals.map((m) =>
+      toMealDto(m, input.exposure, currentMealId, ajuste),
+    ),
   };
 }
