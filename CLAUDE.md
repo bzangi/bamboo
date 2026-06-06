@@ -263,22 +263,25 @@ Dado de saúde desde a Fase 0: controle de acesso, criptografia, consentimento. 
 
 <!-- SPECKIT START -->
 
-Feature ativa: **004-motor-le-registro** (o motor de rebalanceamento passa a ler o
-registro). Fase 4. Corrige 2 bugs: trocar opção recalculava refeições já feitas; trocar
-tipo-de-dia não recalculava pelo consumido.
-Estado: **spec aprovada + plano gerado e revisado** (aguardando gate Plan → Tasks). Achado: a
-matemática da engine NÃO muda (`rebalancearPorKcal` já trata os 2 sentidos); sem migration.
-Núcleo: `previewTrocaOpcao` exclui registradas das alavancas (+ `isRegistered` obrigatório em
-`RefeicaoDia`); `previewTrocaTipoDia` só ganha consumidor. Casca: helper de consumo real por
-(paciente,plano,localToday) type-agnostic + `/today?dayTypeId` recalcula pelo consumido. Decisões
-do dono: **troquei exato** → a escrita do registro (Fase 3) passa a gravar o snapshot COMPLETO em
-`meal_event_item` (sem migration, sem mudança no mobile); **troca-de-dia = override ativo sempre
-ajusta** (tipo padrão nunca auto-ajusta, preserva Q1); déficit compensa nos 2 sentidos (faixa+piso);
-rebalanceamento segue efêmero. Verificação adversarial do plano pegou 2 furos (modelo do troquei;
-gatilho frágil) + majors, todos endereçados.
-Plano: `specs/004-motor-le-registro/plan.md` — companheiros: `spec.md`, `research.md` (D1–D10),
-`data-model.md`, `contracts/` (core + HTTP), `quickstart.md`. `.specify/feature.json` aponta a
-feature. Concluídas: `001-alca-do-paciente` (Fase 0/1), `002-rebalanceamento` (Fase 2),
-`003-registro-consulta` (Fase 3 — registro feito/troquei/pulei; 85 core + 45 e2e).
+Nenhuma feature ativa (aguardando a próxima). Última concluída: **004-motor-le-registro**
+(Fase 4 — o motor de rebalanceamento lê o registro): **implementada e testada**. Corrigiu os 2
+bugs: trocar opção recalculava refeições já feitas; trocar tipo-de-dia não recalculava pelo
+consumido. **Sem migration** (lê `meal_event`/`meal_event_item` da Fase 3). A matemática da engine
+NÃO mudou (`rebalancearPorKcal`/`previewTrocaTipoDia` já tratavam os 2 sentidos — D1).
+Entregue: núcleo ganhou `isRegistered` (obrigatório) em `RefeicaoDia` + `previewTrocaOpcao` exclui
+registradas das alavancas; casca nova `apps/api/src/registro-consumo.ts` (consumo real type-agnostic
+por paciente+plano+`localToday`); `rebalance.service` lê o registro na troca de opção (registradas
+saem das alavancas + consumo real no total); `getToday` recalcula pelo consumido quando há
+`?dayTypeId` override ativo (pareando slots por position, sem double-count; tipo padrão nunca
+auto-ajusta — Q1); `registro.service` grava o snapshot COMPLETO do troquei em `meal_event_item`
+(D3b — lógica de carga nova, sem mudança no mobile). Rebalanceamento segue efêmero.
+**Achado documentado:** recusa `estoura-piso` só ocorre no EXCESSO; um déficit ou cabe (aumenta, sem
+teto) ou vira `sem-alavanca` — a mensagem "hoje ficou abaixo" do D10 é inalcançável no v0 (coerente
+com FR-009/FR-010). Resultado: **core 90 + e2e 61 verdes**, lint/build limpos; commits na main
+(Foundational → US1 → US2 → US3 → polish).
+Artefatos: `specs/004-motor-le-registro/` (spec/plan/tasks/research D1–D11/data-model/contracts/quickstart).
+Concluídas: `001-alca-do-paciente` (Fase 0/1), `002-rebalanceamento` (Fase 2),
+`003-registro-consulta` (Fase 3 — registro feito/troquei/pulei), `004-motor-le-registro`
+(Fase 4 — motor lê o registro; 90 core + 61 e2e).
 
 <!-- SPECKIT END -->

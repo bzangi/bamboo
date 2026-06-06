@@ -12,10 +12,10 @@
 
 No `registro.service`, ao gravar **troquei**, materializar e gravar em `meal_event_item` o consumo COMPLETO (**lógica de carga nova**: carregar todos os `meal_item` da opção cumprida, não só os trocados):
 
-| Sub-caso de troquei | `chosen_meal_option_id` | `meal_event_item` (gravado) |
-|---------------------|--------------------------|------------------------------|
-| por substituição/combinação | a opção cumprida (default) | todos os itens da opção, com **overlay por `itemId`**: para cada `itemId` em `consumo.items`, remove a linha do plano e insere TODAS as entradas desse `itemId` (1..N — combinação 1→2 = 2 entradas) |
-| por opção não-default | a opção não-default cumprida | todos os itens dessa opção (sem overlay) |
+| Sub-caso de troquei         | `chosen_meal_option_id`      | `meal_event_item` (gravado)                                                                                                                                                                          |
+| --------------------------- | ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| por substituição/combinação | a opção cumprida (default)   | todos os itens da opção, com **overlay por `itemId`**: para cada `itemId` em `consumo.items`, remove a linha do plano e insere TODAS as entradas desse `itemId` (1..N — combinação 1→2 = 2 entradas) |
+| por opção não-default       | a opção não-default cumprida | todos os itens dessa opção (sem overlay)                                                                                                                                                             |
 
 `feito`/`pulei`/`desfazer`: **sem** `meal_event_item` (feito deriva da `chosen_meal_option_id`).
 
@@ -23,12 +23,12 @@ No `registro.service`, ao gravar **troquei**, materializar e gravar em `meal_eve
 
 ### Consumo real de uma refeição registrada
 
-| Estado vigente | Contribuição ao total do dia |
-|----------------|------------------------------|
-| `feito` | itens da opção cumprida (`chosen_meal_option_id`; fallback: default da refeição, ou 1ª opção) × gramas planejadas |
-| `troquei` | **soma de `meal_event_item`** (food × gramas) — snapshot completo, exato |
-| `pulei` | **zero** |
-| não-registrada | itens planejados (default; ou escolhida, se for o gatilho) |
+| Estado vigente | Contribuição ao total do dia                                                                                      |
+| -------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `feito`        | itens da opção cumprida (`chosen_meal_option_id`; fallback: default da refeição, ou 1ª opção) × gramas planejadas |
+| `troquei`      | **soma de `meal_event_item`** (food × gramas) — snapshot completo, exato                                          |
+| `pulei`        | **zero**                                                                                                          |
+| não-registrada | itens planejados (default; ou escolhida, se for o gatilho)                                                        |
 
 Macros via `food.*Per100g` × gramas (`nutrientesDaPorcao`/`somaNutrientes`, core).
 

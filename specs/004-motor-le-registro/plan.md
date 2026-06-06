@@ -38,7 +38,7 @@ Detalhe em [research.md](./research.md); modelo em [data-model.md](./data-model.
 
 ## Constitution Check
 
-*GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
+_GATE: Must pass before Phase 0 research. Re-check after Phase 1 design._
 
 - [x] **Núcleo puro** (Princípio III): a regra (excluir registradas das alavancas; direção/piso) fica no core puro (`previewTrocaOpcao` + `rebalancearPorKcal`, inalterado). `isRegistered` é dado de entrada. Zero I/O/throw/mutação.
 - [x] **Casca fina** (Princípio III): I/O (carregar `meal_event`/`meal_event_item`/macros, computar consumido) e orquestração só em `apps/api`. Conversão `Result`→`HttpException` mantida (opção 1). Response via mapper puro.
@@ -94,8 +94,8 @@ apps/api/test/
 
 > Sem violações da Constituição a justificar.
 
-| Item | Por que | Alternativa rejeitada porque |
-|------|---------|------------------------------|
-| `GET /today` rebalanceia quando **`?dayTypeId` override ativo** + consumo (decisão do dono) | O app persiste o `?dayTypeId`; "só no toque" exigiria sinal novo no app. Override ativo = card. sempre ajustado pelo consumido | Sinal efêmero de "troquei agora" rejeitado (muda o app). Tipo **padrão** (sem override) nunca auto-ajusta → Q1 preservado |
-| **Troquei grava snapshot completo** (muda a escrita do registro/Fase 3) | Decisão do dono ("exato"): sem o conjunto completo, o total do troquei-por-substituição é impreciso | Aproximação v0 (troquei=planejado) rejeitada pelo dono; vínculo item→substituto seria migration + mais complexo. Snapshot completo: sem migration, sem mudança no mobile |
-| Helper de consumo real na casca (não no core) | Resolver "o que foi consumido" é I/O (carregar opção cumprida / `meal_event_item` / macros) | Pôr no core violaria functional-core; a matemática (somaNutrientes) já é core e é reusada |
+| Item                                                                                        | Por que                                                                                                                        | Alternativa rejeitada porque                                                                                                                                             |
+| ------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `GET /today` rebalanceia quando **`?dayTypeId` override ativo** + consumo (decisão do dono) | O app persiste o `?dayTypeId`; "só no toque" exigiria sinal novo no app. Override ativo = card. sempre ajustado pelo consumido | Sinal efêmero de "troquei agora" rejeitado (muda o app). Tipo **padrão** (sem override) nunca auto-ajusta → Q1 preservado                                                |
+| **Troquei grava snapshot completo** (muda a escrita do registro/Fase 3)                     | Decisão do dono ("exato"): sem o conjunto completo, o total do troquei-por-substituição é impreciso                            | Aproximação v0 (troquei=planejado) rejeitada pelo dono; vínculo item→substituto seria migration + mais complexo. Snapshot completo: sem migration, sem mudança no mobile |
+| Helper de consumo real na casca (não no core)                                               | Resolver "o que foi consumido" é I/O (carregar opção cumprida / `meal_event_item` / macros)                                    | Pôr no core violaria functional-core; a matemática (somaNutrientes) já é core e é reusada                                                                                |

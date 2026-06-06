@@ -4,7 +4,7 @@ Provar os 2 bugs corrigidos. Pré: Postgres + `.env` + seed. Sem migration (não
 
 ## Ordem de implementação (TDD)
 
-1. **Núcleo** (`packages/core`): `rebalance.test.ts` (falha primeiro) com os casos novos; depois `rebalance.ts` — `isRegistered` (obrigatório) em `RefeicaoDia` + filtro em `previewTrocaOpcao`. Atualizar TODOS os literais `RefeicaoDia`: `rebalance.test.ts`, `phase2.edge.test.ts`, `rebalance.service.ts`. `pnpm --filter @bamboo/core test` verde. — *bloqueia o resto.*
+1. **Núcleo** (`packages/core`): `rebalance.test.ts` (falha primeiro) com os casos novos; depois `rebalance.ts` — `isRegistered` (obrigatório) em `RefeicaoDia` + filtro em `previewTrocaOpcao`. Atualizar TODOS os literais `RefeicaoDia`: `rebalance.test.ts`, `phase2.edge.test.ts`, `rebalance.service.ts`. `pnpm --filter @bamboo/core test` verde. — _bloqueia o resto._
 2. **Troquei snapshot (Fase 3, D3b)** (`apps/api/src/registro/registro.service.ts`): no troquei, gravar `meal_event_item` = consumo COMPLETO (opção cumprida + overrides; e troquei-por-opção também grava). Atualizar `registro.e2e-spec.ts` (troquei agora cria N linhas). Sem migration.
 3. **Helper de consumo** (`apps/api/src/registro-consumo.ts`): carrega `meal_event` por (paciente, plano, `localToday()`) — type-agnostic; reduz com `estadoVigente`; expõe consumo real por refeição + vetor `consumido` agregado.
 4. **Casca — trocar opção** (`apps/api/src/rebalance/rebalance.service.ts`): usa o helper; monta `diaComEscolha` com itens reais nas registradas + `isRegistered`. e2e (`rebalance.e2e-spec.ts`) falha primeiro.

@@ -43,6 +43,7 @@ Sem mudança de request. **Lógica de escrita NOVA** (não só "mais linhas"): a
 ## Cobertura e2e (test-first, Vitest)
 
 `rebalance.e2e-spec.ts` (adições):
+
 - Registrar uma refeição anterior como **feito**; `POST option-choice` numa posterior → a refeição registrada **não** aparece nos ajustes e sua grama não muda (SC-001).
 - **Desfazer (FR-003)**: registrar feito → option-choice (registrada não é alavanca) → `POST registro {intent:'desfazer'}` → option-choice de novo → a refeição **volta a ser alavanca** e contribui com o planejado.
 - Registrar **pulei** numa refeição; `POST option-choice` → o restante é sugerido a **aumentar** (déficit), sem furar o piso (SC-002).
@@ -51,6 +52,7 @@ Sem mudança de request. **Lógica de escrita NOVA** (não só "mais linhas"): a
 - **D9**: um feito com `chosen_meal_option_id` nulo (evento legado/seed) → consumo usa a opção default (fallback), nunca zero.
 
 `today-daytype.e2e-spec.ts` (adições) — **a suíte passa a importar `RegistroModule`** (hoje só `PlanModule`) para criar consumo via `POST /registro` antes de assertar:
+
 - Sem consumo: `GET /today?dayTypeId=<outro>` → cardápio do novo tipo no **planejado** (SC-003 baseline).
 - Com consumo (registrar o **café do tipo ORIGINAL**, depois trocar): `GET /today?dayTypeId=<outro>` → itens flexíveis do novo tipo com **gramas ajustadas** (≠ planejado), respeitando piso, caindo nos itens do **novo** tipo (casamento por itemId); o consumido vem de uma refeição do tipo original (confirma type-agnostic) e o **slot do café (já comido) NÃO é double-counted** (SC-003).
 - **Reload com override ativo**: registrar com `?dayTypeId` ativo e recarregar `GET /today?dayTypeId=<mesmo>` → segue ajustado (override ativo = sempre ajustado).

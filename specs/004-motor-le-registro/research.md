@@ -98,7 +98,7 @@ Decisões aterradas no código real (investigação + verificação adversarial 
 
 ## D11 — Correção de conteúdo de troquei: o consumido reflete o ÚLTIMO troquei persistido
 
-**Decisão**: `consumido(troquei) = soma(meal_event_item)` do evento **vigente** (último). A Fase 3 já definiu que corrigir o *conteúdo* de um troquei se faz **desfazer → re-registrar** (correção troquei→troquei-distinto sem desfazer é fora de escopo / no-op pela idempotência por estado). Logo o motor sempre lê o consumo do troquei efetivamente vigente; não há ambiguidade.
+**Decisão**: `consumido(troquei) = soma(meal_event_item)` do evento **vigente** (último). A Fase 3 já definiu que corrigir o _conteúdo_ de um troquei se faz **desfazer → re-registrar** (correção troquei→troquei-distinto sem desfazer é fora de escopo / no-op pela idempotência por estado). Logo o motor sempre lê o consumo do troquei efetivamente vigente; não há ambiguidade.
 
 **Rationale**: alinha o consumo-real com a semântica de correção da Fase 3 (last-write-wins por estado; conteúdo novo do troquei exige desfazer+re-registrar). Documentado para o implementador não tentar "mesclar" troquei sobre troquei.
 

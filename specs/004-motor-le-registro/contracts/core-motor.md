@@ -23,7 +23,9 @@ Assinatura inalterada; só a seleção de alavancas muda:
 // depois: .filter((r) => r.position !== triggerPosition && !r.isRegistered)
 const alavancas = diaComEscolha
   .filter((r) => r.position !== triggerPosition && !r.isRegistered)
-  .flatMap((r) => r.itens.filter(ehAlavanca).map((i) => toAlavanca(i, r.position)));
+  .flatMap((r) =>
+    r.itens.filter(ehAlavanca).map((i) => toAlavanca(i, r.position)),
+  );
 ```
 
 - `alvo` = `alvoDoDia(refeicoesDefault)` — **inalterado** (alvo do plano, FR-008).

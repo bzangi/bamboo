@@ -1,7 +1,7 @@
 # Bamboo — Estado Atual
 
 > **Status:** pré-MVP · **não é greenfield** (fundação + alça do paciente já implementadas e testadas) · RN-first.
-> **Atualizado em:** 2026-06-01.
+> **Atualizado em:** 2026-06-05.
 
 Documento vivo — snapshot do estado real do repositório nesta data, verificado por leitura direta dos arquivos e do histórico git. Em conflito com o cabeçalho do `CLAUDE.md` ("monorepo greenfield, só `.git`"), **este snapshot vence**: o scaffold já foi executado e há código de aplicação funcional commitado.
 
@@ -97,11 +97,13 @@ Detalhamento do paradigma com exemplos canônicos em `CLAUDE.md`; invariantes go
 | 4 — Reduzir fricção | import por IA (PDF→estruturado), offline, notificações, comida fora da lista | Não iniciada |
 | 5+ — Negócio | billing, Pix/Stripe, deploy/infra | Não iniciada |
 
+> **Integração `004-motor-le-registro` (rotulada "Fase 4" no `CLAUDE.md`) — implementada e testada:** o motor de rebalanceamento passa a **ler o registro**. Corrigiu 2 bugs: (a) trocar a opção recalculava refeições já feitas; (b) trocar o tipo-de-dia não recalculava pelo consumido. **Sem migration** (lê `meal_event`/`meal_event_item` da Fase 3); a matemática da engine não mudou (D1). Núcleo: `isRegistered` (obrigatório) em `RefeicaoDia` + `previewTrocaOpcao` exclui registradas das alavancas. Casca: novo `apps/api/src/registro-consumo.ts` (consumo real type-agnostic), `rebalance.service` (troca de opção ciente do registro), `getToday` (troca de tipo-de-dia recalcula pelo consumido com `?dayTypeId` override ativo; tipo padrão nunca auto-ajusta — Q1), `registro.service` (troquei grava snapshot COMPLETO em `meal_event_item` — D3b). Rebalanceamento efêmero. `core 90 + e2e 61` verdes.
+
 **T0–T8 — todas implementadas e commitadas** (T0 scaffold · T1 docker · T2 schema/migration · T3 TACO · T4 `substituir()` · T5 endpoints · T6 seed · T7 Home · T8 substituição). Mapeamento legado→Spec Kit em `tasks.md` (T0→T001 … T5b+T8→T020–T024).
 
 > **Discrepância a registrar:** `specs/001-alca-do-paciente/tasks.md` marca como `[X]` apenas T001/T002; T003–T026 seguem `[ ]`. **Os checkboxes estão defasados** — o código e o git provam que T003+ está feito.
 
-**Cobertura de teste:** 13 testes em `packages/core` (10 substituição + 3 nutrição); 21 e2e em `apps/api` (8 today + 11 substitutions + 2 base).
+**Cobertura de teste (atual):** **90 testes** em `packages/core` (substituição + nutrição + rebalanceamento, incl. `isRegistered`/registro-aware); **61 e2e** em `apps/api` (today, substitutions, rebalance, registro, today-daytype). _(As contagens menores citadas em seções acima são herança da Fase 1 — drift de doc a reconciliar.)_
 
 **Modelo de dados — 12 tabelas (migration `0000_loud_ulik.sql`)**, schema canônico em `packages/db/src/schema.ts` (= [[schema]] + acréscimo de `meal.horario`):
 
