@@ -1,9 +1,9 @@
 # Bamboo — Estado Atual
 
-> **Status:** pré-MVP · **não é greenfield** (fundação + alça do paciente já implementadas e testadas) · RN-first.
-> **Atualizado em:** 2026-06-05.
+> **Status:** pré-MVP · **não é greenfield** (Fases 0–4 implementadas e testadas) · RN-first.
+> **Atualizado em:** 2026-06-06.
 
-Documento vivo — snapshot do estado real do repositório nesta data, verificado por leitura direta dos arquivos e do histórico git. Em conflito com o cabeçalho do `CLAUDE.md` ("monorepo greenfield, só `.git`"), **este snapshot vence**: o scaffold já foi executado e há código de aplicação funcional commitado.
+Documento vivo — snapshot do estado real do repositório nesta data, verificado por leitura direta dos arquivos e do histórico git. Em conflito com o cabeçalho do `CLAUDE.md`, **este snapshot vence**: o repo está bem além do que aquele header lista — Fases 0–4 implementadas e testadas.
 
 ---
 
@@ -15,26 +15,26 @@ Monorepo **pnpm workspaces + Turborepo**, Node 20+, TypeScript strict. `pnpm@11.
 
 | App | Stack | Estado |
 |---|---|---|
-| `apps/api` | NestJS 11 | 2 endpoints (casca fina sobre `@bamboo/core`): `GET /patients/:id/today` (US1), `GET /meal-items/:id/substitutions` (US2). e2e em `test/`. |
-| `apps/mobile` | Expo SDK 56 / RN 0.85 / React 19 | `HomeScreen.tsx` (Home "o agora") + `SubstitutionSheet.tsx` (bottom-sheet de substituição), consumindo `@bamboo/api-client`. |
+| `apps/api` | NestJS 11 | 5 endpoints (casca fina sobre `@bamboo/core`): `GET /patients/:id/today[?dayTypeId]`, `GET /meal-items/:id/substitutions`, `POST /meal-items/:id/combine`, `POST /patients/:id/rebalance/option-choice`, `POST /patients/:id/registro`. **61 e2e** (8 specs) em `test/`. |
+| `apps/mobile` | Expo SDK 56 / RN 0.85 / React 19 | `HomeScreen.tsx` (Home "o agora") + bottom-sheets `SubstitutionSheet`, `CombineSheet`, `RebalancePreviewSheet`, consumindo `@bamboo/api-client`. |
 | `apps/web` | Next.js | Só boilerplate `create-turbo` — sem feature (UI da nutri é fase posterior). |
 
 **Packages (seis — não quatro):**
 
-- `packages/core` — o "cérebro", TS puro sem I/O: `result.ts` (`Result`/`ok`/`err`), `nutrition.ts` (`nutrientesDaPorcao`), `substitution.ts` (`substituir()` — preserva nutriente-base, escolhe medida caseira mais próxima, retorna `Result`, nunca lança). **13 testes verdes** (2 arquivos).
-- `packages/db` — Drizzle: `src/schema.ts` (12 tabelas), `client.ts`, `query.ts`, `drizzle.config.ts`. Migration `migrations/0000_loud_ulik.sql` gerada e aplicável. Scripts `ingest-taco.ts` (ingestão TACO, idempotente por upsert) + `seed.ts`. **O schema canônico vive aqui** (não mais em `docs/schema.ts`); ganhou o campo `meal.horario`.
+- `packages/core` — o "cérebro", TS puro sem I/O: `result.ts` (`Result`/`ok`/`err`), `nutrition.ts`, `substitution.ts` (`substituir()` — preserva nutriente-base), `rebalance.ts` (motor — `previewTrocaOpcao`/`previewTrocaTipoDia`/`rebalancearPorKcal`, ciente do registro via `isRegistered`), `registro.ts` (estado vigente feito/troquei/pulei), `combination.ts`, `params.ts`. Tudo retorna `Result`, nunca lança. **90 testes verdes** (8 arquivos).
+- `packages/db` — Drizzle: `src/schema.ts` (14 tabelas — +`meal_event`/`meal_event_item` da Fase 3), `client.ts`, `query.ts`, `drizzle.config.ts`. Migrations `0000_loud_ulik.sql` + `0001_easy_malcolm_colcord.sql` + `0002_clear_cammi.sql`. Scripts `ingest-taco.ts` (ingestão TACO, idempotente por upsert) + `seed.ts`. **O schema canônico vive aqui** (não mais em `docs/schema.ts`).
 - `packages/types` — DTOs compartilhados (`today.ts`, `substitution.ts`).
-- `packages/api-client` — client tipado da API (`today.ts`, `substitution.ts`).
+- `packages/api-client` — client tipado da API (`today.ts`, `substitution.ts`, `combination.ts`, `rebalance.ts`, `registro.ts`).
 - `packages/typescript-config` + `packages/eslint-config` — configs base do `create-turbo` (não listadas no `CLAUDE.md`).
 
 Imports internos sob o scope `@bamboo/*`.
 
 **Infra:** `docker-compose.yml` (Postgres 17-alpine, healthcheck, volume nomeado), `.env.example`, `pnpm-lock.yaml`.
 
-**Git (verificado ao vivo — diverge do "clean / 1 commit" do snapshot do prompt):**
+**Git (verificado ao vivo):**
 
-- **15 commits.** Linha do tempo: `5d1b7d8 first commit` → `8ccb826` (adota Spec Kit + ratifica constituição v1.0.0) → `ddbd803` (scaffold T0 + Postgres T1) → `681ddb1`/`34fa5c2`/`f1e7ffd` (spec/plan/tasks da feature 001) → `cb418f2` (foundational: core + db/schema/migration + TACO + seed) → builds/deps → `43d1d6c` (backend US1 `/today` + US2 `/substitutions` + e2e) → `2b614ca` (mobile Home + bottom-sheet) → `b3b5b28` (fix ingest-taco idempotente FK-safe) → `8a322b3` (OpenAPI/Swagger na API + Prettier e regra de lint/format aplicados) = **HEAD**.
-- **Working tree limpo** (verificado). A documentação OpenAPI/Swagger da API (`apps/api/src/docs/`, `apps/api/openapi.json`, `apps/api/src/gen-openapi.ts`) — fora do escopo T0–T8 — já foi commitada em `8a322b3`, junto com a aplicação do Prettier e da regra de lint/format no "done".
+- **47 commits.** Fundação + Fase 1 (`001-alca-do-paciente`) → Fase 2 rebalanceamento (`002-rebalanceamento`) → Fase 3 registro (`003-registro-consulta`) → Fase 4 motor-lê-o-registro (`004-motor-le-registro`: `38e70d3` Foundational → `1cb105e` US1 → `edee121` US2 → `690f0c8` US3 → `1ab9fdc` polish) — tudo na `main`. **HEAD = `1ab9fdc`**.
+- **Working tree limpo.** OpenAPI/Swagger da API commitado desde a Fase 1; Prettier + regra de lint/format no "done" de toda task.
 
 **Versões instaladas (dos `package.json`):** NestJS `^11`, `@nestjs/swagger ^11.4.4`, `ts-pattern ^5.9.0` · Drizzle ORM `^0.45.2`, drizzle-kit `^0.31.10`, pg `^8.21.0` · Expo `~56.0.8`, RN `0.85.3`, React `19.2.3` · Vitest `^4.1.7`, TypeScript `5.9.2`, Turborepo `^2.9.16`, pnpm `11.5.0`.
 
@@ -101,11 +101,11 @@ Detalhamento do paradigma com exemplos canônicos em `CLAUDE.md`; invariantes go
 
 **T0–T8 — todas implementadas e commitadas** (T0 scaffold · T1 docker · T2 schema/migration · T3 TACO · T4 `substituir()` · T5 endpoints · T6 seed · T7 Home · T8 substituição). Mapeamento legado→Spec Kit em `tasks.md` (T0→T001 … T5b+T8→T020–T024).
 
-> **Discrepância a registrar:** `specs/001-alca-do-paciente/tasks.md` marca como `[X]` apenas T001/T002; T003–T026 seguem `[ ]`. **Os checkboxes estão defasados** — o código e o git provam que T003+ está feito.
+> **Reconciliado:** `specs/001-alca-do-paciente/tasks.md` está com as 26 tarefas marcadas `[x]` (sem pendências `[ ]`), alinhado ao código e ao git.
 
 **Cobertura de teste (atual):** **90 testes** em `packages/core` (substituição + nutrição + rebalanceamento, incl. `isRegistered`/registro-aware); **61 e2e** em `apps/api` (today, substitutions, rebalance, registro, today-daytype). _(As contagens menores citadas em seções acima são herança da Fase 1 — drift de doc a reconciliar.)_
 
-**Modelo de dados — 12 tabelas (migration `0000_loud_ulik.sql`)**, schema canônico em `packages/db/src/schema.ts` (= [[schema]] + acréscimo de `meal.horario`):
+**Modelo de dados — 14 tabelas (migrations `0000_loud_ulik.sql`–`0002_clear_cammi.sql`)**, schema canônico em `packages/db/src/schema.ts` (= [[schema]] + `meal.horario` + `meal_event`/`meal_event_item`):
 
 - **Enums:** `exposure_level` (gate de quanto número o paciente vê), `equivalence_basis` (nutriente que a troca preserva).
 - **Pessoas:** `nutritionist`, `patient` (com `exposure`).
@@ -119,7 +119,7 @@ Detalhamento do paradigma com exemplos canônicos em `CLAUDE.md`; invariantes go
 
 ## Próximos passos
 
-> Os três passos do briefing original tratavam bootstrap e T0–T8 como **pendentes**. Verificação no repo (15 commits, testes verdes) mostra que **já estão concluídos**; ficam aqui reconciliados com o estado real, seguidos do que de fato falta.
+> O briefing original tratava bootstrap e T0–T8 como **pendentes**. Verificação no repo (47 commits, testes verdes) mostra que **estão concluídos** — assim como as Fases 2, 3 e 4; abaixo, o que de fato falta.
 
 **Já concluído (reconciliação factual):**
 
@@ -129,6 +129,7 @@ Detalhamento do paradigma com exemplos canônicos em `CLAUDE.md`; invariantes go
 
 **Pendente de verdade (a partir daqui):**
 
-- **Reconciliar a documentação desatualizada:** cabeçalho do `CLAUDE.md` ("greenfield, só `.git`") e os checkboxes de `specs/001-alca-do-paciente/tasks.md` (marcar T003–T026 como feitas).
-- **Fase 2+:** motor de rebalanceamento; registro/ciclo/adesão/relatório + UI da nutri (web); import por IA, offline, notificações; billing.
+- **Fase 3 (resto):** ciclo como objeto, adesão (só nutri), **relatório de ciclo** (a feature que vende), auto-classificação de alimentos em grupos, **UI da nutri (web)** — não iniciados.
+- **Fase 4 (resto):** import de plano por IA (PDF→estruturado), offline robusto, notificações, comida fora da lista — não iniciados.
+- **Fase 5+:** billing, Pix/Stripe, deploy/infra.
 - **Endurecer LGPD/auth:** sair do gate de exposição + `FR-016` para controle de acesso, criptografia e consentimento reais; substituir o auth stub.
