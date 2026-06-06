@@ -179,10 +179,15 @@ const refeicoesDefault = [
 describe("previewTrocaOpcao (P1) — alavancas = refeições não-gatilho (v0: nada registrado)", () => {
   it("opção mais pesada → ajusta TODAS as não-gatilho (anterior E seguinte), travado intacto", () => {
     const dia = [
-      { position: 1, itens: [itemDia("ant", 100, { gramasPlanejado: 100 })] }, // anterior ao gatilho
-      { position: 2, itens: [itemDia("m2", 150)] }, // gatilho (mais pesada)
+      {
+        position: 1,
+        isRegistered: false,
+        itens: [itemDia("ant", 100, { gramasPlanejado: 100 })],
+      }, // anterior ao gatilho
+      { position: 2, isRegistered: false, itens: [itemDia("m2", 150)] }, // gatilho (mais pesada)
       {
         position: 3,
+        isRegistered: false,
         itens: [
           itemDia("seg", 150, { gramasPlanejado: 150 }), // seguinte
           itemDia("lock", 100, { isLocked: true, groupId: null }),
@@ -205,10 +210,11 @@ describe("previewTrocaOpcao (P1) — alavancas = refeições não-gatilho (v0: n
 
   it("escolha que cabe na faixa → sem-acao", () => {
     const dia = [
-      { position: 1, itens: [itemDia("ant", 100)] },
-      { position: 2, itens: [itemDia("m2", 100)] }, // = default
+      { position: 1, isRegistered: false, itens: [itemDia("ant", 100)] },
+      { position: 2, isRegistered: false, itens: [itemDia("m2", 100)] }, // = default
       {
         position: 3,
+        isRegistered: false,
         itens: [
           itemDia("seg", 150, { gramasPlanejado: 150 }),
           itemDia("lock", 100, { isLocked: true, groupId: null }),
@@ -228,11 +234,13 @@ describe("previewTrocaOpcao (P1) — alavancas = refeições não-gatilho (v0: n
     const dia = [
       {
         position: 1,
+        isRegistered: false,
         itens: [itemDia("ant", 100, { isLocked: true, groupId: null })],
       },
-      { position: 2, itens: [itemDia("m2", 150)] },
+      { position: 2, isRegistered: false, itens: [itemDia("m2", 150)] },
       {
         position: 3,
+        isRegistered: false,
         itens: [
           itemDia("seg", 150, { isLocked: true }),
           itemDia("lock", 100, { isLocked: true, groupId: null }),
@@ -251,6 +259,176 @@ describe("previewTrocaOpcao (P1) — alavancas = refeições não-gatilho (v0: n
   });
 });
 
+/* ====== Fase 4 (US1/US2) — previewTrocaOpcao ciente do registro ====== */
+
+describe("previewTrocaOpcao (P1) — exclui refeições já registradas das alavancas", () => {
+  // (a) refeição registrada NÃO vira alavanca: fica intacta; só as não-registradas
+  // (≠ gatilho) ajustam. m1 registrada (100g, intacta), m2 gatilho (150g), m3 seg
+  // ajusta. Total = 100+150+150+100 = 500; alvo 450; delta +50; reduz só "seg".
+  it("refeição registrada fica intacta — só as não-registradas ajustam", () => {
+    const dia = [
+      {
+        position: 1,
+        isRegistered: true,
+        itens: [itemDia("ant", 100, { gramasPlanejado: 100 })],
+      },
+      { position: 2, isRegistered: false, itens: [itemDia("m2", 150)] },
+      {
+        position: 3,
+        isRegistered: false,
+        itens: [
+          itemDia("seg", 150, { gramasPlanejado: 150 }),
+          itemDia("lock", 100, { isLocked: true, groupId: null }),
+        ],
+      },
+    ];
+    const r = previewTrocaOpcao({
+      refeicoesDefault,
+      diaComEscolha: dia,
+      triggerPosition: 2,
+      parametros: PARAMETROS_SISTEMA,
+    });
+    if (r.ok && r.value.kind === "rebalanceado") {
+      const ids = r.value.alavancas.map((a) => a.itemId);
+      expect(ids).not.toContain("ant"); // registrada fora das alavancas
+      expect(ids).toContain("seg");
+      expect(r.value.totalDepois.kcal).toBeCloseTo(450, 4);
+    } else throw new Error("esperava rebalanceado");
+  });
+
+  // (b.1) registrada com consumo BAIXO (pulei = itens vazios) alimenta o totalAtual
+  // → dia abaixo do alvo → restante (≠ gatilho, não-registrado) AUMENTA.
+  // m1 registrada vazia (0), m2 gatilho 100, m3 seg 150 (planned 150) + lock 100.
+  // Total = 0+100+150+100 = 350; alvo 450; delta -100; aumenta "seg".
+  it("registrada com consumo baixo (pulei) puxa o total pra baixo → restante aumenta", () => {
+    const dia = [
+      { position: 1, isRegistered: true, itens: [] },
+      { position: 2, isRegistered: false, itens: [itemDia("m2", 100)] },
+      {
+        position: 3,
+        isRegistered: false,
+        itens: [
+          itemDia("seg", 150, { gramasPlanejado: 150 }),
+          itemDia("lock", 100, { isLocked: true, groupId: null }),
+        ],
+      },
+    ];
+    const r = previewTrocaOpcao({
+      refeicoesDefault,
+      diaComEscolha: dia,
+      triggerPosition: 2,
+      parametros: PARAMETROS_SISTEMA,
+    });
+    if (r.ok && r.value.kind === "rebalanceado") {
+      const seg = r.value.alavancas.find((a) => a.itemId === "seg");
+      expect(seg).toBeDefined();
+      expect(seg!.gramasNovo).toBeGreaterThan(150); // aumentou
+      expect(r.value.totalDepois.kcal).toBeCloseTo(450, 4);
+    } else throw new Error("esperava rebalanceado");
+  });
+
+  // (b.2) registrada com consumo ALTO alimenta o totalAtual → dia acima do alvo →
+  // restante (≠ gatilho, não-registrado) REDUZ.
+  // m1 registrada 170g (real), m2 gatilho 100, m3 seg 150 (planned 150) + lock 100.
+  // Total = 170+100+150+100 = 520; alvo 450; delta +70; reduz "seg" (cap 75 ≥ 70).
+  it("registrada com consumo alto puxa o total pra cima → restante reduz", () => {
+    const dia = [
+      {
+        position: 1,
+        isRegistered: true,
+        itens: [itemDia("ant", 170, { gramasPlanejado: 100 })],
+      },
+      { position: 2, isRegistered: false, itens: [itemDia("m2", 100)] },
+      {
+        position: 3,
+        isRegistered: false,
+        itens: [
+          itemDia("seg", 150, { gramasPlanejado: 150 }),
+          itemDia("lock", 100, { isLocked: true, groupId: null }),
+        ],
+      },
+    ];
+    const r = previewTrocaOpcao({
+      refeicoesDefault,
+      diaComEscolha: dia,
+      triggerPosition: 2,
+      parametros: PARAMETROS_SISTEMA,
+    });
+    if (r.ok && r.value.kind === "rebalanceado") {
+      const ids = r.value.alavancas.map((a) => a.itemId);
+      expect(ids).not.toContain("ant"); // registrada não ajusta
+      const seg = r.value.alavancas.find((a) => a.itemId === "seg");
+      expect(seg!.gramasNovo).toBeLessThan(150); // reduziu
+      expect(r.value.totalDepois.kcal).toBeCloseTo(450, 4);
+    } else throw new Error("esperava rebalanceado");
+  });
+
+  // (c) TODAS as não-gatilho registradas → não sobra alavanca → recusa sem-alavanca.
+  // m1 registrada 150, m2 gatilho 150, m3 registrada (seg 150 + lock 100).
+  // Total = 150+150+150+100 = 550; alvo 450; delta +100 (fora da faixa) → tenta
+  // rebalancear mas não há alavanca não-registrada → recusa-orientada/sem-alavanca.
+  it("todas as não-gatilho registradas → recusa-orientada sem-alavanca", () => {
+    const dia = [
+      {
+        position: 1,
+        isRegistered: true,
+        itens: [itemDia("ant", 150, { gramasPlanejado: 100 })],
+      },
+      { position: 2, isRegistered: false, itens: [itemDia("m2", 150)] },
+      {
+        position: 3,
+        isRegistered: true,
+        itens: [
+          itemDia("seg", 150, { gramasPlanejado: 150 }),
+          itemDia("lock", 100, { isLocked: true, groupId: null }),
+        ],
+      },
+    ];
+    const r = previewTrocaOpcao({
+      refeicoesDefault,
+      diaComEscolha: dia,
+      triggerPosition: 2,
+      parametros: PARAMETROS_SISTEMA,
+    });
+    expect(r.ok && r.value.kind === "recusa-orientada" && r.value.motivo).toBe(
+      "sem-alavanca",
+    );
+  });
+
+  // (d) o gatilho registrado segue excluído por position (não bloqueia): o motor
+  // ainda roda nas não-registradas. m2 gatilho registrado (isRegistered:true), m1 e
+  // m3 não-registradas viram alavancas. Total = 100+150+150+100 = 500; delta +50.
+  it("gatilho registrado ainda é gatilho (excluído por position) — motor roda nas não-registradas", () => {
+    const dia = [
+      {
+        position: 1,
+        isRegistered: false,
+        itens: [itemDia("ant", 100, { gramasPlanejado: 100 })],
+      },
+      { position: 2, isRegistered: true, itens: [itemDia("m2", 150)] },
+      {
+        position: 3,
+        isRegistered: false,
+        itens: [
+          itemDia("seg", 150, { gramasPlanejado: 150 }),
+          itemDia("lock", 100, { isLocked: true, groupId: null }),
+        ],
+      },
+    ];
+    const r = previewTrocaOpcao({
+      refeicoesDefault,
+      diaComEscolha: dia,
+      triggerPosition: 2,
+      parametros: PARAMETROS_SISTEMA,
+    });
+    if (r.ok && r.value.kind === "rebalanceado") {
+      const ids = r.value.alavancas.map((a) => a.itemId).sort();
+      expect(ids).toEqual(["ant", "seg"]); // gatilho fora (position); registrado não bloqueia
+      expect(r.value.totalDepois.kcal).toBeCloseTo(450, 4);
+    } else throw new Error("esperava rebalanceado");
+  });
+});
+
 /* ============ Adaptador P3 — previewTrocaTipoDia ============ */
 
 describe("previewTrocaTipoDia (P3, engine-level)", () => {
@@ -262,8 +440,8 @@ describe("previewTrocaTipoDia (P3, engine-level)", () => {
 
   it("início do dia (nada consumido) → sem-acao", () => {
     const restantesTodos = [
-      { position: 1, itens: [itemDia("a", 100)] },
-      { position: 2, itens: [itemDia("b", 100)] },
+      { position: 1, isRegistered: false, itens: [itemDia("a", 100)] },
+      { position: 2, isRegistered: false, itens: [itemDia("b", 100)] },
     ];
     const r = previewTrocaTipoDia({
       consumido: zero,
@@ -280,6 +458,7 @@ describe("previewTrocaTipoDia (P3, engine-level)", () => {
       refeicoesRestantesNovoTipo: [
         {
           position: 2,
+          isRegistered: false,
           itens: [itemDia("lev2", 100, { gramasPlanejado: 100 })],
         },
       ],
@@ -298,6 +477,7 @@ describe("previewTrocaTipoDia (P3, engine-level)", () => {
       refeicoesRestantesNovoTipo: [
         {
           position: 2,
+          isRegistered: false,
           itens: [itemDia("lev2", 100, { gramasPlanejado: 100 })],
         },
       ],

@@ -2,7 +2,7 @@ import { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { and, asc, eq, ne, db, pool, schema } from '@bamboo/db';
+import { and, asc, desc, eq, ne, db, pool, schema } from '@bamboo/db';
 import { RegistroModule } from '../src/registro/registro.module';
 import { PlanModule } from '../src/plan/plan.module';
 
@@ -457,6 +457,235 @@ describe('POST /patients/:id/registro (US2) — derivação de "troquei"', () =>
       .expect(200);
     expect(res.body.vigente?.state).toBe('feito');
     // desfaz para não vazar estado nas asserções seguintes (append-only).
+    await request(app.getHttpServer())
+      .post(`/patients/${patientId}/registro`)
+      .send({ mealId: almocoMealId, intent: 'desfazer' })
+      .expect(200);
+  });
+
+  // ── D3b — snapshot COMPLETO em meal_event_item no troquei ─────────────────
+  // O total exato do troquei exige que o servidor materialize TODOS os itens
+  // consumidos (não só os trocados). Lê o evento vigente (state='troquei') do
+  // escopo (paciente, plano, refeição, dia) e suas filhas meal_event_item.
+
+  // Carrega as linhas meal_event_item do evento vigente troquei do escopo.
+  const loadVigenteTroqueiItems = async (
+    pln: string,
+  ): Promise<ReadonlyArray<{ foodId: string; quantityGrams: number }>> => {
+    // MESMA fonte de data do service (local-date.localToday), não UTC — senão a
+    // virada de meia-noite divergiria e o evento "sumiria" da consulta.
+    const now = new Date();
+    const loggedDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    const [ev] = await db
+      .select({ id: schema.mealEvent.id, state: schema.mealEvent.state })
+      .from(schema.mealEvent)
+      .where(
+        and(
+          eq(schema.mealEvent.patientId, patientId),
+          eq(schema.mealEvent.planId, pln),
+          eq(schema.mealEvent.mealId, almocoMealId),
+          eq(schema.mealEvent.loggedDate, loggedDate),
+        ),
+      )
+      .orderBy(desc(schema.mealEvent.createdAt))
+      .limit(1);
+    expect(ev?.state).toBe('troquei');
+    return db
+      .select({
+        foodId: schema.mealEventItem.foodId,
+        quantityGrams: schema.mealEventItem.quantityGrams,
+      })
+      .from(schema.mealEventItem)
+      .where(eq(schema.mealEventItem.mealEventId, ev.id));
+  };
+
+  it('D3b troquei-por-substituição: meal_event_item = refeição INTEIRA da opção default (item trocado reflete o substituto; demais = planejado)', async () => {
+    const [pln] = await db
+      .select({ id: schema.plan.id })
+      .from(schema.plan)
+      .where(
+        and(
+          eq(schema.plan.patientId, patientId),
+          eq(schema.plan.isActive, true),
+        ),
+      )
+      .limit(1);
+
+    // Itens planejados da opção default (id, foodId, gramas) p/ comparar.
+    const defaultItems = await db
+      .select({
+        id: schema.mealItem.id,
+        foodId: schema.mealItem.foodId,
+        quantityGrams: schema.mealItem.quantityGrams,
+      })
+      .from(schema.mealItem)
+      .where(eq(schema.mealItem.mealOptionId, defaultOptionId));
+
+    await request(app.getHttpServer())
+      .post(`/patients/${patientId}/registro`)
+      .send({
+        mealId: almocoMealId,
+        intent: 'feito',
+        consumo: {
+          items: [
+            { itemId: flexItemId, foodId: sameGroupFoodId, quantityGrams: 120 },
+          ],
+        },
+      })
+      .expect(200);
+
+    const rows = await loadVigenteTroqueiItems(pln.id);
+
+    // UMA linha por item da opção default (snapshot completo).
+    expect(rows.length).toBe(defaultItems.length);
+
+    // O item trocado reflete o substituto consumido (food+gramas).
+    const substituto = rows.filter(
+      (r) => r.foodId === sameGroupFoodId && r.quantityGrams === 120,
+    );
+    expect(substituto.length).toBe(1);
+
+    // Os DEMAIS itens (não-trocados) seguem food+gramas do plano.
+    const naoTrocados = defaultItems.filter((i) => i.id !== flexItemId);
+    for (const planejado of naoTrocados) {
+      const match = rows.filter(
+        (r) =>
+          r.foodId === planejado.foodId &&
+          r.quantityGrams === planejado.quantityGrams,
+      );
+      expect(match.length).toBeGreaterThanOrEqual(1);
+    }
+    // O food planejado do item TROCADO não aparece com a grama planejada.
+    const trocadoPlan = defaultItems.find((i) => i.id === flexItemId)!;
+    expect(
+      rows.some(
+        (r) =>
+          r.foodId === trocadoPlan.foodId &&
+          r.quantityGrams === trocadoPlan.quantityGrams,
+      ),
+    ).toBe(false);
+
+    await request(app.getHttpServer())
+      .post(`/patients/${patientId}/registro`)
+      .send({ mealId: almocoMealId, intent: 'desfazer' })
+      .expect(200);
+  });
+
+  it('D3b troquei-por-opção-não-default: meal_event_item = TODAS as linhas da opção não-default', async () => {
+    const [pln] = await db
+      .select({ id: schema.plan.id })
+      .from(schema.plan)
+      .where(
+        and(
+          eq(schema.plan.patientId, patientId),
+          eq(schema.plan.isActive, true),
+        ),
+      )
+      .limit(1);
+
+    // Itens da opção NÃO-default (food+gramas) p/ comparar 1-a-1.
+    const ndItems = await db
+      .select({
+        foodId: schema.mealItem.foodId,
+        quantityGrams: schema.mealItem.quantityGrams,
+      })
+      .from(schema.mealItem)
+      .where(eq(schema.mealItem.mealOptionId, nonDefaultOptionId));
+
+    await request(app.getHttpServer())
+      .post(`/patients/${patientId}/registro`)
+      .send({
+        mealId: almocoMealId,
+        intent: 'feito',
+        consumo: { chosenOptionId: nonDefaultOptionId },
+      })
+      .expect(200);
+
+    const rows = await loadVigenteTroqueiItems(pln.id);
+
+    // Antes da D3b isto era 0; agora = todas as linhas da opção não-default.
+    expect(rows.length).toBe(ndItems.length);
+    expect(ndItems.length).toBeGreaterThan(0);
+    for (const it of ndItems) {
+      const match = rows.filter(
+        (r) => r.foodId === it.foodId && r.quantityGrams === it.quantityGrams,
+      );
+      expect(match.length).toBeGreaterThanOrEqual(1);
+    }
+
+    await request(app.getHttpServer())
+      .post(`/patients/${patientId}/registro`)
+      .send({ mealId: almocoMealId, intent: 'desfazer' })
+      .expect(200);
+  });
+
+  it('D3b combinação 1→2: o slot trocado vira 2 linhas; total = (itens default − 1 + 2)', async () => {
+    const [pln] = await db
+      .select({ id: schema.plan.id })
+      .from(schema.plan)
+      .where(
+        and(
+          eq(schema.plan.patientId, patientId),
+          eq(schema.plan.isActive, true),
+        ),
+      )
+      .limit(1);
+
+    const defaultItems = await db
+      .select({ id: schema.mealItem.id })
+      .from(schema.mealItem)
+      .where(eq(schema.mealItem.mealOptionId, defaultOptionId));
+
+    // Grupo do flexItem → 2 substitutos DISTINTOS do mesmo grupo (Carboidratos
+    // no seed tem 6 foods; pegamos 2 ≠ do food do item).
+    const [flexItem] = await db
+      .select({
+        foodId: schema.mealItem.foodId,
+        groupId: schema.mealItem.substitutionGroupId,
+      })
+      .from(schema.mealItem)
+      .where(eq(schema.mealItem.id, flexItemId))
+      .limit(1);
+    const sameGroup = await db
+      .select({ foodId: schema.foodSubstitutionGroup.foodId })
+      .from(schema.foodSubstitutionGroup)
+      .where(
+        and(
+          eq(schema.foodSubstitutionGroup.groupId, flexItem.groupId!),
+          ne(schema.foodSubstitutionGroup.foodId, flexItem.foodId),
+        ),
+      )
+      .orderBy(asc(schema.foodSubstitutionGroup.foodId));
+    expect(sameGroup.length).toBeGreaterThanOrEqual(2);
+    const [foodA, foodB] = sameGroup;
+
+    await request(app.getHttpServer())
+      .post(`/patients/${patientId}/registro`)
+      .send({
+        mealId: almocoMealId,
+        intent: 'feito',
+        consumo: {
+          // combinação: o MESMO itemId vira 2 alimentos do mesmo grupo.
+          items: [
+            { itemId: flexItemId, foodId: foodA.foodId, quantityGrams: 60 },
+            { itemId: flexItemId, foodId: foodB.foodId, quantityGrams: 90 },
+          ],
+        },
+      })
+      .expect(200);
+
+    const rows = await loadVigenteTroqueiItems(pln.id);
+
+    // Total: refeição inteira com o slot trocado expandido em 2 (−1 +2).
+    expect(rows.length).toBe(defaultItems.length - 1 + 2);
+    // As 2 entradas do slot combinado estão presentes.
+    expect(
+      rows.some((r) => r.foodId === foodA.foodId && r.quantityGrams === 60),
+    ).toBe(true);
+    expect(
+      rows.some((r) => r.foodId === foodB.foodId && r.quantityGrams === 90),
+    ).toBe(true);
+
     await request(app.getHttpServer())
       .post(`/patients/${patientId}/registro`)
       .send({ mealId: almocoMealId, intent: 'desfazer' })

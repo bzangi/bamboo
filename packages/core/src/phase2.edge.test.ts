@@ -83,8 +83,8 @@ describe("previewTrocaTipoDia — espalha por 2 refeições restantes", () => {
     const r = previewTrocaTipoDia({
       consumido: { kcal: 80, carb: 20, protein: 0, fat: 0 },
       refeicoesRestantesNovoTipo: [
-        { position: 1, itens: [item(100)] },
-        { position: 2, itens: [item(100)] },
+        { position: 1, isRegistered: false, itens: [item(100)] },
+        { position: 2, isRegistered: false, itens: [item(100)] },
       ],
       refeicoesDefaultNovoTipo: defaultNovo,
       parametros: PARAMETROS_SISTEMA,

@@ -202,10 +202,12 @@ export class RegistroService {
       // Opção cumprida gravada no evento: default em feito/troquei-por-subst.;
       //   a própria opção não-default em troquei-por-opção.
       let cumpridaMealOptionId: string | null = null;
-      // Linhas de consumo efetivo (filhas meal_event_item) p/ troquei por
-      //   substituição. Materializadas na resolução do banco (foodId+gramas do
-      //   payload, já validados estruturalmente), inseridas só se virar troquei.
-      let consumoRows: ReadonlyArray<{
+      // Overlay de consumo por itemId (troquei por substituição/combinação):
+      //   o que o paciente comeu NO LUGAR de cada item do plano. Mantém o itemId
+      //   p/ casar com os meal_item da opção cumprida no snapshot completo (D3b).
+      //   foodId+gramas já validados estruturalmente; vazio = sem substituição.
+      let consumoOverlay: ReadonlyArray<{
+        readonly itemId: string;
         readonly foodId: string;
         readonly quantityGrams: number;
       }> = [];
@@ -286,7 +288,8 @@ export class RegistroService {
             });
           }
           adequacao = { kind: 'substituicao-combinacao', itens };
-          consumoRows = items.map((it) => ({
+          consumoOverlay = items.map((it) => ({
+            itemId: it.itemId,
             foodId: it.foodId,
             quantityGrams: it.quantityGrams,
           }));
@@ -360,16 +363,47 @@ export class RegistroService {
           })
           .returning({ id: schema.mealEvent.id });
 
-        // troquei por substituição/combinação: grava o consumo efetivo (filhas)
-        //   na MESMA transação. Outros estados não geram filhas.
-        if (decisao.state === 'troquei' && consumoRows.length > 0) {
-          await tx.insert(schema.mealEventItem).values(
-            consumoRows.map((r) => ({
-              mealEventId: evento.id,
-              foodId: r.foodId,
-              quantityGrams: r.quantityGrams,
-            })),
-          );
+        // troquei: grava o SNAPSHOT COMPLETO do consumo (D3b) — TODOS os itens
+        //   da refeição como comidos, não só os trocados. Torna o total do
+        //   troquei = soma(meal_event_item) exato. feito/pulei/desfazer não geram
+        //   filhas. Carrega na MESMA transação os meal_item da opção cumprida.
+        if (decisao.state === 'troquei' && chosenMealOptionId) {
+          // Itens planejados da opção cumprida (snapshot base).
+          const planItems = await tx
+            .select({
+              id: schema.mealItem.id,
+              foodId: schema.mealItem.foodId,
+              quantityGrams: schema.mealItem.quantityGrams,
+            })
+            .from(schema.mealItem)
+            .where(eq(schema.mealItem.mealOptionId, chosenMealOptionId));
+
+          // itemIds com overlay (substituição/combinação). Vazio em troquei por
+          //   opção não-default → snapshot = a opção inteira sem overlay.
+          const overlaidItemIds = new Set(consumoOverlay.map((o) => o.itemId));
+
+          const snapshotRows = planItems.flatMap((pi) => {
+            const overlay = consumoOverlay.filter((o) => o.itemId === pi.id);
+            // item trocado → TODAS as entradas de consumo desse itemId (1..N,
+            //   combinação 1→2 = 2 linhas); item mantido (travado/flexível
+            //   não-trocado) → a linha planejada (foodId + gramas).
+            return overlaidItemIds.has(pi.id)
+              ? overlay.map((o) => ({
+                  foodId: o.foodId,
+                  quantityGrams: o.quantityGrams,
+                }))
+              : [{ foodId: pi.foodId, quantityGrams: pi.quantityGrams }];
+          });
+
+          if (snapshotRows.length > 0) {
+            await tx.insert(schema.mealEventItem).values(
+              snapshotRows.map((r) => ({
+                mealEventId: evento.id,
+                foodId: r.foodId,
+                quantityGrams: r.quantityGrams,
+              })),
+            );
+          }
         }
       }
 

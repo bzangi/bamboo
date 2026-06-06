@@ -182,6 +182,7 @@ export interface ItemDia {
 export interface RefeicaoDia {
   readonly position: number;
   readonly itens: readonly ItemDia[];
+  readonly isRegistered: boolean; // NOVO (Fase 4) — estado vigente registrado hoje
 }
 
 // Item flexível = não travado e com grupo de substituição (FR-006).
@@ -220,11 +221,11 @@ export function previewTrocaOpcao(input: {
 
   const deltaKcal = totalAtual.kcal - alvo.kcal;
   // Alavancas = itens flexíveis das refeições AINDA NÃO REGISTRADAS, exceto a do
-  // gatilho (a escolha fixou essa). No v0 (registro fora de escopo) nada foi
-  // registrado → todas as refeições, menos a do gatilho. Quando o registro
-  // existir, refeições já registradas saem (passam a "travadas").
+  // gatilho (a escolha fixou essa). Refeições já registradas (`isRegistered`) saem
+  // das alavancas — ficam intactas (FR-001/FR-002), mas seus itens reais já entram
+  // no `totalAtual` acima, então o consumido move o que o restante precisa ajustar.
   const alavancas = diaComEscolha
-    .filter((r) => r.position !== triggerPosition)
+    .filter((r) => r.position !== triggerPosition && !r.isRegistered)
     .flatMap((r) =>
       r.itens.filter(ehAlavanca).map((i) => toAlavanca(i, r.position)),
     );

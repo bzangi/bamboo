@@ -263,7 +263,9 @@ export class RebalanceService {
         groupId: it.groupId,
         medidas: it.medidas,
       }));
-      return { position: m.position, itens };
+      // isRegistered: placeholder (Fase 4 — a leitura real do registro vem na US1
+      // da casca; aqui nada foi registrado ainda, mantém o comportamento da Fase 2).
+      return { position: m.position, isRegistered: false, itens };
     });
 
     // 9. Núcleo puro.
