@@ -18,6 +18,7 @@ import {
 import { and, asc, eq, schema } from '@bamboo/db';
 import type { OptionChoiceRequest, OptionChoiceResponse } from '@bamboo/types';
 import { DB, type Db } from '../db/db.module';
+import { carregarConsumoDoDia } from '../registro-consumo';
 import {
   toOptionChoiceResponse,
   type FoodRef,
@@ -252,9 +253,51 @@ export class RebalanceService {
       })),
     }));
 
+    // 8b. Consumo real do dia (helper de casca, type-agnostic por paciente+plano+
+    // localToday): refeições registradas hoje (feito/troquei/pulei). Usado para
+    // (a) excluir as registradas das alavancas (isRegistered:true → o motor não as
+    // ajusta — FR-001/002) e (b) alimentar o totalAtual com o CONSUMO REAL (FR-005).
+    const { porMeal } = await carregarConsumoDoDia(this.db, {
+      patientId,
+      planId: pln.id,
+    });
+
     const diaComEscolha: RefeicaoDia[] = meals.map((m) => {
-      const opt = m.id === triggerMeal.id ? chosenOption : defaultDe(m);
-      const itens: ItemDia[] = opt.items.map((it) => ({
+      // gatilho → opção escolhida (não registrada, é alavanca-fixada pela escolha).
+      if (m.id === triggerMeal.id) {
+        const itens: ItemDia[] = chosenOption.items.map((it) => ({
+          itemId: it.id,
+          macros: it.macros,
+          gramas: it.quantityGrams,
+          gramasPlanejado: it.quantityGrams,
+          isLocked: it.isLocked,
+          groupId: it.groupId,
+          medidas: it.medidas,
+        }));
+        return { position: m.position, isRegistered: false, itens };
+      }
+
+      // refeição REGISTRADA (≠ gatilho) → consumo real, isRegistered:true. Os
+      // ItemNutricional só têm {macros, gramas}; como a refeição sai das alavancas
+      // (filtro !isRegistered no core), os demais campos do ItemDia não viram
+      // alavanca nem aparecem na resposta — só macros+gramas entram no totalAtual.
+      // pulei → itens:[] → contribui 0 ao total.
+      const consumo = porMeal.get(m.id);
+      if (consumo) {
+        const itens: ItemDia[] = consumo.itens.map((it, idx) => ({
+          itemId: `reg-${m.id}-${idx}`, // id sintético (não é alavanca; não aparece)
+          macros: it.macros,
+          gramas: it.gramas,
+          gramasPlanejado: it.gramas,
+          isLocked: true,
+          groupId: null,
+          medidas: [],
+        }));
+        return { position: m.position, isRegistered: true, itens };
+      }
+
+      // refeição NÃO registrada → opção default planejada, isRegistered:false.
+      const itens: ItemDia[] = defaultDe(m).items.map((it) => ({
         itemId: it.id,
         macros: it.macros,
         gramas: it.quantityGrams,
@@ -263,8 +306,6 @@ export class RebalanceService {
         groupId: it.groupId,
         medidas: it.medidas,
       }));
-      // isRegistered: placeholder (Fase 4 — a leitura real do registro vem na US1
-      // da casca; aqui nada foi registrado ainda, mantém o comportamento da Fase 2).
       return { position: m.position, isRegistered: false, itens };
     });
 
