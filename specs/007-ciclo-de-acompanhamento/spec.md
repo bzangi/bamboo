@@ -4,7 +4,7 @@
 
 **Created**: 2026-06-10
 
-**Status**: Draft — Q1 (ciclo de vida + duração), Q3 (retroatividade) e o grão da Q2 **respondidos pelo dono** (Sessão 2026-06-10); **resta a sub-decisão da vigência** (FR-007)
+**Status**: Draft — **todas as clarificações do gate resolvidas** (Sessão 2026-06-10, incl. vigência → observa); aguardando aval final pra avançar ao Plan
 
 **Input**: User description: "Ciclo de acompanhamento como objeto de primeira classe: início (consulta + plano) → duração → fim (reavaliação), versionando os planos do paciente no tempo; fundação da métrica de adesão por período e do relatório de ciclo."
 
@@ -24,7 +24,7 @@ Duas fronteiras moldam o escopo:
 #### Sessão 2026-06-10 (gate Specify→Plan — respostas do dono do produto)
 
 - **Q1 — Ciclo de vida e duração** → **A + C (híbrido)**: abrir é ato manual da nutri na consulta; fechar acontece **ou** por ato manual na reavaliação (A) **ou** automaticamente ao abrir o ciclo seguinte (C — abrir o próximo fecha o anterior). Prazo vencido **não** fecha sozinho: a duração é previsão, não trava. **Duração confirmada**: definida pela nutri a cada ciclo (dias/semanas), **obrigatória ao abrir**, sem default global do produto. _(Encodada nos FR-002/FR-003/FR-005.)_
-- **Q2 — Grão do vínculo plano×ciclo** → **A (referência 1:N)**: o ciclo referencia a(s) versão(ões) de plano vigentes nele, por períodos; replanejar no meio do ciclo = nova vigência **dentro** do mesmo ciclo; um plano pode ser re-vinculado no ciclo seguinte. _(Encodada no FR-007.)_ **Sub-decisão remanescente**: a relação do vínculo com a vigência existente ("o ciclo manda na vigência ou observa o plano ativo?") — marcador mantido no FR-007, aguardando decisão do dono.
+- **Q2 — Grão do vínculo plano×ciclo** → **A (referência 1:N)**: o ciclo referencia a(s) versão(ões) de plano vigentes nele, por períodos; replanejar no meio do ciclo = nova vigência **dentro** do mesmo ciclo; um plano pode ser re-vinculado no ciclo seguinte. **Sub-decisão da vigência** (resolvida na mesma sessão) → **o ciclo OBSERVA**: trocar o plano ativo continua sendo o ato que muda a vigência; o ciclo apenas **grava a linha do tempo** dessas trocas dentro da sua janela. Uma única fonte de verdade sobre o presente (o plano ativo); o ciclo é dono só do histórico. _(Encodada no FR-007.)_
 - **Q3 — Retroatividade** → **B**: histórico pré-ciclo — e qualquer dia sem ciclo ativo — fica **fora de ciclo**: consultável como hoje, sem ciclo; a adesão por ciclo simplesmente não o cobre. _(Encodada no FR-011.)_
 
 ## User Scenarios & Testing _(mandatory)_
@@ -81,7 +81,7 @@ Para qualquer dia do acompanhamento, o sistema responde **a qual ciclo o dia per
 ### Edge Cases
 
 - **Registro num período sem ciclo ativo**: permanece consultável (ancorado em paciente + plano + dia, como na Fase 3) e **fora de qualquer ciclo** — a adesão por ciclo não o cobre (Q3 → B, FR-011).
-- **Troca de plano no meio do ciclo** (replanejamento sem nova consulta formal): **nova vigência dentro do mesmo ciclo** (Q2 → A, FR-007) — a resposta "qual plano vigia neste dia deste ciclo" continua determinística; o mecanismo exato segue a sub-decisão da vigência (marcador no FR-007).
+- **Troca de plano no meio do ciclo** (replanejamento sem nova consulta formal): **nova vigência dentro do mesmo ciclo** (Q2 → A, FR-007) — o ciclo **observa** a troca do plano ativo e grava a nova vigência; "qual plano vigia neste dia deste ciclo" continua determinística.
 - **Dois ciclos consecutivos no mesmo dia** (fechou e reabriu): o dia de fronteira pertence a exatamente um ciclo, por desempate determinístico (ver Assumptions) — nunca aos dois, nunca a nenhum.
 - **Fronteira com troca de plano** (fechou, reabriu **e** trocou o plano ativo no mesmo dia): as leituras de "consumido hoje" do app do paciente são escopadas pelo plano vigente — registros feitos mais cedo naquele dia, sob o plano anterior, deixam de contar no consumido do novo plano. **Limitação herdada** (já acontece hoje ao trocar o plano ativo, sem ciclo nenhum), não regressão desta feature; o plano técnico deve avaliar esse caminho de leitura no dia de fronteira pra não tensionar o SC-003.
 - **Paciente novo sem nenhum ciclo**: nada quebra — o app do paciente funciona como hoje; a atribuição responde "nenhum ciclo" para qualquer dia.
@@ -104,7 +104,7 @@ Para qualquer dia do acompanhamento, o sistema responde **a qual ciclo o dia per
 
 #### Ciclo × plano (versionamento no tempo)
 
-- **FR-007**: O ciclo MUST permitir determinar **qual plano (ou quais versões de plano) esteve vigente durante sua janela** — o "plano versionado por ciclo" é decisão de produto **já tomada** (decisoes-produto.md:103). O grão é **referência 1:N por períodos** (Q2 → A, Sessão 2026-06-10): o ciclo referencia a(s) versão(ões) de plano vigentes nele; **replanejar no meio do ciclo = nova vigência dentro do mesmo ciclo**; um plano pode ser reaproveitado/re-vinculado no ciclo seguinte. Resta a sub-decisão: [NEEDS CLARIFICATION: relação do vínculo com a **vigência que já existe** (o "plano ativo" do paciente, que cada registro já aponta) — (1) o **ciclo manda**: "qual plano vige" passa a derivar do vínculo do ciclo, e o plano ativo vira consequência; ou (2) o **ciclo observa** (recomendado): trocar o plano ativo continua sendo o ato que muda a vigência, e o ciclo **grava a linha do tempo** dessas trocas dentro da sua janela (desde-quando até-quando) — uma única fonte de verdade (o plano ativo), zero mudança nos fluxos existentes. Não pode haver duas fontes de verdade sobre "qual plano vige"].
+- **FR-007**: O ciclo MUST permitir determinar **qual plano (ou quais versões de plano) esteve vigente durante sua janela** — o "plano versionado por ciclo" é decisão de produto **já tomada** (decisoes-produto.md:103). O grão é **referência 1:N por períodos** (Q2 → A, Sessão 2026-06-10): o ciclo referencia a(s) versão(ões) de plano vigentes nele; **replanejar no meio do ciclo = nova vigência dentro do mesmo ciclo**; um plano pode ser reaproveitado/re-vinculado no ciclo seguinte. A relação com a vigência existente é **observação** (decisão do dono, Sessão 2026-06-10): trocar o **plano ativo** continua sendo o único ato que muda a vigência — o ciclo MUST apenas **gravar a linha do tempo** dessas trocas dentro da sua janela (desde-quando, até-quando), de modo que "qual plano vigia no dia X deste ciclo" seja respondível sem criar uma segunda fonte de verdade sobre "qual plano vige agora". Zero mudança nos fluxos existentes de ativação de plano.
 - **FR-008**: A introdução do ciclo MUST NOT mudar **nada observável no app do paciente**: ele segue vendo o plano ativo do dia, registrando e rebalanceando como hoje ("mostra o certo por padrão"). O ciclo é instrumento da nutri.
 
 #### Atribuição temporal (fundação de adesão e relatório)
@@ -125,7 +125,7 @@ Para qualquer dia do acompanhamento, o sistema responde **a qual ciclo o dia per
 ### Key Entities _(include if feature involves data)_
 
 - **Ciclo de acompanhamento**: objeto por paciente com início (marco da consulta), duração prevista (obrigatória, definida pela nutri) e fim (reavaliação manual, ou automático na abertura do próximo). No máximo um ativo por paciente; fechado, vira uma janela [início, fim] consultável. Invisível ao paciente.
-- **Vínculo ciclo↔plano**: a resposta a "qual plano vigia neste ciclo (e neste dia dele)". Grão decidido: **referência 1:N por períodos** (Q2 → A); a relação com a vigência existente (manda vs observa) é a sub-decisão remanescente (FR-007).
+- **Vínculo ciclo↔plano**: a resposta a "qual plano vigia neste ciclo (e neste dia dele)". Grão: **referência 1:N por períodos** (Q2 → A); o ciclo **observa** o plano ativo e grava a linha do tempo das trocas — nunca uma segunda fonte de verdade sobre o presente (FR-007).
 - **Linha do tempo de acompanhamento**: a sequência ordenada e sem sobreposição dos ciclos de um paciente. Pode conter lacunas (dias sem ciclo — fora de ciclo por decisão, Q3 → B).
 - **Janela de período**: o intervalo [início, fim] de um ciclo, em dias-calendário — o que a adesão (006) e o relatório consomem. Só delimitação; nenhuma métrica vive aqui.
 
