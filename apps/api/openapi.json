@@ -311,6 +311,243 @@
           "Adesão (só nutri)"
         ]
       }
+    },
+    "/nutri/patients/{patientId}/cycles": {
+      "post": {
+        "description": "Cria o ciclo ativo do paciente com duração prevista OBRIGATÓRIA (dias) e grava a vigência inicial (= plano ativo). Se há ciclo ativo, ele é fechado automaticamente neste ato (A+C — nunca sobrepõe). Invisível ao paciente.",
+        "operationId": "CicloController_abrir",
+        "parameters": [
+          {
+            "name": "x-nutri-key",
+            "in": "header",
+            "description": "credencial stub da nutri (env NUTRI_API_KEY; fail-closed)",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "patientId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "ciclo aberto + vigência inicial"
+          },
+          "400": {
+            "description": "expectedDurationDays inválida"
+          },
+          "403": {
+            "description": "x-nutri-key ausente/errada"
+          },
+          "404": {
+            "description": "paciente não encontrado"
+          },
+          "422": {
+            "description": "paciente sem plano ativo"
+          }
+        },
+        "summary": "Abrir o ciclo de acompanhamento (consulta)",
+        "tags": [
+          "Ciclo (só nutri)"
+        ]
+      },
+      "get": {
+        "operationId": "CicloController_linhaDoTempo",
+        "parameters": [
+          {
+            "name": "x-nutri-key",
+            "in": "header",
+            "description": "credencial stub da nutri (env NUTRI_API_KEY; fail-closed)",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "patientId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Linha do tempo de acompanhamento (ciclos + vigências)",
+        "tags": [
+          "Ciclo (só nutri)"
+        ]
+      }
+    },
+    "/nutri/patients/{patientId}/cycles/close": {
+      "post": {
+        "description": "Delimita a janela [início, fim] sem tocar nenhum dado cru (registros intactos). Sem ciclo ativo → no-op orientado (nunca erro destrutivo). Prazo vencido não fecha sozinho — fechar é sempre um ato.",
+        "operationId": "CicloController_fechar",
+        "parameters": [
+          {
+            "name": "x-nutri-key",
+            "in": "header",
+            "description": "credencial stub da nutri (env NUTRI_API_KEY; fail-closed)",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "patientId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Fechar o ciclo ativo (reavaliação)",
+        "tags": [
+          "Ciclo (só nutri)"
+        ]
+      }
+    },
+    "/nutri/patients/{patientId}/active-plan": {
+      "post": {
+        "description": "Troca o plano ativo (única fonte de verdade do presente). Com ciclo aberto, grava a vigência na linha do tempo do ciclo (replanejar no meio = nova vigência no MESMO ciclo). Já ativo → no-op.",
+        "operationId": "CicloController_ativarPlano",
+        "parameters": [
+          {
+            "name": "x-nutri-key",
+            "in": "header",
+            "description": "credencial stub da nutri (env NUTRI_API_KEY; fail-closed)",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "patientId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "404": {
+            "description": "plano não pertence ao paciente"
+          }
+        },
+        "summary": "Ativar um plano do paciente (o ato que o ciclo observa)",
+        "tags": [
+          "Ciclo (só nutri)"
+        ]
+      }
+    },
+    "/nutri/patients/{patientId}/cycles/{cycleId}": {
+      "get": {
+        "description": "Registros = estado vigente por (data, refeição) — anulados não aparecem. Nenhuma métrica aqui (adesão/relatório calculam sobre a janela).",
+        "operationId": "CicloController_detalhe",
+        "parameters": [
+          {
+            "name": "x-nutri-key",
+            "in": "header",
+            "description": "credencial stub da nutri (env NUTRI_API_KEY; fail-closed)",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "patientId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "cycleId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Detalhe do ciclo: janela + vigências + registros do período",
+        "tags": [
+          "Ciclo (só nutri)"
+        ]
+      }
+    },
+    "/nutri/patients/{patientId}/cycle-do-dia": {
+      "get": {
+        "description": "Determinística (FR-009). Fronteira fechou-e-reabriu → o ciclo aberto mais recentemente. Dia fora de qualquer janela → cycleId null (histórico fora de ciclo).",
+        "operationId": "CicloController_cicloDoDia",
+        "parameters": [
+          {
+            "name": "x-nutri-key",
+            "in": "header",
+            "description": "credencial stub da nutri (env NUTRI_API_KEY; fail-closed)",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "patientId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "date",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "example": "2026-06-10",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Atribuição: a qual ciclo um dia pertence (um ou nenhum)",
+        "tags": [
+          "Ciclo (só nutri)"
+        ]
+      }
     }
   },
   "info": {

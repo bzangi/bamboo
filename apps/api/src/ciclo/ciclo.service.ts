@@ -408,8 +408,7 @@ export class CicloService {
       });
     }
     return registros.sort(
-      (a, b) =>
-        a.date.localeCompare(b.date) || a.position - b.position,
+      (a, b) => a.date.localeCompare(b.date) || a.position - b.position,
     );
   }
 

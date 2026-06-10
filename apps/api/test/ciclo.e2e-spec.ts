@@ -95,9 +95,7 @@ afterAll(async () => {
         ciclos.map((c) => c.id),
       ),
     );
-    await db
-      .delete(schema.cycle)
-      .where(eq(schema.cycle.patientId, patientId));
+    await db.delete(schema.cycle).where(eq(schema.cycle.patientId, patientId));
   }
   if (eventosUs3.length > 0) {
     await db
@@ -136,7 +134,12 @@ describe('POST /nutri/patients/:id/cycles (US1 — abrir)', () => {
   });
 
   it('US1.3 — duração ausente/zero/negativa/não-inteira → 400 (obrigatória ao abrir)', async () => {
-    for (const body of [{}, { expectedDurationDays: 0 }, { expectedDurationDays: -7 }, { expectedDurationDays: 3.5 }]) {
+    for (const body of [
+      {},
+      { expectedDurationDays: 0 },
+      { expectedDurationDays: -7 },
+      { expectedDurationDays: 3.5 },
+    ]) {
       await nutriPost(`/nutri/patients/${patientId}/cycles`, body).expect(400);
     }
   });
@@ -268,12 +271,16 @@ describe('ciclo de vida A+C + active-plan (US2)', () => {
       .from(schema.cyclePlanVigencia)
       .where(eq(schema.cyclePlanVigencia.cycleId, ativo.id));
     expect(vigencias).toHaveLength(2); // inicial (fechada hoje) + nova corrente
-    expect(
-      vigencias.find((v) => v.planId === planId),
-    ).toEqual({ planId, validFrom: hojeIso(), validTo: hojeIso() });
-    expect(
-      vigencias.find((v) => v.planId === planBId),
-    ).toEqual({ planId: planBId, validFrom: hojeIso(), validTo: null });
+    expect(vigencias.find((v) => v.planId === planId)).toEqual({
+      planId,
+      validFrom: hojeIso(),
+      validTo: hojeIso(),
+    });
+    expect(vigencias.find((v) => v.planId === planBId)).toEqual({
+      planId: planBId,
+      validFrom: hojeIso(),
+      validTo: null,
+    });
   });
 
   it('active-plan — já ativo → no-op (nenhuma vigência nova); plano de outro paciente → 404', async () => {
@@ -499,9 +506,9 @@ describe('linha do tempo, detalhe e atribuição (US3)', () => {
   });
 
   it('detalhe de ciclo de outro paciente / inexistente → 404', async () => {
-    await nutriGet(
-      `/nutri/patients/${extraPatientId}/cycles/${c1Id}`,
-    ).expect(404);
+    await nutriGet(`/nutri/patients/${extraPatientId}/cycles/${c1Id}`).expect(
+      404,
+    );
     await nutriGet(
       `/nutri/patients/${patientId}/cycles/00000000-0000-0000-0000-000000000000`,
     ).expect(404);
@@ -520,7 +527,9 @@ describe('linha do tempo, detalhe e atribuição (US3)', () => {
       .post(`/nutri/patients/${patientId}/active-plan`)
       .send({ planId })
       .expect(403);
-    await request(server).get(`/nutri/patients/${patientId}/cycles`).expect(403);
+    await request(server)
+      .get(`/nutri/patients/${patientId}/cycles`)
+      .expect(403);
     await request(server)
       .get(`/nutri/patients/${patientId}/cycles/${c1Id}`)
       .expect(403);

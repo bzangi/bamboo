@@ -277,12 +277,21 @@ mudança no mobile.** Resultado: **core 109 + e2e 78 verdes**, lint/build/OpenAP
 commits na main (Foundational → US1 → US2–US4 → polish). Artefatos:
 `specs/006-metrica-adesao/` (spec/plan/tasks/research D1–D8/data-model/contracts/quickstart).
 
-Pipeline do gate 2026-06-10: `007-ciclo-de-acompanhamento` — spec **fechada** (ciclo de vida
-A+C híbrido; vínculo plano×ciclo 1:N; vigência = o ciclo **observa** o plano ativo; histórico
-fora de ciclo) e **plan rascunhado** em `specs/007-ciclo-de-acompanhamento/plan.md` (+ research
-D1–D8, data-model com a **migration 0003** `cycle`+`cycle_plan_vigencia`, contracts, quickstart;
-via `/nutri` com o guard compartilhado; operação nova `POST /nutri/.../active-plan` = o ato
-observado) — **aguardando aval Plan→Tasks**. `008-auto-classificacao` — spec **fechada** (heurística
+Também concluída na mesma leva: **007-ciclo-de-acompanhamento** (ciclo como objeto):
+**implementada e testada** (plan aprovado "manda ver"). Entregue: **migration 0003** —
+`cycle` (1 ativo/paciente garantido por **índice único parcial**) + `cycle_plan_vigencia`
+(linha do tempo 1:N de "qual plano vigia quando"); núcleo novo `packages/core/src/ciclo.ts`
+(`atribuirCiclo` com desempate de fronteira fechou-e-reabriu → o aberto mais recente;
+`decidirAbertura` A+C — abrir fecha o anterior, duração obrigatória; `decidirFechamento`
+orientado — prazo NÃO fecha sozinho; 11 testes novos); casca nova `apps/api/src/ciclo/` na via
+`/nutri` (guard compartilhado extraído pra `apps/api/src/nutri/`): abrir/fechar/linha do
+tempo/detalhe (janela + vigências + registros por estado vigente)/atribuição + **`POST
+/nutri/.../active-plan`** — o ato observado: flipa `is_active` E grava a vigência no ciclo
+aberto, transacional (sem ciclo aberto, troca sem vigência). **Zero mudança no app do
+paciente** (snapshot do `/today` idêntico — SC-003). Resultado: **core 120 + e2e 95 verdes**.
+Artefatos: `specs/007-ciclo-de-acompanhamento/` (spec/plan/tasks/research D1–D8/data-model/
+contracts/quickstart). Com 006+007 prontas, o **relatório de ciclo** (a feature que vende)
+está destravado. `008-auto-classificacao` — spec **fechada** (heurística
 determinística; vínculo vale imediatamente com gatilho de reversão no SC-002; taxonomia = 13
 categorias TACO; ampliação da ingestão TACO inclusa; sem-grupo no ambíguo; um grupo por
 vínculo; porção derivada com guarda), aguardando plan. 007 + 006 fundam o relatório de ciclo.

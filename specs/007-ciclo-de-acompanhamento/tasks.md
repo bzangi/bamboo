@@ -78,9 +78,9 @@ Monorepo pnpm: núcleo em `packages/core/src/`, schema/migrations em `packages/d
 
 ## Phase 6: Polish & Cross-Cutting
 
-- [ ] T016 Regenerar OpenAPI (`pnpm --filter api openapi:gen`) com as 6 rotas novas documentadas
-- [ ] T017 Validação manual do `quickstart.md` (migrar + seed + curls com/sem chave; invariantes da tabela) e atualização de `CLAUDE.md` (bloco SPECKIT) + `docs/estado-atual.md` (007 implementada; migration 0003; novas contagens; tabela `cycle` sai da lista "Adiado")
-- [ ] T018 Done-gate: `pnpm --filter @bamboo/core test` (109+novos) · `pnpm --filter api test:e2e` (78+novos, seed antes) · `pnpm --filter api build` · `pnpm lint` · `pnpm format` — tudo verde; commits na main por fase (Setup/Foundational → US1 → US2 → US3 → polish) + push
+- [x] T016 Regenerar OpenAPI (`pnpm --filter api openapi:gen`) com as 6 rotas novas documentadas
+- [x] T017 Validação manual do `quickstart.md` (migrar + seed + curls com/sem chave; invariantes da tabela) e atualização de `CLAUDE.md` (bloco SPECKIT) + `docs/estado-atual.md` (007 implementada; migration 0003; novas contagens; tabela `cycle` sai da lista "Adiado")
+- [x] T018 Done-gate: `pnpm --filter @bamboo/core test` (109+novos) · `pnpm --filter api test:e2e` (78+novos, seed antes) · `pnpm --filter api build` · `pnpm lint` · `pnpm format` — tudo verde; commits na main por fase (Setup/Foundational → US1 → US2 → US3 → polish) + push
 
 ---
 

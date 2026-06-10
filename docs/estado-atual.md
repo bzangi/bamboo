@@ -115,7 +115,8 @@ Detalhamento do paradigma com exemplos canônicos em `CLAUDE.md`; invariantes go
 - **Grupos:** `substitution_group` (+ `basis`), `food_substitution_group` (carrega `reference_portion_grams` — o que faz a conta de substituição existir).
 - **Plano:** `plan` (direto no paciente no v0), `day_type`, `day_schedule` (weekday→tipo-de-dia), `meal` (+ `horario` informativo), `meal_option` (itens penduram aqui — suporta os "3 almoços"), `meal_item` (`is_locked` + `substitution_group_id` = a marcação de flexibilidade).
 - **Fase 3 (registro):** `meal_event` + `meal_event_item` (append-only, `state` enum NULLABLE = anulação) — migration `0002_clear_cammi.sql`.
-- **Adiado (não existe ainda):** `cycle`, `day_selection`, `adherence`/`cycle_report`, índices/constraints de performance.
+- **Feature 007 (ciclo):** `cycle` + `cycle_plan_vigencia` — migration `0003_hesitant_sugar_man.sql` (índice único parcial: 1 ciclo ativo/paciente).
+- **Adiado (não existe ainda):** `day_selection`, `cycle_report` (adesão é **derivada**, sem tabela — Feature 006), índices/constraints de performance.
 
 ---
 
@@ -131,8 +132,8 @@ Detalhamento do paradigma com exemplos canônicos em `CLAUDE.md`; invariantes go
 
 **Pendente de verdade (a partir daqui):**
 
-- **Gate de 2026-06-10 (respondido pelo dono):** `006-metrica-adesao` **implementada e testada** (core 109 + e2e 78; via da nutri `GET /nutri/...` com `NUTRI_API_KEY` fail-closed; sem migration); `007-ciclo-de-acompanhamento` e `008-auto-classificacao` com **specs fechadas** (zero marcadores), aguardando plan/aval.
-- **Fase 3 (resto):** ciclo como objeto (spec `007` fechada), ~~adesão~~ **adesão entregue** (`006`), **relatório de ciclo** (a feature que vende; depende de 006+007 — 006 pronta), auto-classificação (spec `008` fechada), **UI da nutri (web)** — não iniciada.
+- **Gate de 2026-06-10 (respondido pelo dono):** `006-metrica-adesao` **implementada e testada** (via da nutri `GET /nutri/...` com `NUTRI_API_KEY` fail-closed; sem migration) e `007-ciclo-de-acompanhamento` **implementada e testada** (migration **0003**: `cycle` + `cycle_plan_vigencia`; vigência observada via `POST /nutri/.../active-plan`). Baselines: **core 120 + e2e 95**. `008-auto-classificacao` com **spec fechada** (zero marcadores), aguardando plan.
+- **Fase 3 (resto):** ~~ciclo~~ **ciclo entregue** (`007`), ~~adesão~~ **adesão entregue** (`006`), **relatório de ciclo** (a feature que vende — **destravado**: 006+007 prontas), auto-classificação (spec `008` fechada), **UI da nutri (web)** — não iniciada.
 - **Fase 4 (resto):** import de plano por IA (PDF→estruturado), offline robusto, notificações, comida fora da lista — não iniciados.
 - **Fase 5+:** billing, Pix/Stripe, deploy/infra.
 - **Endurecer LGPD/auth:** sair do gate de exposição + `FR-016` para controle de acesso, criptografia e consentimento reais; substituir o auth stub.

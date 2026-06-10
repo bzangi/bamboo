@@ -18,7 +18,10 @@ export interface CicloDto {
 }
 
 export interface AberturaResponse extends Omit<CicloDto, 'ativo'> {
-  readonly fechouAnterior: { readonly id: string; readonly closedOn: string } | null;
+  readonly fechouAnterior: {
+    readonly id: string;
+    readonly closedOn: string;
+  } | null;
 }
 
 export type FechamentoResponse =
