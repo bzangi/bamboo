@@ -263,13 +263,17 @@ Dado de saúde desde a Fase 0: controle de acesso, criptografia, consentimento. 
 
 <!-- SPECKIT START -->
 
-**Specs em rascunho aguardando o gate Specify→Plan (2026-06-10):** `006-metrica-adesao`
-(métrica de adesão a partir do registro, só nutri), `007-ciclo-de-acompanhamento` (ciclo como
-objeto que versiona planos) e `008-auto-classificacao` (auto-classificação de alimentos em
-grupos). Rascunhadas em paralelo a partir do handoff (`docs/handoff-proximas-fases.md`); cada
-uma carrega exatamente 3 marcadores `[NEEDS CLARIFICATION]` com as perguntas ao dono +
-assumptions vetáveis (ver `checklists/requirements.md` de cada). **Nenhuma implementação até o
-aval.** Sequência alvo: 006+007 são a fundação do relatório de ciclo (a feature que vende).
+**Pipeline pós-Fase 4 (gate da Sessão 2026-06-10):** `006-metrica-adesao` — spec **aprovada**
+(fórmula contínua saturada na faixa de kcal + flags por macro; não-registrada = neutra +
+cobertura; tipo-de-dia dos registros com fallback no default; **média diária = métrica final**)
+e **plan rascunhado** em `specs/006-metrica-adesao/plan.md` (+ research D1–D8, data-model,
+contracts core/http, quickstart; **sem migration**; via da nutri = `GET /nutri/...` com guard
+`x-nutri-key` fail-closed) — **aguardando aval Plan→Tasks**. `007-ciclo-de-acompanhamento` —
+spec **resolvida** (ciclo de vida A+C híbrido; vínculo plano×ciclo 1:N; vigência = o ciclo
+observa o plano ativo; histórico fora de ciclo), aguardando aval Specify→Plan.
+`008-auto-classificacao` — parcial (heurística determinística + ampliação da ingestão TACO
+decididas); vigência (Q1b), taxonomia (Q2c) e Q3 em conversa com o dono. **Nenhuma
+implementação até o aval.** 006+007 são a fundação do relatório de ciclo (a feature que vende).
 
 Feature **005-desfazer-vs-rebalanceamento** (mobile-only): **implementada; reducer testado;
 mergeada na main (`5826d1d`); smoke manual da UI pendente**. Bug: o "↺ desfazer" por-item aparecia em itens rebalanceados de
