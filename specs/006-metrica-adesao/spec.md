@@ -4,7 +4,7 @@
 
 **Created**: 2026-06-10
 
-**Status**: Draft — aguardando aprovação do dono do produto (gate Specify→Plan)
+**Status**: Draft — clarificações do gate **respondidas pelo dono** (Sessão 2026-06-10); aguardando aval final pra avançar ao Plan
 
 **Input**: User description: "Métrica de adesão calculada a partir do registro já persistido (feito/troquei/pulei): mede % da intenção nutricional do dia cumprida, conta substituições e rebalanceamentos corretos como aderentes, e é visível somente para a nutricionista (o paciente nunca vê número de adesão)."
 
@@ -25,17 +25,17 @@ Entrega de valor **sem UI** (seed-first): a métrica fica consultável pela nutr
 5. **Consumo real** já definido (spec 004 FR-005): feito = planejado da opção cumprida; troquei = o que foi efetivamente consumido; pulei = zero.
 6. Registro é **estado vigente com anulação** (spec 003 FR-010/FR-011): registro desfeito = refeição volta a não-registrada.
 
-### Decisões em aberto (as 3 perguntas deste gate)
+### Clarifications
 
-- **Q1 — Fórmula** (em duas partes — a dimensão é parte da fórmula, não default desta spec):
-  - **Q1a — Forma do valor**: (A) dia **binário** — aderente se o consumido total cai na faixa-alvo; (B) **contínua por dia, saturada na faixa** — 100% quando o total fecha **dentro** da faixa-alvo; fora dela, decai com o desvio relativo medido **a partir da borda mais próxima da faixa**, clampado em 0; (C) **por refeição** — % de refeições cumpridas no dia. _Recomendação: B (gradação diária que sustenta a linha dos 80%; a classificação dentro/fora acompanha — FR-006a). A saturação dentro da faixa é obrigatória em qualquer variante contínua: medir o desvio contra o alvo central pontuaria abaixo de 100% um dia que fecha dentro da faixa, reintroduzindo o alvo-ponto que a faixa existe pra evitar (FR-004; constituição II). C conflita com a decisão importada nº 2: pune o pulo mesmo quando o dia compensado fecha na faixa._
-  - **Q1b — Dimensão da medição**: (i) **só kcal**; (ii) **os 4 nutrientes** (kcal + 3 macros) dentro das respectivas faixas como critério; (iii) **kcal como valor + flags por macro** fora da faixa. _Contexto: a faixa da Fase 2 existe **por nutriente** (spec 002 FR-002) e "alvo por nutriente, não por caloria só" é decisão de produto (decisoes-produto.md:50); "casar as kcal" (002 FR-010) é regra de **desempate do motor** em conflito de macros, não definição de aderência. Só-kcal contaria como aderente um dia que fecha kcal estourando o piso de proteína que a nutri travou. Recomendação: (iii) — kcal dá a linha única que o relatório consome; os flags preservam o que a nutri travou sem inventar média multi-nutriente._
-- **Q2 — Refeição não registrada**: (A) conta como não-aderente; (B) **neutra** — adesão só sobre o registrado, com um indicador separado de **cobertura do registro** pra nutri calibrar a confiança; (C) dia sem nenhum registro = **sem dado**. _Recomendação: B (que subsume C: cobertura zero = sem dado). A pune quem não registra, não quem não segue — o registro é opcional por design._
-- **Q3 — Tipo-de-dia que define o alvo da data**: (A) sempre o **default da programação semanal** do plano; (B) o **tipo-de-dia carregado nos registros vigentes** do dia, quando uniforme entre si (cada registro já o grava — spec 003 FR-014), com o default da programação como fallback (sem registro, ou registros divergentes); (C) dia com override detectado nos registros = **sem dado** até persistir a escolha do dia. _Contexto: trocar o tipo-de-dia é a camada **grossa** de flexibilidade (decisoes-produto.md:61) e adequação dentro das regras — FR-005 manda contar como aderente. Sob (A), um dia legitimamente trocado pra "descanso" é medido contra a faixa de "treino" e aparece fora de adesão — a métrica mentiria pra nutri exatamente no comportamento-vitrine. Recomendação: B (usa dado que já existe; só degrada no caso raro de troca no meio do dia). Persistir a escolha do dia (day_selection) segue feature futura em qualquer resposta._
+#### Sessão 2026-06-10 (gate Specify→Plan — respostas do dono do produto)
 
-> **Resolvida como Assumption (vetável neste gate)**: a antiga pergunta de **janela/agregação** foi cravada no mínimo YAGNI — **só a série por dia**; média/agregado ficam pro relatório de ciclo, que é quem conhece a janela natural (o ciclo). Ver FR-011 e Assumptions; constituição VI. _(Reversível.)_
->
-> **Risco assumido (não é pergunta, mas o dono deve ver)**: a métrica usa a **régua corrente** (plano/tolerância vigentes na consulta) inclusive pra dias passados — mudar tolerância ou plano no meio do ciclo **re-lê o passado** que o relatório vai contar, sem rastro. Aceito no v0; congelar a régua exigiria snapshot/versionamento — dependência registrada pro ciclo (007)/relatório (ver Assumptions).
+- **Q1a — Forma do valor** → **B**: **contínua por dia, saturada na faixa** — 100% quando o consumido total fecha **dentro** da faixa-alvo; fora dela, 100% menos o desvio relativo medido **a partir da borda mais próxima da faixa**, clampado em 0. A saturação preserva "faixa, não teto" (FR-004; constituição II) e a gradação sustenta a linha dos 80%. _(Encodada no FR-006.)_
+- **Q1b — Dimensão da medição** → **(iii)**: **kcal como valor + flags por macro** fora da respectiva faixa — kcal dá a linha única que o relatório consome; os flags preservam o que a nutri travou (a faixa da Fase 2 existe por nutriente — spec 002 FR-002; decisoes-produto.md:50). _(Encodada nos FR-006/FR-008.)_
+- **Q2 — Refeição não registrada** → **B**: **neutra + cobertura do registro** — a adesão considera só o registrado; a **cobertura** (indicador separado) informa a confiança; dia sem nenhum registro = **sem dado** (cobertura zero subsume a opção C). _(Encodada no FR-007.)_
+- **Q3 — Tipo-de-dia que define o alvo** → **B**: o **tipo-de-dia carregado nos registros vigentes** do dia, quando uniforme entre si (cada registro já o grava — spec 003 FR-014), com o **default da programação semanal como fallback** (sem registro, ou registros divergentes). Persistir a escolha do dia (day*selection) segue feature futura. *(Encodada no FR-002.)\_
+- **Agregação (era Assumption "só série diária")** → **modificada pelo dono**: além da série por dia, **a média da pontuação diária determina a métrica final do período** — média aritmética das adesões dos dias **com dado**. A régua diária permanece **corrente** (re-lida a cada consulta), de propósito: **flexível às alterações da nutri no plano**. _(Encodada no FR-011.)_
+
+> **Risco assumido (aceito pelo dono nesta sessão)**: a métrica usa a **régua corrente** (plano/tolerância vigentes na consulta) inclusive pra dias passados — mudar tolerância ou plano no meio do ciclo **re-lê o passado** que o relatório vai contar, sem rastro. Aceito deliberadamente no v0 (é o que mantém a métrica flexível às alterações da nutri); congelar a régua exigiria snapshot/versionamento — dependência registrada pro ciclo (007)/relatório (ver Assumptions).
 
 ## User Scenarios & Testing _(mandatory)_
 
@@ -68,24 +68,24 @@ Substituições dentro do grupo, opções não-default e dias rebalanceados que 
 
 1. **Given** um dia com uma refeição **troquei** (substituição dentro do grupo, quantidade reescalada) cujo desfecho nutricional é o mesmo do planejado, **When** a nutri consulta, **Then** a adesão é **exatamente a mesma** de um dia equivalente todo "feito".
 2. **Given** um dia em que o paciente cumpriu uma **opção não-default** e o total fechou na faixa, **When** a nutri consulta, **Then** o dia conta como aderente.
-3. **Given** um dia em que o paciente **pulou** uma refeição e o consumo registrado das demais **compensou** (o total do dia fechou na faixa-alvo), **When** a nutri consulta, **Then** o dia conta como aderente — rebalanceamento correto é aderência. _(Condicionado à Q1: a fórmula adotada não pode punir o pulo compensado.)_
+3. **Given** um dia em que o paciente **pulou** uma refeição e o consumo registrado das demais **compensou** (o total do dia fechou na faixa-alvo), **When** a nutri consulta, **Then** o dia conta como aderente — **100%, pela saturação da fórmula** (Q1a → B): rebalanceamento correto é aderência.
 4. **Given** um dia com **troquei** cujo consumo real levou o total pra **fora** da faixa, **When** a nutri consulta, **Then** o dia conta como fora de adesão — o consumo real conta fielmente; "correto" significa que o dia fecha na faixa, não um julgamento moral do alimento.
 
 ---
 
-### User Story 3 - Série por dia: a linha dos 80% (Priority: P3)
+### User Story 3 - Série por dia + média do período: a linha dos 80% (Priority: P3)
 
-A nutri consulta a adesão de um paciente **ao longo de um período**: uma série com o valor de cada dia, na ordem, com os dias sem dado marcados como tal. É a matéria-prima da "linha dos 80%" do relatório de ciclo.
+A nutri consulta a adesão de um paciente **ao longo de um período**: uma série com o valor de cada dia, na ordem, com os dias sem dado marcados como tal, e a **média do período** — a média da pontuação diária, que determina a **métrica final** (decisão do dono, Sessão 2026-06-10). É a matéria-prima da "linha dos 80%" do relatório de ciclo.
 
-**Why this priority**: Sem a série temporal, a métrica não alimenta o relatório de ciclo (o consumidor que justifica a feature). Depende da US1 (o valor de um dia precisa existir e estar certo).
+**Why this priority**: Sem a série temporal e a métrica final, a feature não alimenta o relatório de ciclo (o consumidor que a justifica). Depende da US1 (o valor de um dia precisa existir e estar certo).
 
-**Independent Test**: Registrar refeições em vários dias distintos; consultar o período como nutri; conferir que cada dia traz seu valor e que dias sem registro/sem plano vêm marcados como sem dado.
+**Independent Test**: Registrar refeições em vários dias distintos; consultar o período como nutri; conferir que cada dia traz seu valor, que dias sem registro/sem plano vêm marcados como sem dado e que a média do período é exatamente a média aritmética dos dias com dado.
 
 **Acceptance Scenarios**:
 
 1. **Given** um paciente com registros em vários dias, **When** a nutri consulta um período, **Then** recebe a adesão **de cada dia** do período, em ordem cronológica, com dias sem dado explicitamente marcados (nunca confundidos com 0%).
-2. **Given** um período inteiramente anterior ao primeiro registro do paciente, **When** a nutri consulta, **Then** recebe uma série sem dados — nunca um erro.
-3. **Given** um período consultado, **When** a resposta retorna, **Then** ela contém **somente a série diária** — nenhum campo agregado (média do período, fechamento semanal) presente. _(Agregação pertence ao relatório de ciclo — ver Assumptions.)_
+2. **Given** um período inteiramente anterior ao primeiro registro do paciente, **When** a nutri consulta, **Then** recebe uma série sem dados — e **sem média** (não há dia com dado) — nunca um erro.
+3. **Given** um período com dias com dado e dias sem dado, **When** a resposta retorna, **Then** a **média do período** é exatamente a média aritmética das adesões dos dias **com dado** — os dias sem dado não a afetam (nem como zero, nem como diluição).
 
 ---
 
@@ -107,11 +107,11 @@ O paciente continua vendo **ação** (o que comer, quanto ajustar) — nunca nú
 
 ### Edge Cases
 
-- **Registro anulado depois de consultado**: a métrica é derivada do estado vigente — a próxima consulta reflete a anulação (o dia é recalculado; pode inclusive virar "sem dado" se era o único registro, conforme Q2).
-- **Dia com pulei mas total dentro da faixa** (compensado pelo consumo das demais): aderente — decisão importada nº 2. Fórmulas que punem o pulo em si (Q1a-C) conflitam com essa decisão; a tensão está marcada na Q1.
-- **Dia parcialmente registrado**: depende da Q2 — sob a recomendação (neutra + cobertura), a adesão é calculada sobre o registrado e a **cobertura** baixa avisa a nutri de que o valor diz pouco.
+- **Registro anulado depois de consultado**: a métrica é derivada do estado vigente — a próxima consulta reflete a anulação (o dia é recalculado; vira "sem dado" se era o único registro — Q2 → B, cobertura zero).
+- **Dia com pulei mas total dentro da faixa** (compensado pelo consumo das demais): **aderente, 100%** — decisão importada nº 2, preservada pela fórmula saturada escolhida no gate (Q1a → B).
+- **Dia parcialmente registrado**: adesão calculada **sobre o registrado**, com a **cobertura** baixa avisando a nutri de que o valor diz pouco (Q2 → B).
 - **Troquei com quantidade muito diferente do planejado**: o consumo real captura fielmente; o que decide é o desfecho do dia contra a faixa. (Troca pra **fora do grupo** é barrada na origem, no próprio registro — spec 003 FR-004 — e portanto nunca chega à métrica.)
-- **Registros do mesmo dia com tipos-de-dia divergentes** (paciente trocou o tipo no meio do dia): a fonte do tipo-de-dia que define o alvo é a **Q3**; sob a recomendação (B), divergência cai no fallback (default da programação) — limitação conhecida. A mesma limitação vale pra **cobertura** (Q2-B): registro que referencia refeição de **outro** tipo-de-dia pareia com a refeição de **posição equivalente** do conjunto que define o alvo (precedente: pareamento por posição da Fase 4); o pareamento exato é decisão do Plan. Adesão plenamente ciente de override exige persistir a escolha do dia (feature futura).
+- **Registros do mesmo dia com tipos-de-dia divergentes** (paciente trocou o tipo no meio do dia): cai no **fallback** — default da programação (Q3 → B) — limitação conhecida e aceita. A mesma limitação vale pra **cobertura** (Q2 → B): registro que referencia refeição de **outro** tipo-de-dia pareia com a refeição de **posição equivalente** do conjunto que define o alvo (precedente: pareamento por posição da Fase 4); o pareamento exato é decisão do Plan. Adesão plenamente ciente de override exige persistir a escolha do dia (feature futura).
 - **Plano ou tolerância alterados depois do dia**: a métrica é derivada — usa o plano e a configuração **vigentes na consulta**, então o passado é re-lido com a régua atual. Aceito no v0 e **sinalizado como risco assumido no gate**; congelar a régua exigiria snapshot/versionamento — dependência registrada pro ciclo (007)/relatório ("plano versionado por ciclo", decisoes-produto.md:103).
 - **Paciente nunca vê — nem por engano**: nenhuma resposta existente voltada ao paciente pode passar a carregar a métrica (cenário negativo explícito, US4).
 - **Paciente sem plano ativo / dia futuro / anterior ao primeiro registro**: sem dado — nunca 0%, nunca erro. _("Sem plano ativo" é estado do paciente no momento da consulta, não propriedade da data — o modelo v0 não tem vigência de plano por data; ver FR-012.)_
@@ -123,23 +123,23 @@ O paciente continua vendo **ação** (o que comer, quanto ajustar) — nunca nú
 #### Intenção nutricional do dia e consumo real
 
 - **FR-001**: O sistema MUST derivar a **intenção nutricional do dia** como a **faixa-alvo do dia**: o alvo nutricional do dia planejado do tipo-de-dia (como já definido na Fase 2 — "o dia planejado é o alvo") ± a tolerância configurada (precedência paciente → nutri → sistema, já existente). A métrica MUST NOT criar alvo nem tolerância próprios.
-- **FR-002**: Para cada data, o tipo-de-dia que define o alvo MUST ser determinado segundo [NEEDS CLARIFICATION: fonte do tipo-de-dia do alvo (Q3) — (A) sempre o default da programação semanal do plano para a data; (B) o tipo-de-dia carregado nos registros vigentes do dia quando uniforme entre si (spec 003 FR-014), com o default da programação como fallback (sem registro, ou registros divergentes); (C) dia com override detectado nos registros = "sem dado" até persistir a escolha do dia? Sob (A), um dia legitimamente trocado de tipo — camada grossa de flexibilidade, adequação dentro das regras que FR-005 manda contar como aderente — é medido contra a faixa errada e aparece fora de adesão]. Persistir a escolha do dia (day_selection) permanece fora de escopo em qualquer resposta.
+- **FR-002**: Para cada data, o tipo-de-dia que define o alvo MUST ser o **carregado nos registros vigentes** do dia, quando **uniforme** entre eles (cada registro já grava o tipo em vigor — spec 003 FR-014); sem registro no dia, ou com registros **divergentes**, MUST valer o **default da programação semanal** do plano para aquela data (fallback). _(Q3 → B, Sessão 2026-06-10.)_ Persistir a escolha do dia (day_selection) permanece fora de escopo.
 - **FR-003**: O **consumido do dia** MUST ser a soma do consumo real das refeições com registro vigente naquele dia, conforme já definido (spec 004 FR-005): **feito** = quantidades planejadas da opção cumprida; **troquei** = alimentos × quantidades efetivamente consumidos; **pulei** = zero.
 - **FR-004**: A faixa-alvo MUST ser tratada como **faixa, não teto**: um total **abaixo** da faixa MUST contar como fora de adesão tanto quanto um total **acima** (simetria). _(decisoes-produto.md:69; constituição II.)_
 - **FR-005**: Adequações dentro das regras (substituição/combinação no grupo, opção não-default) e rebalanceamentos corretos MUST contar como aderentes: a adesão julga o **desfecho nutricional do dia** contra a faixa-alvo, nunca a identidade dos alimentos nem a igualdade literal com o papel. Como o rebalanceamento é efêmero (não persistido — spec 004 FR-014), sua "correção" MUST ser observada pelo desfecho: o dia registrado fecha na faixa.
 
 #### A fórmula (por dia)
 
-- **FR-006**: O sistema MUST converter "intenção nutricional do dia cumprida" em valor por dia segundo [NEEDS CLARIFICATION: fórmula da adesão (Q1), em duas partes. **Q1a — forma do valor**: (A) dia binário — aderente se o consumido total cai na faixa-alvo; (B) contínua por dia, saturada na faixa — 100% quando o total fecha dentro da faixa-alvo e, fora dela, 100% menos o desvio relativo medido a partir da borda mais próxima da faixa, clampado em 0 (a saturação é obrigatória em variante contínua: medir contra o alvo central pontuaria abaixo de 100% um dia dentro da faixa, violando FR-004); (C) por refeição — % das refeições do dia cumpridas dentro do esperado (pune pular mesmo quando o dia compensado fecha na faixa — conflita com a decisão importada nº 2). **Q1b — dimensão da medição**: (i) só kcal; (ii) os 4 nutrientes (kcal + 3 macros) dentro das respectivas faixas; (iii) kcal como valor + flags por macro fora da faixa? A faixa existe por nutriente (spec 002 FR-002; decisoes-produto.md:50); "casar as kcal" (002 FR-010) é desempate do motor, não definição de aderência].
-- **FR-006a**: Qualquer que seja a resposta da Q1, a saída por dia MUST incluir a **classificação dentro/fora da faixa-alvo** — é ela que torna verificáveis os cenários "conta como aderente / fora de adesão" (US1.1, US1.2, US2.2, US2.4) e a SC-003, independentemente da forma do valor.
-- **FR-007**: O sistema MUST tratar refeições **sem registro vigente** no dia segundo [NEEDS CLARIFICATION: refeição não registrada — (A) conta como não-aderente; (B) neutra: a adesão considera só o registrado e uma **cobertura do registro** separada informa a confiança; (C) dia sem nenhum registro = sem dado? O registro é opcional por design — A penaliza quem não registra, não quem não segue; B subsume C].
-- **FR-008**: A(s) **dimensão(ões)** em que a adesão é avaliada (só kcal / por nutriente / kcal + flags) MUST seguir a resposta da **Q1b** (marcador no FR-006) — é decisão de produto deste gate, não default desta spec. Qualquer que seja a resposta, a definição MUST ficar estruturada de modo a admitir dimensões por macro no futuro (sem construí-las agora).
+- **FR-006**: O sistema MUST converter "intenção nutricional do dia cumprida" num valor **contínuo por dia, saturado na faixa**: **100%** quando o consumido total do dia fecha **dentro** da faixa-alvo; fora dela, 100% menos o **desvio relativo medido a partir da borda mais próxima da faixa**, clampado em 0. A saturação é obrigatória: medir contra o alvo central pontuaria abaixo de 100% um dia dentro da faixa, violando FR-004. _(Q1a → B, Sessão 2026-06-10.)_
+- **FR-006a**: Além do valor, a saída por dia MUST incluir a **classificação dentro/fora da faixa-alvo** — é ela que torna verificáveis os cenários "conta como aderente / fora de adesão" (US1.1, US1.2, US2.2, US2.4) e a SC-003.
+- **FR-007**: Refeições **sem registro vigente** no dia MUST ser **neutras**: a adesão do dia é calculada **somente sobre o registrado**, acompanhada da **cobertura do registro** (indicador separado de confiança — ver Key Entities). Dia sem **nenhum** registro vigente MUST resultar em **sem dado** (cobertura zero) — nunca 0%. _(Q2 → B, Sessão 2026-06-10.)_
+- **FR-008**: A dimensão da adesão no v0 MUST ser **kcal como valor + flags por macro**: o valor do dia (FR-006) é calculado sobre a faixa de kcal, e cada macro (proteína, carboidrato, gordura) cujo total consumido sai da **respectiva faixa** gera um **flag** junto ao valor — sem média multi-nutriente. _(Q1b → iii, Sessão 2026-06-10.)_ A definição MUST ficar estruturada de modo a admitir dimensões por macro como valor no futuro (sem construí-las agora).
 - **FR-009**: A adesão MUST ser **derivada sob demanda** do estado vigente do registro — nunca um valor congelado: correção ou anulação de um registro (mesmo retroativa) MUST refletir na consulta seguinte.
 
 #### Unidade diária e consulta da nutri
 
 - **FR-010**: A métrica MUST existir por **(paciente, dia)** — a unidade-base é o dia, para sustentar a linha temporal que o relatório de ciclo consumirá (decisoes-produto.md:109). O recorte de "dia" MUST ser o mesmo dia-calendário já usado pelo registro.
-- **FR-011**: A nutri MUST poder consultar a adesão de um paciente como **série por dia** num período: o valor (ou "sem dado") de cada dia, em ordem cronológica. Esta feature MUST NOT produzir agregados (média de período, fechamento semanal) — agregação pertence ao relatório de ciclo, que conhece a janela natural (o ciclo). _(Mínimo YAGNI cravado como Assumption vetável no gate — ver "Decisões em aberto" e Assumptions; constituição VI.)_
+- **FR-011**: A nutri MUST poder consultar a adesão de um paciente num período como **série por dia** — o valor (ou "sem dado") de cada dia, em ordem cronológica — acompanhada da **média do período**: a **média aritmética das adesões dos dias com dado** (a métrica final; dias sem dado ficam **fora** da média e explicitamente marcados na série). Outras agregações (ponderação por cobertura, fechamento semanal, comparativos) pertencem ao relatório de ciclo. _(Decisão do dono na Sessão 2026-06-10 — substituiu o default "só série diária".)_
 - **FR-012**: Paciente **sem plano ativo no momento da consulta** (qualquer data), datas **futuras** e datas **anteriores ao primeiro uso** MUST resultar em **"sem dado"** — distinto de 0% e nunca um erro. "Sem plano ativo" é propriedade do **paciente na consulta**, não da data: o modelo v0 não tem vigência de plano por data (coerente com a régua corrente — ver Assumptions); vigência por data entra com o ciclo (007).
 
 #### Privacidade e exposição (LGPD — transversais)
@@ -151,11 +151,11 @@ O paciente continua vendo **ação** (o que comer, quanto ajustar) — nunca nú
 
 ### Key Entities _(include if feature involves data)_
 
-- **Adesão do dia**: medida derivada, por (paciente, dia), de quanto o consumo real registrado cumpriu a intenção nutricional do dia. Forma exata pendente da Q1; qualquer que seja, inclui a **classificação dentro/fora da faixa-alvo** (FR-006a). Nunca persiste como verdade congelada — é recalculável do registro vigente.
-- **Intenção nutricional do dia (faixa-alvo)**: o alvo do dia planejado do tipo-de-dia que define o alvo da data (fonte pendente da Q3 — FR-002) ± tolerância configurada. Derivada, não armazenada (já existente — Fase 2).
+- **Adesão do dia**: medida derivada, por (paciente, dia), de quanto o consumo real registrado cumpriu a intenção nutricional do dia: **valor contínuo saturado na faixa** (100% dentro; fora, decai pelo desvio a partir da borda — FR-006), calculado sobre **kcal**, com a **classificação dentro/fora da faixa-alvo** (FR-006a) e **flags por macro** fora da respectiva faixa (FR-008). Nunca persiste como verdade congelada — é recalculável do registro vigente.
+- **Intenção nutricional do dia (faixa-alvo)**: o alvo do dia planejado do tipo-de-dia que define o alvo da data (tipo dos registros vigentes quando uniforme; fallback no default da programação — FR-002) ± tolerância configurada. Derivada, não armazenada (já existente — Fase 2).
 - **Consumo real do dia**: soma do consumo das refeições com registro vigente (feito = planejado da opção cumprida; troquei = consumido; pulei = zero). Já definido (Fase 4).
-- **Cobertura do registro** _(condicional à Q2-B)_: proporção das refeições do dia com registro vigente, sobre o conjunto de refeições do tipo-de-dia que define o alvo (Q3). Registro que referencia refeição de outro tipo-de-dia pareia por posição equivalente (ver Edge Cases) — a confiança que a nutri pode depositar na adesão daquele dia.
-- **Série de adesão**: a sequência de adesões diárias de um paciente num período, com dias sem dado marcados — a matéria-prima da "linha dos 80%".
+- **Cobertura do registro**: proporção das refeições do dia com registro vigente, sobre o conjunto de refeições do tipo-de-dia que define o alvo (FR-002). Registro que referencia refeição de outro tipo-de-dia pareia por posição equivalente (ver Edge Cases) — a confiança que a nutri pode depositar na adesão daquele dia. _(Q2 → B.)_
+- **Série de adesão**: a sequência de adesões diárias de um paciente num período, com dias sem dado marcados, acompanhada da **média do período** (média aritmética dos dias com dado — a métrica final). A matéria-prima da "linha dos 80%".
 
 ## Success Criteria _(mandatory)_
 
@@ -169,15 +169,17 @@ O paciente continua vendo **ação** (o que comer, quanto ajustar) — nunca nú
 - **SC-006**: A nutri obtém a adesão por dia de qualquer dia com dado no histórico do paciente em 100% das consultas; dias sem dado vêm explicitamente marcados como **sem dado** (jamais 0%).
 - **SC-007**: **0** mudanças observáveis nos fluxos do paciente: os mesmos passos produzem as mesmas respostas de antes da feature.
 - **SC-008**: Requisições à via de consulta de adesão portando **identidade de paciente** são negadas em 100% dos casos — a métrica é inalcançável a partir dos fluxos do paciente, não apenas omitida das respostas dele.
+- **SC-009**: **Saturação**: todo dia cujo consumido total fecha **dentro** da faixa-alvo recebe exatamente **100%**, e os flags por macro aparecem **se e somente se** o total do macro sai da respectiva faixa — em 100% dos casos.
+- **SC-010**: A **média do período** é exatamente a média aritmética das adesões diárias dos dias **com dado** em 100% das consultas — dias sem dado não a afetam.
 
 ## Assumptions
 
 - **Zero mudança do lado do paciente**: a métrica é derivada do registro e do plano existentes; nenhum fluxo do app muda, nenhum dado novo é pedido ao paciente.
-- **Só a série por dia (agregação deferida)**: o v0 entrega somente a série diária; média/fechamento de período ficam pro relatório de ciclo, que é quem conhece a janela natural (o ciclo) — cravar agregado agora arriscaria contradizê-lo. Cravada como mínimo YAGNI (constituição VI) em vez de pergunta — era a antiga Q3 deste gate. _(Reversível; vetável no gate.)_
+- **Métrica final = média da pontuação diária** (decisão do dono, Sessão 2026-06-10): a consulta de período entrega a série diária **e** a média aritmética dos dias com dado — sem ponderação por cobertura nem outras janelas no v0 (refinamentos pertencem ao relatório de ciclo). _(Substituiu o default "só série diária".)_
 - **Fonte do plano = o ativo corrente**: o plano usado pela métrica é o plano **ativo do paciente no momento da consulta** — não o `plan_id` carregado nos registros do dia. Coerente com a régua corrente; o modelo v0 não tem vigência de plano por data (vigência entra com o ciclo — 007). _(Reversível.)_
 - **Recorte do dia**: o mesmo dia-calendário local já usado pelo registro (dívida de fuso herdada e consciente das fases anteriores).
 - **Tolerância da faixa**: a configuração já existente (paciente → nutri → sistema; ±10% default) — a métrica não introduz tolerância própria.
-- **Derivada, com régua corrente**: a métrica usa o plano e a configuração vigentes na consulta, inclusive para dias passados; mudou a tolerância, o passado é re-lido. Aceito no v0 e **sinalizado como risco assumido no gate** (ver "Decisões em aberto") — congelar régua por dia exigiria snapshot (fora de escopo). **Dependência registrada**: snapshot/versionamento da régua pode virar requisito do ciclo (007)/relatório ("plano versionado por ciclo" — decisoes-produto.md:103).
+- **Derivada, com régua corrente — aceita pelo dono (Sessão 2026-06-10)**: a métrica usa o plano e a configuração vigentes na consulta, inclusive para dias passados; mudou a tolerância, o passado é re-lido. Mantida **deliberadamente** pra ficar flexível às alterações da nutri no plano — congelar régua por dia exigiria snapshot (fora de escopo). **Dependência registrada**: snapshot/versionamento da régua pode virar requisito do ciclo (007)/relatório ("plano versionado por ciclo" — decisoes-produto.md:103).
 - **A adesão observa o desfecho, não a interação**: como o rebalanceamento é efêmero (spec 004 FR-014), a métrica não sabe se o paciente "seguiu a sugestão do motor" — ela observa o que ele registrou e se o dia fechou na faixa. É exatamente o que a decisão de produto pede (desfecho, não obediência).
 - **Identidade da nutri (v0, seed-first)**: não há login da nutri ainda; o controle de acesso do v0 se materializa nos **dois requisitos verificáveis do FR-016** — omissão total da métrica nas respostas do paciente **e** via de consulta própria do sistema, não alcançável pelas credenciais/fluxos do paciente (requisição com identidade de paciente é negada — US4.3/SC-008). Auth real da nutri é transversal pendente, entra com a web (handoff §4) e está **declarada como dependência no próprio FR-016**.
 
@@ -188,5 +190,5 @@ O paciente continua vendo **ação** (o que comer, quanto ajustar) — nunca nú
 - **UI da nutri (web)** e **auth real da nutri** — entram juntas em fase posterior; aqui a consulta é seed-first.
 - **Persistir o override de tipo-de-dia** (day_selection) — permanece fora de escopo em **qualquer** resposta da Q3 (a fonte do alvo usa só dado que já existe — FR-002).
 - **Detector de fumaça / alertas** em tempo real para a nutri — o produto decide revisar olhando pra trás (decisoes-produto.md §4); alertas calibrados são feature futura.
-- **Dimensões além da resposta da Q1b** — a Q1b define a(s) dimensão(ões) do v0; dimensões extras não são construídas agora (estrutura fica aberta — FR-008).
+- **Dimensões além de kcal + flags por macro** (Q1b → iii) — macros como valor próprio não são construídos agora (estrutura fica aberta — FR-008).
 - **Análises do relatório** (quais refeições mais apanham, quais substituições o paciente puxa, concentração de imprevistos) — pertencem ao relatório de ciclo, não à métrica-base.

@@ -4,7 +4,7 @@
 
 **Created**: 2026-06-10
 
-**Status**: Draft — aguardando aprovação do dono do produto (gate Specify→Plan)
+**Status**: Draft — Q1 (ciclo de vida + duração), Q3 (retroatividade) e o grão da Q2 **respondidos pelo dono** (Sessão 2026-06-10); **resta a sub-decisão da vigência** (FR-007)
 
 **Input**: User description: "Ciclo de acompanhamento como objeto de primeira classe: início (consulta + plano) → duração → fim (reavaliação), versionando os planos do paciente no tempo; fundação da métrica de adesão por período e do relatório de ciclo."
 
@@ -19,7 +19,13 @@ Duas fronteiras moldam o escopo:
 1. **Pro paciente, o ciclo é invisível.** Nada muda no app: ele segue vendo o plano ativo do dia ("mostra o certo por padrão"). O ciclo é **instrumento da nutri** — e, como ainda não há UI da nutri (seed-first), as capacidades desta feature são exercidas por operação interna/seed, não por telas.
 2. **Esta feature não calcula nada.** Ela **estrutura o tempo**: delimita janelas de período e amarra os planos a elas. A métrica de adesão (feature 006, paralela) e o futuro relatório de ciclo **consomem** essa janela.
 
-Três decisões de produto seguem em aberto e estão marcadas como pontos de clarificação nos requisitos: o **ciclo de vida e a duração** (o que abre e o que fecha um ciclo; quem define a duração prevista, se há default e se é obrigatória ao abrir — a pergunta "duração?" do handoff), o **grão do vínculo plano×ciclo** (referência 1:N vs cópia 1:1 — versionar em si já está decidido) e a **retroatividade** (o que fazer com o histórico existente desde a Fase 3).
+### Clarifications
+
+#### Sessão 2026-06-10 (gate Specify→Plan — respostas do dono do produto)
+
+- **Q1 — Ciclo de vida e duração** → **A + C (híbrido)**: abrir é ato manual da nutri na consulta; fechar acontece **ou** por ato manual na reavaliação (A) **ou** automaticamente ao abrir o ciclo seguinte (C — abrir o próximo fecha o anterior). Prazo vencido **não** fecha sozinho: a duração é previsão, não trava. **Duração confirmada**: definida pela nutri a cada ciclo (dias/semanas), **obrigatória ao abrir**, sem default global do produto. _(Encodada nos FR-002/FR-003/FR-005.)_
+- **Q2 — Grão do vínculo plano×ciclo** → **A (referência 1:N)**: o ciclo referencia a(s) versão(ões) de plano vigentes nele, por períodos; replanejar no meio do ciclo = nova vigência **dentro** do mesmo ciclo; um plano pode ser re-vinculado no ciclo seguinte. _(Encodada no FR-007.)_ **Sub-decisão remanescente**: a relação do vínculo com a vigência existente ("o ciclo manda na vigência ou observa o plano ativo?") — marcador mantido no FR-007, aguardando decisão do dono.
+- **Q3 — Retroatividade** → **B**: histórico pré-ciclo — e qualquer dia sem ciclo ativo — fica **fora de ciclo**: consultável como hoje, sem ciclo; a adesão por ciclo simplesmente não o cobre. _(Encodada no FR-011.)_
 
 ## User Scenarios & Testing _(mandatory)_
 
@@ -29,13 +35,14 @@ Na consulta, a nutri define o plano do paciente e **abre o ciclo** informando a 
 
 **Why this priority**: É a existência do objeto. Sem ciclo aberto não há janela, não há linha do tempo, não há fundação pra adesão nem pro relatório. Sozinha já entrega o conceito mínimo testável: um ciclo ativo, com início, duração prevista e plano vinculado, invisível ao paciente.
 
-**Independent Test**: Para um paciente com plano ativo, abrir um ciclo informando a duração prevista e confirmar que (a) o ciclo ativo existe com início + duração + plano vinculado, (b) tentar abrir um segundo falha com orientação, (c) o app do paciente permanece idêntico ao de antes.
+**Independent Test**: Para um paciente com plano ativo, abrir um ciclo informando a duração prevista e confirmar que (a) o ciclo ativo existe com início + duração + plano vinculado, (b) abrir um segundo fecha o primeiro automaticamente sem sobreposição, (c) o app do paciente permanece idêntico ao de antes.
 
 **Acceptance Scenarios**:
 
 1. **Given** um paciente com plano ativo e nenhum ciclo, **When** a nutri abre um ciclo informando a duração prevista, **Then** o paciente passa a ter um ciclo **ativo** com data de início, duração prevista e o plano vigente vinculado.
-2. **Given** um paciente com um ciclo ativo, **When** se tenta abrir um segundo ciclo, **Then** a operação falha com orientação clara (encerrar o vigente primeiro) e nenhuma sobreposição é criada.
-3. **Given** um ciclo recém-aberto, **When** o paciente abre o app, **Then** nada mudou pra ele: vê o plano ativo do dia, registra feito/troquei/pulei e rebalanceia exatamente como antes — nenhum vestígio do ciclo.
+2. **Given** um paciente com um ciclo ativo, **When** a nutri abre um novo ciclo, **Then** o anterior é **fechado automaticamente** (fim = data da abertura do novo), o novo passa a ser o ativo e nenhuma sobreposição é criada (FR-002).
+3. **Given** a abertura de um ciclo **sem informar a duração prevista**, **When** a operação é tentada, **Then** ela falha com orientação — a duração é obrigatória ao abrir (FR-003).
+4. **Given** um ciclo recém-aberto, **When** o paciente abre o app, **Then** nada mudou pra ele: vê o plano ativo do dia, registra feito/troquei/pulei e rebalanceia exatamente como antes — nenhum vestígio do ciclo.
 
 ---
 
@@ -66,21 +73,21 @@ Para qualquer dia do acompanhamento, o sistema responde **a qual ciclo o dia per
 **Acceptance Scenarios**:
 
 1. **Given** dois ciclos consecutivos com registros, **When** se consulta a atribuição de um dia dentro do primeiro ciclo, **Then** a resposta é o primeiro ciclo (e o plano vigente nele), idêntica em consultas repetidas.
-2. **Given** um dia fora de qualquer janela de ciclo, **When** se consulta a atribuição, **Then** a resposta é **"nenhum ciclo"** — e o tratamento desse histórico segue a decisão de retroatividade (ver FR-011).
+2. **Given** um dia fora de qualquer janela de ciclo, **When** se consulta a atribuição, **Then** a resposta é **"nenhum ciclo"** — o dia permanece consultável, fora de ciclo (Q3 → B, FR-011).
 3. **Given** um ciclo (aberto ou fechado), **When** um consumidor pede a janela e os registros do período, **Then** recebe o intervalo [início, fim] e o conjunto **exato** dos registros do paciente naquelas datas — sem nenhuma métrica calculada junto.
 
 ---
 
 ### Edge Cases
 
-- **Registro num período sem ciclo ativo**: a quem pertence? Depende da decisão de retroatividade (FR-011). Sob o default recomendado, permanece consultável (ancorado em paciente + plano + dia, como na Fase 3) e fora de qualquer ciclo — a adesão por ciclo simplesmente não o cobre.
-- **Troca de plano no meio do ciclo** (replanejamento sem nova consulta formal): vira nova versão dentro do mesmo ciclo ou novo ciclo? Depende do grão do vínculo plano×ciclo (FR-007) — a spec exige apenas que a resposta "qual plano vigia neste dia deste ciclo" continue determinística.
+- **Registro num período sem ciclo ativo**: permanece consultável (ancorado em paciente + plano + dia, como na Fase 3) e **fora de qualquer ciclo** — a adesão por ciclo não o cobre (Q3 → B, FR-011).
+- **Troca de plano no meio do ciclo** (replanejamento sem nova consulta formal): **nova vigência dentro do mesmo ciclo** (Q2 → A, FR-007) — a resposta "qual plano vigia neste dia deste ciclo" continua determinística; o mecanismo exato segue a sub-decisão da vigência (marcador no FR-007).
 - **Dois ciclos consecutivos no mesmo dia** (fechou e reabriu): o dia de fronteira pertence a exatamente um ciclo, por desempate determinístico (ver Assumptions) — nunca aos dois, nunca a nenhum.
 - **Fronteira com troca de plano** (fechou, reabriu **e** trocou o plano ativo no mesmo dia): as leituras de "consumido hoje" do app do paciente são escopadas pelo plano vigente — registros feitos mais cedo naquele dia, sob o plano anterior, deixam de contar no consumido do novo plano. **Limitação herdada** (já acontece hoje ao trocar o plano ativo, sem ciclo nenhum), não regressão desta feature; o plano técnico deve avaliar esse caminho de leitura no dia de fronteira pra não tensionar o SC-003.
 - **Paciente novo sem nenhum ciclo**: nada quebra — o app do paciente funciona como hoje; a atribuição responde "nenhum ciclo" para qualquer dia.
-- **Abrir segundo ciclo com um ativo**: falha orientada (FR-002) — nunca cria sobreposição silenciosa.
+- **Abrir segundo ciclo com um ativo**: o anterior é **fechado automaticamente** na data da abertura do novo (FR-002) — nunca cria sobreposição silenciosa.
 - **Fechar sem ciclo ativo / fechar duas vezes**: operação sem efeito destrutivo, com orientação (não há o que fechar) — nunca corrompe a linha do tempo.
-- **Duração prevista vencida sem fechamento**: o comportamento depende do ciclo de vida escolhido (FR-005); no default recomendado, o ciclo segue aberto — a duração é previsão, não trava.
+- **Duração prevista vencida sem fechamento**: o ciclo **segue aberto** (Q1 → A+C, FR-005) — a duração é previsão, não trava; fecha na reavaliação ou na abertura do próximo.
 
 ## Requirements _(mandatory)_
 
@@ -89,22 +96,22 @@ Para qualquer dia do acompanhamento, o sistema responde **a qual ciclo o dia per
 #### O ciclo e seu ciclo de vida
 
 - **FR-001**: O sistema MUST representar o **ciclo de acompanhamento** como objeto de primeira classe por paciente: **início** (marco da consulta, com data), **duração prevista** (definida pela nutri) e **fim** (marco da reavaliação, com data). _(Decisão de produto: decisoes-produto.md:103.)_
-- **FR-002**: Um paciente MUST ter **no máximo um ciclo ativo** por vez. A tentativa de abrir um segundo ciclo com um ativo MUST falhar com orientação clara (encerrar o vigente primeiro), nunca criar sobreposição.
-- **FR-003**: A duração prevista MUST poder ser expressa em dias/semanas, por ciclo. Quem a define, se o produto sugere um default e se ela é obrigatória no ato de abrir fazem parte da clarificação do FR-005 — é a pergunta "duração?" do handoff (§5), levada ao gate, não decidida aqui.
-- **FR-004**: Abrir um ciclo MUST registrar o início (e a duração prevista, conforme a decisão do FR-005); fechar MUST registrar o fim, delimitando a **janela [início, fim]** do ciclo.
-- **FR-005**: O sistema MUST definir o que abre e o que fecha um ciclo — e a semântica da duração prevista — conforme [NEEDS CLARIFICATION: ciclo de vida e duração — **(1) o que abre/fecha:** (A) **totalmente manual**: a nutri abre na consulta e fecha quando reavaliar; prazo vencido NÃO fecha sozinho (a duração é previsão, não trava); (B) **fecha automático** ao fim da duração prevista; abrir o próximo segue manual — cria "buraco" sem ciclo ativo se a nutri não agir; (C) **abrir o próximo fecha o anterior** automaticamente, sem ato explícito de fechar — menor atrito, mas perde a distinção fechar≠reavaliar. **(2) duração** (pergunta "duração?" do handoff §5): quem define (a nutri, por ciclo? o produto sugere um default?) e se é obrigatória no ato de abrir. Default recomendado: definida pela nutri a cada ciclo (em dias/semanas), obrigatória ao abrir, sem default global do produto].
+- **FR-002**: Um paciente MUST ter **no máximo um ciclo ativo** por vez. Abrir um ciclo com outro ativo MUST **fechar o anterior automaticamente** naquele ato (o fim do anterior = a data de abertura do novo) — nunca criar sobreposição, nunca falhar silenciosamente. _(Q1 → C como conveniência, Sessão 2026-06-10.)_
+- **FR-003**: A duração prevista MUST ser definida **pela nutri, a cada ciclo**, expressa em dias/semanas, e MUST ser **obrigatória no ato de abrir**; o produto MUST NOT impor default global de duração. _(Q1 — duração confirmada, Sessão 2026-06-10.)_
+- **FR-004**: Abrir um ciclo MUST registrar o início e a duração prevista; fechar MUST registrar o fim, delimitando a **janela [início, fim]** do ciclo.
+- **FR-005**: O ciclo de vida MUST ser **manual com fechamento por sucessão** (híbrido A+C — Sessão 2026-06-10): **abre** por ato da nutri na consulta (com duração prevista obrigatória — FR-003); **fecha** por ato manual da nutri na reavaliação **ou** automaticamente quando o ciclo seguinte é aberto (FR-002). A duração prevista vencida MUST NOT fechar o ciclo sozinha — é previsão, não trava; o ciclo segue aberto até um dos dois fechamentos.
 - **FR-006**: Fechar/encerrar um ciclo MUST NOT apagar, alterar ou congelar qualquer dado cru do período — os registros de refeição permanecem append-only e consultáveis (Fase 3); o fechamento apenas **delimita** o período. _(LGPD / histórico.)_
 
 #### Ciclo × plano (versionamento no tempo)
 
-- **FR-007**: O ciclo MUST permitir determinar **qual plano (ou quais versões de plano) esteve vigente durante sua janela** — o "plano versionado por ciclo" é decisão de produto **já tomada** (decisoes-produto.md:103); deferir o versionamento contrariaria essa decisão e esvaziaria o propósito declarado da feature, então não é opção aqui. O grão do vínculo é [NEEDS CLARIFICATION: plano×ciclo — (A) o ciclo **referencia** a(s) versão(ões) de plano vigentes nele (1:N por períodos; um plano pode ser reaproveitado/re-vinculado no ciclo seguinte); (B) **1 ciclo = exatamente 1 plano** (cópia/versão nova a cada ciclo). A escolha define o que é "replanejar no meio do ciclo": nova versão no mesmo ciclo (A) ou novo ciclo (B). A decisão também precisa dizer como o vínculo convive com a **vigência que já existe**: o sistema já responde "qual plano vige agora" (o plano ativo do paciente) e cada registro já guarda o plano em uso no momento — o ciclo passa a mandar na vigência ou referencia o mecanismo atual? Não pode haver duas fontes de verdade sobre "qual plano vige"].
+- **FR-007**: O ciclo MUST permitir determinar **qual plano (ou quais versões de plano) esteve vigente durante sua janela** — o "plano versionado por ciclo" é decisão de produto **já tomada** (decisoes-produto.md:103). O grão é **referência 1:N por períodos** (Q2 → A, Sessão 2026-06-10): o ciclo referencia a(s) versão(ões) de plano vigentes nele; **replanejar no meio do ciclo = nova vigência dentro do mesmo ciclo**; um plano pode ser reaproveitado/re-vinculado no ciclo seguinte. Resta a sub-decisão: [NEEDS CLARIFICATION: relação do vínculo com a **vigência que já existe** (o "plano ativo" do paciente, que cada registro já aponta) — (1) o **ciclo manda**: "qual plano vige" passa a derivar do vínculo do ciclo, e o plano ativo vira consequência; ou (2) o **ciclo observa** (recomendado): trocar o plano ativo continua sendo o ato que muda a vigência, e o ciclo **grava a linha do tempo** dessas trocas dentro da sua janela (desde-quando até-quando) — uma única fonte de verdade (o plano ativo), zero mudança nos fluxos existentes. Não pode haver duas fontes de verdade sobre "qual plano vige"].
 - **FR-008**: A introdução do ciclo MUST NOT mudar **nada observável no app do paciente**: ele segue vendo o plano ativo do dia, registrando e rebalanceando como hoje ("mostra o certo por padrão"). O ciclo é instrumento da nutri.
 
 #### Atribuição temporal (fundação de adesão e relatório)
 
 - **FR-009**: Dado (paciente, dia), o sistema MUST responder **deterministicamente** a qual ciclo o dia pertence — exatamente **um** ciclo, ou **nenhum** — de modo que qualquer consumidor (adesão, relatório) obtenha sempre a mesma resposta para a mesma pergunta.
 - **FR-010**: Dado um ciclo (aberto ou fechado), o sistema MUST permitir obter a sua **janela de período** e o conjunto de **registros do paciente** dentro dela. Esta feature MUST NOT calcular nenhuma métrica sobre esses dados — adesão (006) e relatório consomem a janela; aqui só se estrutura o tempo.
-- **FR-011**: O sistema MUST tratar o histórico existente (plano atual e registros desde a Fase 3) e os registros feitos em período sem ciclo ativo conforme [NEEDS CLARIFICATION: retroatividade/migração — (A) criar um **ciclo retroativo** abraçando o plano e os registros existentes (nada fica órfão, mas inventa um marco de consulta que não houve); (B) histórico pré-ciclo — e qualquer dia sem ciclo ativo — fica **fora de ciclo**: consultável como hoje, mas sem ciclo; a adesão por ciclo simplesmente não o cobre; (C) **início limpo**: ciclos valem daqui pra frente e o primeiro abre na próxima "consulta"].
+- **FR-011**: O histórico existente (plano atual e registros desde a Fase 3) e os registros feitos em período sem ciclo ativo MUST ficar **fora de ciclo**: consultáveis como hoje, sem pertencer a ciclo nenhum — a adesão por ciclo simplesmente não os cobre; nenhum ciclo retroativo é inventado. _(Q3 → B, Sessão 2026-06-10.)_
 
 #### Privacidade e exposição (transversais)
 
@@ -117,9 +124,9 @@ Para qualquer dia do acompanhamento, o sistema responde **a qual ciclo o dia per
 
 ### Key Entities _(include if feature involves data)_
 
-- **Ciclo de acompanhamento**: objeto por paciente com início (marco da consulta), duração prevista (definida pela nutri) e fim (marco da reavaliação). No máximo um ativo por paciente; fechado, vira uma janela [início, fim] consultável. Invisível ao paciente.
-- **Vínculo ciclo↔plano**: a resposta a "qual plano vigia neste ciclo (e neste dia dele)". Versionar em si já está decidido; o grão (referência 1:N vs cópia 1:1) está em aberto (FR-007).
-- **Linha do tempo de acompanhamento**: a sequência ordenada e sem sobreposição dos ciclos de um paciente. Pode conter lacunas (dias sem ciclo), conforme as decisões de ciclo de vida (FR-005) e retroatividade (FR-011).
+- **Ciclo de acompanhamento**: objeto por paciente com início (marco da consulta), duração prevista (obrigatória, definida pela nutri) e fim (reavaliação manual, ou automático na abertura do próximo). No máximo um ativo por paciente; fechado, vira uma janela [início, fim] consultável. Invisível ao paciente.
+- **Vínculo ciclo↔plano**: a resposta a "qual plano vigia neste ciclo (e neste dia dele)". Grão decidido: **referência 1:N por períodos** (Q2 → A); a relação com a vigência existente (manda vs observa) é a sub-decisão remanescente (FR-007).
+- **Linha do tempo de acompanhamento**: a sequência ordenada e sem sobreposição dos ciclos de um paciente. Pode conter lacunas (dias sem ciclo — fora de ciclo por decisão, Q3 → B).
 - **Janela de período**: o intervalo [início, fim] de um ciclo, em dias-calendário — o que a adesão (006) e o relatório consomem. Só delimitação; nenhuma métrica vive aqui.
 
 ## Success Criteria _(mandatory)_
