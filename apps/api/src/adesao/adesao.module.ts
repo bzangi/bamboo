@@ -1,0 +1,10 @@
+// Módulo da via da nutri (Feature 006 — métrica de adesão). Isolado dos fluxos
+// do paciente: nenhum service existente é tocado (SC-007); a única superfície
+// que serializa adesão é o controller daqui, atrás do NutriKeyGuard (FR-016).
+import { Module } from '@nestjs/common';
+import { DbModule } from '../db/db.module';
+
+@Module({
+  imports: [DbModule],
+})
+export class AdesaoModule {}

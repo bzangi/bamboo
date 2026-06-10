@@ -7,6 +7,7 @@ import { SubstitutionModule } from './substitution/substitution.module';
 import { RebalanceModule } from './rebalance/rebalance.module';
 import { CombinationModule } from './combination/combination.module';
 import { RegistroModule } from './registro/registro.module';
+import { AdesaoModule } from './adesao/adesao.module';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { RegistroModule } from './registro/registro.module';
     RebalanceModule,
     CombinationModule,
     RegistroModule,
+    AdesaoModule,
   ],
   controllers: [AppController],
   providers: [AppService],

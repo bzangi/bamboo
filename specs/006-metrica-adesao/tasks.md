@@ -16,8 +16,8 @@ Monorepo pnpm: núcleo em `packages/core/src/`, casca em `apps/api/src/`, e2e em
 
 **Purpose**: env + esqueleto do módulo (nada de regra ainda)
 
-- [ ] T001 Adicionar `NUTRI_API_KEY` a `.env.example` (comentário: credencial stub da nutri; guard é fail-closed — sem a env, a via da nutri nega tudo) e à `.env` local de dev
-- [ ] T002 Criar esqueleto do módulo: `apps/api/src/adesao/adesao.module.ts` (vazio) e registrá-lo em `apps/api/src/app.module.ts`
+- [x] T001 Adicionar `NUTRI_API_KEY` a `.env.example` (comentário: credencial stub da nutri; guard é fail-closed — sem a env, a via da nutri nega tudo) e à `.env` local de dev
+- [x] T002 Criar esqueleto do módulo: `apps/api/src/adesao/adesao.module.ts` (vazio) e registrá-lo em `apps/api/src/app.module.ts`
 
 ---
 
@@ -25,9 +25,9 @@ Monorepo pnpm: núcleo em `packages/core/src/`, casca em `apps/api/src/`, e2e em
 
 **Purpose**: a fórmula pura (core, TDD) e o guard — tudo das US depende daqui
 
-- [ ] T003 **[TDD — escrever e VER FALHAR]** Testes do núcleo em `packages/core/src/adesao.test.ts` cobrindo as invariantes do contrato `contracts/core-adesao.md`: saturação (dentro/borda exata ⇒ 100, SC-009) · desvio a partir da borda mais próxima (acima e abaixo) · simetria (SC-003) · clamp em 0 · alvo-zero (D2: 0/0 ⇒ 100; 0/>0 ⇒ 0 sem divisão por zero) · flags por macro = `avaliarFaixa` (kcal nunca em flags) · cobertura (e `refeicoesDoTipo === 0` ⇒ `err entrada-invalida`; tolerância fora de [0,100] ⇒ err) · `mediaAdesao` (média aritmética; `[]` ⇒ `null`) · pureza (entrada não mutada)
-- [ ] T004 Implementar `packages/core/src/adesao.ts` (`adesaoDoDia` + `mediaAdesao`, reusando `avaliarFaixa`/`Nutrientes` — nenhuma função existente muda) até T003 verde; exportar em `packages/core/src/index.ts`; `pnpm --filter @bamboo/core test` verde (baseline 90 + novos) e `check-types` limpo
-- [ ] T005 Implementar `apps/api/src/adesao/nutri-key.guard.ts` (`CanActivate`: header `x-nutri-key` === `process.env.NUTRI_API_KEY`; env ausente/vazia ⇒ nega; sem match ⇒ `ForbiddenException`) — validado por e2e na US4 (T014)
+- [x] T003 **[TDD — escrever e VER FALHAR]** Testes do núcleo em `packages/core/src/adesao.test.ts` cobrindo as invariantes do contrato `contracts/core-adesao.md`: saturação (dentro/borda exata ⇒ 100, SC-009) · desvio a partir da borda mais próxima (acima e abaixo) · simetria (SC-003) · clamp em 0 · alvo-zero (D2: 0/0 ⇒ 100; 0/>0 ⇒ 0 sem divisão por zero) · flags por macro = `avaliarFaixa` (kcal nunca em flags) · cobertura (e `refeicoesDoTipo === 0` ⇒ `err entrada-invalida`; tolerância fora de [0,100] ⇒ err) · `mediaAdesao` (média aritmética; `[]` ⇒ `null`) · pureza (entrada não mutada)
+- [x] T004 Implementar `packages/core/src/adesao.ts` (`adesaoDoDia` + `mediaAdesao`, reusando `avaliarFaixa`/`Nutrientes` — nenhuma função existente muda) até T003 verde; exportar em `packages/core/src/index.ts`; `pnpm --filter @bamboo/core test` verde (baseline 90 + novos) e `check-types` limpo
+- [x] T005 Implementar `apps/api/src/adesao/nutri-key.guard.ts` (`CanActivate`: header `x-nutri-key` === `process.env.NUTRI_API_KEY`; env ausente/vazia ⇒ nega; sem match ⇒ `ForbiddenException`) — validado por e2e na US4 (T014)
 
 **Checkpoint**: fórmula testada e guard pronto — user stories destravadas
 

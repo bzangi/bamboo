@@ -9,3 +9,4 @@ export * from "./params.js";
 export * from "./rebalance.js";
 export * from "./combination.js";
 export * from "./registro.js";
+export * from "./adesao.js";
