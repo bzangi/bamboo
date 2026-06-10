@@ -291,10 +291,14 @@ aberto, transacional (sem ciclo aberto, troca sem vigência). **Zero mudança no
 paciente** (snapshot do `/today` idêntico — SC-003). Resultado: **core 120 + e2e 95 verdes**.
 Artefatos: `specs/007-ciclo-de-acompanhamento/` (spec/plan/tasks/research D1–D8/data-model/
 contracts/quickstart). Com 006+007 prontas, o **relatório de ciclo** (a feature que vende)
-está destravado. `008-auto-classificacao` — spec **fechada** (heurística
-determinística; vínculo vale imediatamente com gatilho de reversão no SC-002; taxonomia = 13
-categorias TACO; ampliação da ingestão TACO inclusa; sem-grupo no ambíguo; um grupo por
-vínculo; porção derivada com guarda), aguardando plan. 007 + 006 fundam o relatório de ciclo.
+está destravado. `008-auto-classificacao` — spec **fechada** e **plan rascunhado** em
+`specs/008-auto-classificacao/plan.md` (+ research D1–D9, data-model com a **migration 0004**
+`food.taco_id`/`food.taco_category`/`fsg.origin` + a tabela dos 13 grupos canônicos com
+nutriente-base e âncoras, contracts core/cli, quickstart). Achado: o dataset TACO traz a
+**categoria** de cada alimento (597 itens, 15 categorias) — sinal primário da classificação;
+heurística por perfil vira guarda + fallback. **Aguardando aval Plan→Tasks** (4 pontos: tabela
+de basis incl. Leguminosas→carb?; categoria-como-sinal; preparados/industrializados sem grupo;
+guardas [10–600 g, ≥1 g/100 g]). Com 006+007 prontas, o **relatório de ciclo** está destravado.
 
 Feature **005-desfazer-vs-rebalanceamento** (mobile-only): **implementada; reducer testado;
 mergeada na main (`5826d1d`); smoke manual da UI pendente**. Bug: o "↺ desfazer" por-item aparecia em itens rebalanceados de
