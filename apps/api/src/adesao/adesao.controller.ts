@@ -21,7 +21,7 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { AdesaoService } from './adesao.service';
-import { NutriKeyGuard } from './nutri-key.guard';
+import { NutriKeyGuard } from '../nutri/nutri-key.guard';
 import type { SerieAdesaoResponse } from './adesao.mapper';
 
 @ApiTags('Adesão (só nutri)')

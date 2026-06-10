@@ -18,8 +18,9 @@ import {
   time,
   date,
   pgEnum,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
-import { relations } from "drizzle-orm";
+import { relations, sql } from "drizzle-orm";
 
 /* ============ enums ============ */
 
@@ -256,6 +257,50 @@ export const mealEventItem = pgTable("meal_event_item", {
     .references(() => food.id)
     .notNull(),
   quantityGrams: doublePrecision("quantity_grams").notNull(),
+});
+
+/* ============ ciclo de acompanhamento (Feature 007) ============ */
+
+// Ciclo: objeto de 1ª classe por paciente — início (consulta), duração
+// prevista (obrigatória; previsão, não trava) e fim (reavaliação manual ou
+// auto-fechamento quando o próximo abre). Janela em dia-calendário local
+// (mesma fonte do meal_event.logged_date). Invisível ao paciente — só a via
+// /nutri lê/escreve.
+export const cycle = pgTable(
+  "cycle",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    patientId: uuid("patient_id")
+      .references(() => patient.id)
+      .notNull(),
+    startedOn: date("started_on").notNull(),
+    expectedDurationDays: integer("expected_duration_days").notNull(),
+    // null = ciclo ATIVO. Preenchida no fechar manual ou no auto-fechar
+    // (= started_on do sucessor — fronteira resolvida por desempate na leitura).
+    closedOn: date("closed_on"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => [
+    // O BANCO garante no máximo 1 ciclo ativo por paciente (FR-002/SC-002).
+    uniqueIndex("cycle_one_active_per_patient")
+      .on(t.patientId)
+      .where(sql`${t.closedOn} IS NULL`),
+  ],
+);
+
+// Vigência observada (Q2-A + "observa"): a linha do tempo 1:N de "qual plano
+// vigia quando" DENTRO do ciclo. O ciclo NÃO manda em plan.is_active — apenas
+// registra as ativações; null em valid_to = vigência corrente.
+export const cyclePlanVigencia = pgTable("cycle_plan_vigencia", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  cycleId: uuid("cycle_id")
+    .references(() => cycle.id)
+    .notNull(),
+  planId: uuid("plan_id")
+    .references(() => plan.id)
+    .notNull(),
+  validFrom: date("valid_from").notNull(),
+  validTo: date("valid_to"),
 });
 
 /* ============ relations (principais) ============ */

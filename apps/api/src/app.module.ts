@@ -8,6 +8,7 @@ import { RebalanceModule } from './rebalance/rebalance.module';
 import { CombinationModule } from './combination/combination.module';
 import { RegistroModule } from './registro/registro.module';
 import { AdesaoModule } from './adesao/adesao.module';
+import { CicloModule } from './ciclo/ciclo.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { AdesaoModule } from './adesao/adesao.module';
     CombinationModule,
     RegistroModule,
     AdesaoModule,
+    CicloModule,
   ],
   controllers: [AppController],
   providers: [AppService],

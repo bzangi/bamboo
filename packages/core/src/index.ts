@@ -10,3 +10,4 @@ export * from "./rebalance.js";
 export * from "./combination.js";
 export * from "./registro.js";
 export * from "./adesao.js";
+export * from "./ciclo.js";

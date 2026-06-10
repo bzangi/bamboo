@@ -16,8 +16,8 @@ Monorepo pnpm: núcleo em `packages/core/src/`, schema/migrations em `packages/d
 
 **Purpose**: guard compartilhado + migration 0003 (sem regra ainda)
 
-- [ ] T001 Extrair o guard pra `apps/api/src/nutri/nutri-key.guard.ts` (movido de `adesao/`, comportamento idêntico), atualizar o import em `apps/api/src/adesao/` e confirmar `adesao.e2e-spec.ts` ainda verde (refactor sem mudança de comportamento — D7)
-- [ ] T002 Schema + migration: adicionar `cycle` e `cyclePlanVigencia` a `packages/db/src/schema.ts` (colunas/regras do data-model.md, incl. **índice único parcial** `cycle(patient_id) WHERE closed_on IS NULL`), gerar `packages/db/migrations/0003_*.sql` via drizzle-kit e aplicar no banco local
+- [x] T001 Extrair o guard pra `apps/api/src/nutri/nutri-key.guard.ts` (movido de `adesao/`, comportamento idêntico), atualizar o import em `apps/api/src/adesao/` e confirmar `adesao.e2e-spec.ts` ainda verde (refactor sem mudança de comportamento — D7)
+- [x] T002 Schema + migration: adicionar `cycle` e `cyclePlanVigencia` a `packages/db/src/schema.ts` (colunas/regras do data-model.md, incl. **índice único parcial** `cycle(patient_id) WHERE closed_on IS NULL`), gerar `packages/db/migrations/0003_*.sql` via drizzle-kit e aplicar no banco local
 
 ---
 
@@ -25,9 +25,9 @@ Monorepo pnpm: núcleo em `packages/core/src/`, schema/migrations em `packages/d
 
 **Purpose**: regras puras do ciclo (core, TDD) + esqueleto do módulo
 
-- [ ] T003 **[TDD — escrever e VER FALHAR]** Testes do núcleo em `packages/core/src/ciclo.test.ts` cobrindo o contrato `contracts/core-ciclo.md`: `atribuirCiclo` (cobertura inclusiva; aberto cobre dali em diante; dia anterior/lacuna → null; **fronteira fechou-e-reabriu → startedOn mais recente**, empate → createdAtMs; determinismo/ordem irrelevante; pureza) · `decidirAbertura` (duração ≤ 0 ou não-inteira → err; com ativo → fecharAnteriorEm = hoje; sem ativo → null; nunca recusa por já-existe-ativo) · `decidirFechamento` (sem ativo → no-op-orientado; com ativo → fechar hoje; **não olha a duração** — prazo não fecha sozinho)
-- [ ] T004 Implementar `packages/core/src/ciclo.ts` (`CicloJanela`, `atribuirCiclo`, `decidirAbertura`, `decidirFechamento`) até T003 verde; exportar em `packages/core/src/index.ts`; `pnpm --filter @bamboo/core test` verde (baseline 109 + novos) e `check-types` limpo
-- [ ] T005 Esqueleto do módulo: `apps/api/src/ciclo/ciclo.module.ts` (importa DbModule) registrado em `apps/api/src/app.module.ts`
+- [x] T003 **[TDD — escrever e VER FALHAR]** Testes do núcleo em `packages/core/src/ciclo.test.ts` cobrindo o contrato `contracts/core-ciclo.md`: `atribuirCiclo` (cobertura inclusiva; aberto cobre dali em diante; dia anterior/lacuna → null; **fronteira fechou-e-reabriu → startedOn mais recente**, empate → createdAtMs; determinismo/ordem irrelevante; pureza) · `decidirAbertura` (duração ≤ 0 ou não-inteira → err; com ativo → fecharAnteriorEm = hoje; sem ativo → null; nunca recusa por já-existe-ativo) · `decidirFechamento` (sem ativo → no-op-orientado; com ativo → fechar hoje; **não olha a duração** — prazo não fecha sozinho)
+- [x] T004 Implementar `packages/core/src/ciclo.ts` (`CicloJanela`, `atribuirCiclo`, `decidirAbertura`, `decidirFechamento`) até T003 verde; exportar em `packages/core/src/index.ts`; `pnpm --filter @bamboo/core test` verde (baseline 109 + novos) e `check-types` limpo
+- [x] T005 Esqueleto do módulo: `apps/api/src/ciclo/ciclo.module.ts` (importa DbModule) registrado em `apps/api/src/app.module.ts`
 
 **Checkpoint**: regras puras testadas, tabelas existem — user stories destravadas
 

@@ -5,7 +5,7 @@ import { Module } from '@nestjs/common';
 import { DbModule } from '../db/db.module';
 import { AdesaoController } from './adesao.controller';
 import { AdesaoService } from './adesao.service';
-import { NutriKeyGuard } from './nutri-key.guard';
+import { NutriKeyGuard } from '../nutri/nutri-key.guard';
 
 @Module({
   imports: [DbModule],
