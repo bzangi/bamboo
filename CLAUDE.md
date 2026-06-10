@@ -263,8 +263,16 @@ Dado de saúde desde a Fase 0: controle de acesso, criptografia, consentimento. 
 
 <!-- SPECKIT START -->
 
+**Specs em rascunho aguardando o gate Specify→Plan (2026-06-10):** `006-metrica-adesao`
+(métrica de adesão a partir do registro, só nutri), `007-ciclo-de-acompanhamento` (ciclo como
+objeto que versiona planos) e `008-auto-classificacao` (auto-classificação de alimentos em
+grupos). Rascunhadas em paralelo a partir do handoff (`docs/handoff-proximas-fases.md`); cada
+uma carrega exatamente 3 marcadores `[NEEDS CLARIFICATION]` com as perguntas ao dono +
+assumptions vetáveis (ver `checklists/requirements.md` de cada). **Nenhuma implementação até o
+aval.** Sequência alvo: 006+007 são a fundação do relatório de ciclo (a feature que vende).
+
 Feature **005-desfazer-vs-rebalanceamento** (mobile-only): **implementada; reducer testado;
-smoke manual e merge pendentes**. Bug: o "↺ desfazer" por-item aparecia em itens rebalanceados de
+mergeada na main (`5826d1d`); smoke manual da UI pendente**. Bug: o "↺ desfazer" por-item aparecia em itens rebalanceados de
 OUTRAS refeições (consequência de uma troca de opção) e, ao ser tocado, revertia só aquele item sem
 recalcular — deixava o dia inconsistente (gap). Fix: consolidou a troca em `swaps[mealId] =
 {chosenOptionId, previousOptionId, adjustments}` (reducer puro novo `apps/mobile/src/swaps.ts` —
@@ -274,9 +282,9 @@ FR-001/002; (b) desfazer a troca é atômico — opção + ajustes juntos (FR-00
 (FR-006). Caminhos de desfazer da troca: snackbar temporário ~5s (`UndoSwapToast`, FR-004) + chip da
 opção default durável (FR-005). **Sem API/core/migration; tudo efêmero** (FR-007/008). Só a troca de
 opção rebalanceia (FR-009). Setup: Vitest adicionado ao `apps/mobile` (não existia). Resultado:
-**10 testes do reducer verdes + `tsc --noEmit` 0 + lint 0 erros**; commits no worktree
-`005-desfazer-vs-rebalanceamento` (branch `worktree-005-desfazer-vs-rebalanceamento`), **ainda não
-mergeado na main**. Pendente: smoke manual da UI (snackbar/timing — requer simulador + API/DB) e merge.
+**10 testes do reducer verdes + `tsc --noEmit` 0 + lint 0 erros**; desenvolvida no worktree
+`005-desfazer-vs-rebalanceamento` e **mergeada na main** (`5826d1d`). Pendente: smoke manual da UI
+(snackbar/timing — requer simulador + API/DB).
 Artefatos: `specs/005-desfazer-vs-rebalanceamento/` (spec/plan/tasks/research D1–D7/data-model/quickstart).
 
 Última concluída: **004-motor-le-registro**
