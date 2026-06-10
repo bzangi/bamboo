@@ -49,50 +49,67 @@ describe("applySwap", () => {
     const out = rebalanceado([
       { mealId: "jantar", itens: [item("it-1", 60), item("it-2", 120)] },
     ]);
-    const state = applySwap({}, {
-      mealId: "almoco",
-      chosenOptionId: "opt-mandioca",
-      previousOptionId: "opt-arroz",
-      outcome: out,
-      formatLabel: fmt,
-    });
+    const state = applySwap(
+      {},
+      {
+        mealId: "almoco",
+        chosenOptionId: "opt-mandioca",
+        previousOptionId: "opt-arroz",
+        outcome: out,
+        formatLabel: fmt,
+      },
+    );
 
     expect(state.almoco?.chosenOptionId).toBe("opt-mandioca");
     expect(state.almoco?.previousOptionId).toBe("opt-arroz");
-    expect(state.almoco?.adjustments).toEqual({ "it-1": "60g", "it-2": "120g" });
+    expect(state.almoco?.adjustments).toEqual({
+      "it-1": "60g",
+      "it-2": "120g",
+    });
   });
 
   it("sem-acao: ativa a opção mas adjustments fica vazio", () => {
-    const state = applySwap({}, {
-      mealId: "almoco",
-      chosenOptionId: "opt-b",
-      previousOptionId: "opt-a",
-      outcome: semAcao,
-      formatLabel: fmt,
-    });
+    const state = applySwap(
+      {},
+      {
+        mealId: "almoco",
+        chosenOptionId: "opt-b",
+        previousOptionId: "opt-a",
+        outcome: semAcao,
+        formatLabel: fmt,
+      },
+    );
     expect(state.almoco?.chosenOptionId).toBe("opt-b");
     expect(state.almoco?.adjustments).toEqual({});
   });
 
   it("recusa-orientada: adjustments vazio", () => {
-    const state = applySwap({}, {
-      mealId: "almoco",
-      chosenOptionId: "opt-b",
-      previousOptionId: "opt-a",
-      outcome: recusa,
-      formatLabel: fmt,
-    });
+    const state = applySwap(
+      {},
+      {
+        mealId: "almoco",
+        chosenOptionId: "opt-b",
+        previousOptionId: "opt-a",
+        outcome: recusa,
+        formatLabel: fmt,
+      },
+    );
     expect(state.almoco?.adjustments).toEqual({});
   });
 
   it("re-troca: a 2ª troca substitui integralmente os ajustes da 1ª (FR-006)", () => {
-    const first = applySwap({}, {
-      mealId: "almoco",
-      chosenOptionId: "opt-b",
-      previousOptionId: "opt-a",
-      outcome: rebalanceado([{ mealId: "jantar", itens: [item("it-1", 60)] }]),
-      formatLabel: fmt,
-    });
+    const first = applySwap(
+      {},
+      {
+        mealId: "almoco",
+        chosenOptionId: "opt-b",
+        previousOptionId: "opt-a",
+        outcome: rebalanceado([
+          { mealId: "jantar", itens: [item("it-1", 60)] },
+        ]),
+        formatLabel: fmt,
+      },
+    );
     const second = applySwap(first, {
       mealId: "almoco",
       chosenOptionId: "opt-c",
@@ -122,13 +139,18 @@ describe("applySwap", () => {
 
 describe("undoSwap", () => {
   it("remove opção + ajustes juntos: dia volta ao pré-troca (SC-001)", () => {
-    const state = applySwap({}, {
-      mealId: "almoco",
-      chosenOptionId: "opt-b",
-      previousOptionId: "opt-a",
-      outcome: rebalanceado([{ mealId: "jantar", itens: [item("it-1", 60)] }]),
-      formatLabel: fmt,
-    });
+    const state = applySwap(
+      {},
+      {
+        mealId: "almoco",
+        chosenOptionId: "opt-b",
+        previousOptionId: "opt-a",
+        outcome: rebalanceado([
+          { mealId: "jantar", itens: [item("it-1", 60)] },
+        ]),
+        formatLabel: fmt,
+      },
+    );
 
     const undone = undoSwap(state, "almoco");
 
@@ -167,13 +189,16 @@ describe("undoSwap", () => {
 
 describe("activeOptionId / flattenAdjustments", () => {
   it("activeOptionId retorna a opção ativa ou undefined", () => {
-    const state = applySwap({}, {
-      mealId: "almoco",
-      chosenOptionId: "opt-b",
-      previousOptionId: "opt-a",
-      outcome: semAcao,
-      formatLabel: fmt,
-    });
+    const state = applySwap(
+      {},
+      {
+        mealId: "almoco",
+        chosenOptionId: "opt-b",
+        previousOptionId: "opt-a",
+        outcome: semAcao,
+        formatLabel: fmt,
+      },
+    );
     expect(activeOptionId(state, "almoco")).toBe("opt-b");
     expect(activeOptionId(state, "jantar")).toBeUndefined();
   });

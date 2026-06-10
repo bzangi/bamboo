@@ -32,7 +32,7 @@ Abordagem técnica: consolidar a troca de opção numa estrutura de sessão por 
 
 ## Constitution Check
 
-*GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
+_GATE: Must pass before Phase 0 research. Re-check after Phase 1 design._
 
 - [x] **Núcleo puro** (Princípio III): a feature **não introduz regra de domínio nova**. A matemática do rebalanceamento permanece em `packages/core`, intocada. O módulo novo `swaps.ts` é **lógica de estado de apresentação** (qual opção está ativa; quais rótulos derivados exibir) — não é regra de negócio, logo vive corretamente em `apps/mobile`. Ainda assim é TS **puro**: sem I/O, sem `throw`, sem mutação (retorna novo estado por spread).
 - [x] **Casca fina** (Princípio III): nenhuma mudança em `apps/api`; nenhum contrato HTTP novo; nenhuma entidade do Drizzle serializada. N/A por não tocar o backend.
@@ -78,6 +78,6 @@ apps/mobile/
 
 ## Complexity Tracking
 
-| Violation | Why Needed | Simpler Alternative Rejected Because |
-|-----------|------------|--------------------------------------|
+| Violation                                                    | Why Needed                                                                                                                                                                                  | Simpler Alternative Rejected Because                                                                                                                                                                                     |
+| ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | TDD parcial: timer/render do snackbar sem teste automatizado | `apps/mobile` não tem harness de teste de componente; o valor de negócio (desfazer atômico, re-troca, separação derivado/direto) está no reducer puro, que é testado antes da implementação | Montar RTL + jest-expo/jsdom para cobrir um `setTimeout` e uma condição de render numa única tela é desproporcional ao fix; o risco residual (timing do snackbar) é baixo e coberto por verificação manual no quickstart |

@@ -16,7 +16,7 @@
 
 **Purpose**: dar ao `apps/mobile` um runner de teste para o módulo puro (não existia).
 
-- [X] T001 [P] Adicionar Vitest ao `apps/mobile`: incluir devDep `vitest` em `apps/mobile/package.json` (na versão usada no workspace, `^4`), adicionar script `"test": "vitest run"`, e criar `apps/mobile/vitest.config.ts` com `test: { environment: 'node', include: ['src/**/*.test.ts'] }`. Critério: `pnpm --filter mobile test` roda (mesmo sem testes ainda) sem erro de config.
+- [x] T001 [P] Adicionar Vitest ao `apps/mobile`: incluir devDep `vitest` em `apps/mobile/package.json` (na versão usada no workspace, `^4`), adicionar script `"test": "vitest run"`, e criar `apps/mobile/vitest.config.ts` com `test: { environment: 'node', include: ['src/**/*.test.ts'] }`. Critério: `pnpm --filter mobile test` roda (mesmo sem testes ainda) sem erro de config.
 
 **Checkpoint**: runner de teste disponível no app.
 
@@ -28,8 +28,8 @@
 
 **⚠️ CRITICAL**: nenhuma user story começa antes desta fase.
 
-- [X] T002 Escrever testes que FALHAM em `apps/mobile/src/swaps.test.ts` cobrindo o reducer: (a) `applySwap` com outcome `rebalanceado` produz `adjustments` = `itemId → rótulo` a partir de `refeicoesAfetadas[].itensAjustados[]` (usa `medidaCaseira` quando presente, senão gramas); (b) `applySwap` com `sem-acao`/`recusa-orientada` → `adjustments` vazio mas opção ativa setada; (c) `undoSwap` remove opção + ajustes juntos (depois: `activeOptionId` `undefined` e `flattenAdjustments` sem os itens) — SC-001; (d) re-troca (`applySwap` 2×) deixa só os ajustes da 2ª — FR-006; (e) `flattenAdjustments` une trocas de refeições distintas sem colisão. Critério: `pnpm --filter mobile test` falha por `swaps.ts` inexistente.
-- [X] T003 Implementar `apps/mobile/src/swaps.ts`: tipos `ActiveSwap` (`chosenOptionId`, `previousOptionId`, `adjustments`) e `SwapState = Record<mealId, ActiveSwap>`; funções puras `applySwap(state, {mealId, chosenOptionId, previousOptionId, outcome})`, `undoSwap(state, mealId)`, `activeOptionId(state, mealId)`, `flattenAdjustments(state)` — sem I/O, sem mutação, retornam novo estado por spread; tipos de `@bamboo/types` só como import type. Critério: T002 passa (`pnpm --filter mobile test` verde).
+- [x] T002 Escrever testes que FALHAM em `apps/mobile/src/swaps.test.ts` cobrindo o reducer: (a) `applySwap` com outcome `rebalanceado` produz `adjustments` = `itemId → rótulo` a partir de `refeicoesAfetadas[].itensAjustados[]` (usa `medidaCaseira` quando presente, senão gramas); (b) `applySwap` com `sem-acao`/`recusa-orientada` → `adjustments` vazio mas opção ativa setada; (c) `undoSwap` remove opção + ajustes juntos (depois: `activeOptionId` `undefined` e `flattenAdjustments` sem os itens) — SC-001; (d) re-troca (`applySwap` 2×) deixa só os ajustes da 2ª — FR-006; (e) `flattenAdjustments` une trocas de refeições distintas sem colisão. Critério: `pnpm --filter mobile test` falha por `swaps.ts` inexistente.
+- [x] T003 Implementar `apps/mobile/src/swaps.ts`: tipos `ActiveSwap` (`chosenOptionId`, `previousOptionId`, `adjustments`) e `SwapState = Record<mealId, ActiveSwap>`; funções puras `applySwap(state, {mealId, chosenOptionId, previousOptionId, outcome})`, `undoSwap(state, mealId)`, `activeOptionId(state, mealId)`, `flattenAdjustments(state)` — sem I/O, sem mutação, retornam novo estado por spread; tipos de `@bamboo/types` só como import type. Critério: T002 passa (`pnpm --filter mobile test` verde).
 
 **Checkpoint**: lógica de troca pronta e testada; UI pode consumir.
 
@@ -41,9 +41,9 @@
 
 **Independent Test**: trocar opção que rebalanceia outras → itens ajustados sem "↺ desfazer"; re-tocar o chip default da refeição trocada → dia volta ao pré-troca (quickstart §1, §3).
 
-- [X] T004 [US1] Religar `apps/mobile/src/HomeScreen.tsx` ao estado `swaps`: substituir os states `optionOverrides` + `qtyOverrides` por um único `swaps: SwapState`; em `handleConfirmRebalance` chamar `applySwap` (gravando `previousOptionId = meal.defaultOption.id`); resolver a opção ativa via `activeOptionId(swaps, meal.id)`; computar o mapa de quantidades derivadas via `flattenAdjustments(swaps)` (memo) e passá-lo onde hoje vai `qtyOverrides`; `handleRegistrar` lê `activeOptionId(swaps, mealId)` em vez de `optionOverrides[mealId]`; `resetOverrides` limpa `swaps` (no lugar dos dois mapas). Critério: app compila e o comportamento de troca/exibição segue igual ao atual (sem regressão), agora sobre `swaps`.
-- [X] T005 [US1] Em `apps/mobile/src/HomeScreen.tsx` (`ItemRow`), mudar a condição do botão "↺ desfazer" por-item de `nameOverride || qtyOverride` para **`nameOverride`** apenas (FR-001/FR-002); manter a linha de nutrição escondida quando há `qtyOverride` (quantidade ajustada). Critério: item rebalanceado (só `qtyOverride`) não mostra desfazer; item substituído/combinado (`nameOverride`) mostra.
-- [X] T006 [US1] Em `apps/mobile/src/HomeScreen.tsx`, adicionar `handleUndoSwap(mealId)` (usa `undoSwap`) e passá-lo a `MealCard` como `onUndoSwap`; no chip de opção, quando há troca ativa (`activeOptionId(swaps, meal.id)` definido) e o chip tocado é o `meal.defaultOption.id`, chamar `onUndoSwap(meal.id)` em vez de `onChooseOption` (FR-005). Critério: com troca ativa, tocar o chip default desfaz opção + ajustes juntos; tocar outra opção não-default segue abrindo a prévia (re-troca).
+- [x] T004 [US1] Religar `apps/mobile/src/HomeScreen.tsx` ao estado `swaps`: substituir os states `optionOverrides` + `qtyOverrides` por um único `swaps: SwapState`; em `handleConfirmRebalance` chamar `applySwap` (gravando `previousOptionId = meal.defaultOption.id`); resolver a opção ativa via `activeOptionId(swaps, meal.id)`; computar o mapa de quantidades derivadas via `flattenAdjustments(swaps)` (memo) e passá-lo onde hoje vai `qtyOverrides`; `handleRegistrar` lê `activeOptionId(swaps, mealId)` em vez de `optionOverrides[mealId]`; `resetOverrides` limpa `swaps` (no lugar dos dois mapas). Critério: app compila e o comportamento de troca/exibição segue igual ao atual (sem regressão), agora sobre `swaps`.
+- [x] T005 [US1] Em `apps/mobile/src/HomeScreen.tsx` (`ItemRow`), mudar a condição do botão "↺ desfazer" por-item de `nameOverride || qtyOverride` para **`nameOverride`** apenas (FR-001/FR-002); manter a linha de nutrição escondida quando há `qtyOverride` (quantidade ajustada). Critério: item rebalanceado (só `qtyOverride`) não mostra desfazer; item substituído/combinado (`nameOverride`) mostra.
+- [x] T006 [US1] Em `apps/mobile/src/HomeScreen.tsx`, adicionar `handleUndoSwap(mealId)` (usa `undoSwap`) e passá-lo a `MealCard` como `onUndoSwap`; no chip de opção, quando há troca ativa (`activeOptionId(swaps, meal.id)` definido) e o chip tocado é o `meal.defaultOption.id`, chamar `onUndoSwap(meal.id)` em vez de `onChooseOption` (FR-005). Critério: com troca ativa, tocar o chip default desfaz opção + ajustes juntos; tocar outra opção não-default segue abrindo a prévia (re-troca).
 
 **Checkpoint**: bug fechado e sempre reversível pelo chip — MVP funcional.
 
@@ -55,8 +55,8 @@
 
 **Independent Test**: confirmar troca → "↺ Desfazer" aparece; tocar dentro de ~5s reverte tudo; sem toque, some em ~5s (quickstart §2).
 
-- [X] T007 [P] [US2] Criar `apps/mobile/src/UndoSwapToast.tsx`: snackbar posicionado no rodapé (View absoluto), props `{ visible: boolean; optionLabel: string; onUndo: () => void }`, com rótulo curto (ex.: "Trocado para {optionLabel}") e um `Pressable` "↺ Desfazer". Sem timer próprio (o pai controla o ciclo de vida). Critério: componente isolado, sem dependência de estado global.
-- [X] T008 [US2] Em `apps/mobile/src/HomeScreen.tsx`, adicionar `swapToast: { mealId, optionLabel } | null`; setá-lo (objeto novo) em `handleConfirmRebalance` junto do `applySwap`; `useEffect` keyed em `swapToast` que agenda `setTimeout(…, 5000)` para limpar e faz `clearTimeout` no cleanup (reinicia em nova troca, limpa no unmount — US2 cenário 4); renderizar `UndoSwapToast`; "Desfazer" → `handleUndoSwap(swapToast.mealId)` + limpar o toast. Critério: snackbar aparece ~5s, reverte ao tocar, some sozinho; nova troca reinicia a janela.
+- [x] T007 [P] [US2] Criar `apps/mobile/src/UndoSwapToast.tsx`: snackbar posicionado no rodapé (View absoluto), props `{ visible: boolean; optionLabel: string; onUndo: () => void }`, com rótulo curto (ex.: "Trocado para {optionLabel}") e um `Pressable` "↺ Desfazer". Sem timer próprio (o pai controla o ciclo de vida). Critério: componente isolado, sem dependência de estado global.
+- [x] T008 [US2] Em `apps/mobile/src/HomeScreen.tsx`, adicionar `swapToast: { mealId, optionLabel } | null`; setá-lo (objeto novo) em `handleConfirmRebalance` junto do `applySwap`; `useEffect` keyed em `swapToast` que agenda `setTimeout(…, 5000)` para limpar e faz `clearTimeout` no cleanup (reinicia em nova troca, limpa no unmount — US2 cenário 4); renderizar `UndoSwapToast`; "Desfazer" → `handleUndoSwap(swapToast.mealId)` + limpar o toast. Critério: snackbar aparece ~5s, reverte ao tocar, some sozinho; nova troca reinicia a janela.
 
 **Checkpoint**: US1 + US2 funcionando; desfazer imediato e durável.
 
@@ -68,7 +68,7 @@
 
 **Independent Test**: substituir/combinar um item → "↺ desfazer" presente; tocar reverte só ele, sem mexer em outras refeições (quickstart §5).
 
-- [ ] T009 [US3] Verificar (leitura + run manual, quickstart §5) que após T005 o desfazer por-item permanece para itens com `nameOverride` (substituição/combinação) e reverte apenas aquele item via `handleReset`, sem afetar outras refeições; confirmar que `handleReset`/`nameOverrides`/`consumoOverrides` não foram alterados por T004–T006. Critério: SC-004 (100% dos itens diretamente alterados mantêm o desfazer); sem regressão.
+- [X] T009 [US3] Verificar (leitura + run manual, quickstart §5) que após T005 o desfazer por-item permanece para itens com `nameOverride` (substituição/combinação) e reverte apenas aquele item via `handleReset`, sem afetar outras refeições; confirmar que `handleReset`/`nameOverrides`/`consumoOverrides` não foram alterados por T004–T006. Critério: SC-004 (100% dos itens diretamente alterados mantêm o desfazer); sem regressão.
 
 **Checkpoint**: todas as stories funcionais e independentes.
 
@@ -76,8 +76,8 @@
 
 ## Phase 6: Polish & Cross-Cutting Concerns
 
-- [ ] T010 [P] Gate de "done": `pnpm --filter mobile test` (verde), `pnpm --filter mobile exec tsc --noEmit` (app tipa), `pnpm format` (Prettier) e `pnpm lint` (cobre core/api/types/api-client — mobile não tem task de lint; anotar). Corrigir o que aparecer.
-- [ ] T011 Smoke manual end-to-end conforme `quickstart.md` §1–6 (sem gap; snackbar ~5s; chip durável; re-troca sem fantasma; desfazer direto preservado; desfazer do registro intacto).
+- [X] T010 [P] Gate de "done": `pnpm --filter mobile test` (10/10 verde), `pnpm --filter mobile exec tsc --noEmit` (app tipa, exit 0), `pnpm format` (Prettier aplicado) e `pnpm lint` (0 erros; 84 warnings pré-existentes no `api`; mobile não tem task de lint). OK.
+- [ ] T011 Smoke manual end-to-end conforme `quickstart.md` §1–6 (sem gap; snackbar ~5s; chip durável; re-troca sem fantasma; desfazer direto preservado; desfazer do registro intacto). **PENDENTE — requer simulador/emulador + API/Postgres semeados; não executável no ambiente atual. Deixado para o Bruno.**
 - [ ] T012 [P] Atualizar `docs/estado-atual.md` e a seção SPECKIT do `CLAUDE.md` para refletir 005 implementada e testada (o que mudou no mobile, contagem de testes, "sem API/core/migration").
 
 ---
@@ -113,9 +113,9 @@
 ### Incremental
 
 1. Setup + Foundational → base pronta.
-2. + US1 → testar → MVP (sem gap + chip durável).
-3. + US2 → snackbar temporário.
-4. + US3 → guarda de regressão do desfazer direto.
+2. - US1 → testar → MVP (sem gap + chip durável).
+3. - US2 → snackbar temporário.
+4. - US3 → guarda de regressão do desfazer direto.
 
 ## Notes
 

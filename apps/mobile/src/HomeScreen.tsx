@@ -281,9 +281,8 @@ export function HomeScreen() {
       let consumo: RegistroConsumo | undefined;
       if (intent === "feito") {
         const activeOption =
-          meal.options.find(
-            (o) => o.id === getActiveOptionId(swaps, mealId),
-          ) ?? meal.defaultOption;
+          meal.options.find((o) => o.id === getActiveOptionId(swaps, mealId)) ??
+          meal.defaultOption;
         // Itens consumidos só da opção ativa (substituídos/combinados nela).
         const items = activeOption.items.flatMap(
           (it) => consumoOverrides[it.id] ?? [],

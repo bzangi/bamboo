@@ -37,10 +37,11 @@ Fatos que ancoram o fix:
 ## D3 — Desfazer da troca: snackbar (~5s) + chip durável
 
 **Decision**: dois caminhos, ambos chamando o mesmo `undoSwap(mealId)`:
+
 - **Snackbar temporário**: ao confirmar a troca, exibe `UndoSwapToast` com "↺ Desfazer"; auto-some em ~5s.
 - **Durável**: com troca ativa, re-tocar o chip da opção **default** da refeição desfaz a troca (em vez de abrir a prévia).
 
-**Rationale**: o snackbar cobre o arrependimento imediato em 1 toque (FR-004/SC-003); o chip cobre o desfazer tardio sem estado extra (FR-005). Tocar uma opção *diferente* segue abrindo a prévia (re-troca), que no confirm chama `applySwap` e substitui a troca anterior (FR-006).
+**Rationale**: o snackbar cobre o arrependimento imediato em 1 toque (FR-004/SC-003); o chip cobre o desfazer tardio sem estado extra (FR-005). Tocar uma opção _diferente_ segue abrindo a prévia (re-troca), que no confirm chama `applySwap` e substitui a troca anterior (FR-006).
 
 **Timer**: `useEffect` keyed no objeto do toast — agenda `setTimeout(5000)` e limpa no cleanup. Nova troca cria novo objeto → effect re-roda → timer reinicia (US2 cenário 4). Unmount limpa o timer. Sem `Date.now()`/estado mutável de instância.
 

@@ -19,7 +19,7 @@ Quando o paciente troca a **opção** de uma refeição (ex.: almoço "arroz + c
 
 A correção separa as duas coisas: ajuste derivado do rebalanceamento não é uma mudança "do item", e sim consequência da troca da refeição — logo só pode ser desfeito desfazendo a **troca inteira**, nunca item a item.
 
-## User Scenarios & Testing *(mandatory)*
+## User Scenarios & Testing _(mandatory)_
 
 ### User Story 1 - Desfazer a troca de refeição como unidade, sem deixar gap (Priority: P1)
 
@@ -58,7 +58,7 @@ Imediatamente após confirmar uma troca de opção, aparece uma ação temporár
 
 Quando o paciente muda **diretamente** um item — substitui o alimento ou combina dois — aquele item continua tendo seu próprio "↺ desfazer", que reverte só aquela mudança (sem afetar outras refeições, pois essas ações não rebalanceiam).
 
-**Why this priority**: Guarda de regressão. A correção remove o desfazer por-item dos itens *rebalanceados*, mas não pode remover o desfazer das mudanças diretas, que é comportamento legítimo existente.
+**Why this priority**: Guarda de regressão. A correção remove o desfazer por-item dos itens _rebalanceados_, mas não pode remover o desfazer das mudanças diretas, que é comportamento legítimo existente.
 
 **Independent Test**: Substituir (ou combinar) um item; confirmar que aquele item oferece "↺ desfazer" e que tocá-lo reverte apenas aquele item, sem mexer em outras refeições.
 
@@ -77,7 +77,7 @@ Quando o paciente muda **diretamente** um item — substitui o alimento ou combi
 - **Item simultaneamente alterado diretamente e alvo de rebalanceamento**: caso raro; o item exibe a mudança direta (prevalece) e mantém o desfazer da mudança direta. Esta feature não altera esse comportamento pré-existente.
 - **Desfazer do registro vs. desfazer da troca**: são ações independentes. Desfazer um registro (feito/troquei/pulei) não desfaz uma troca de opção, e vice-versa.
 
-## Requirements *(mandatory)*
+## Requirements _(mandatory)_
 
 ### Functional Requirements
 
@@ -91,13 +91,13 @@ Quando o paciente muda **diretamente** um item — substitui o alimento ou combi
 - **FR-008**: Todo o estado de troca/desfazer permanece efêmero (apenas na sessão), sem persistência — coerente com o v0.
 - **FR-009**: Apenas a troca de opção de refeição dispara rebalanceamento das outras refeições; substituir/combinar um item permanece mudança local do próprio item (com seu desfazer) e não rebalanceia.
 
-### Key Concepts *(estado de sessão, não dados persistidos)*
+### Key Concepts _(estado de sessão, não dados persistidos)_
 
 - **Troca (de opção)**: escolha de uma opção diferente da default em uma refeição; carrega consigo o conjunto de ajustes derivados que produziu nas outras refeições. Desfazer a troca = remover a escolha e todos os seus ajustes juntos.
 - **Mudança direta de item**: substituição ou combinação aplicada a um item específico; isolada (não rebalanceia) e desfazível só naquele item.
 - **Ajuste derivado**: nova quantidade de um item de outra refeição, resultante de uma troca; pertence à troca, não ao item — só desfeito desfazendo a troca.
 
-## Success Criteria *(mandatory)*
+## Success Criteria _(mandatory)_
 
 ### Measurable Outcomes
 

@@ -8,11 +8,11 @@
 
 Uma troca de opção ativa, por refeição-gatilho.
 
-| Campo | Tipo | Significado |
-|---|---|---|
-| `chosenOptionId` | `string` | opção escolhida (não-default) atualmente ativa na refeição |
-| `previousOptionId` | `string` | opção a restaurar ao desfazer; no v0 = `defaultOption.id` |
-| `adjustments` | `Readonly<Record<itemId, string>>` | rótulos de quantidade derivados desta troca, por item das **outras** refeições (ex.: `"2 colheres (60 g)"`) |
+| Campo              | Tipo                               | Significado                                                                                                 |
+| ------------------ | ---------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| `chosenOptionId`   | `string`                           | opção escolhida (não-default) atualmente ativa na refeição                                                  |
+| `previousOptionId` | `string`                           | opção a restaurar ao desfazer; no v0 = `defaultOption.id`                                                   |
+| `adjustments`      | `Readonly<Record<itemId, string>>` | rótulos de quantidade derivados desta troca, por item das **outras** refeições (ex.: `"2 colheres (60 g)"`) |
 
 ### `SwapState` (novo) — substitui `optionOverrides` + `qtyOverrides`
 
@@ -31,9 +31,9 @@ SwapState = Readonly<Record<mealId, ActiveSwap>>
 
 ### `swapToast` (novo) — estado do snackbar
 
-| Campo | Tipo | Significado |
-|---|---|---|
-| `mealId` | `string` | refeição cuja troca o snackbar desfaz |
+| Campo         | Tipo     | Significado                                 |
+| ------------- | -------- | ------------------------------------------- |
+| `mealId`      | `string` | refeição cuja troca o snackbar desfaz       |
 | `optionLabel` | `string` | rótulo exibido (ex.: nome da opção trocada) |
 
 `swapToast: { mealId, optionLabel } | null`. Setado em nova troca; limpo ao desfazer, ao expirar (~5s) ou ao desmontar.
