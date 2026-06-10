@@ -3,8 +3,13 @@
 // que serializa adesão é o controller daqui, atrás do NutriKeyGuard (FR-016).
 import { Module } from '@nestjs/common';
 import { DbModule } from '../db/db.module';
+import { AdesaoController } from './adesao.controller';
+import { AdesaoService } from './adesao.service';
+import { NutriKeyGuard } from './nutri-key.guard';
 
 @Module({
   imports: [DbModule],
+  controllers: [AdesaoController],
+  providers: [AdesaoService, NutriKeyGuard],
 })
 export class AdesaoModule {}
