@@ -68,7 +68,7 @@
 
 **Independent Test**: substituir/combinar um item → "↺ desfazer" presente; tocar reverte só ele, sem mexer em outras refeições (quickstart §5).
 
-- [X] T009 [US3] Verificar (leitura + run manual, quickstart §5) que após T005 o desfazer por-item permanece para itens com `nameOverride` (substituição/combinação) e reverte apenas aquele item via `handleReset`, sem afetar outras refeições; confirmar que `handleReset`/`nameOverrides`/`consumoOverrides` não foram alterados por T004–T006. Critério: SC-004 (100% dos itens diretamente alterados mantêm o desfazer); sem regressão.
+- [x] T009 [US3] Verificar (leitura + run manual, quickstart §5) que após T005 o desfazer por-item permanece para itens com `nameOverride` (substituição/combinação) e reverte apenas aquele item via `handleReset`, sem afetar outras refeições; confirmar que `handleReset`/`nameOverrides`/`consumoOverrides` não foram alterados por T004–T006. Critério: SC-004 (100% dos itens diretamente alterados mantêm o desfazer); sem regressão.
 
 **Checkpoint**: todas as stories funcionais e independentes.
 
@@ -76,9 +76,9 @@
 
 ## Phase 6: Polish & Cross-Cutting Concerns
 
-- [X] T010 [P] Gate de "done": `pnpm --filter mobile test` (10/10 verde), `pnpm --filter mobile exec tsc --noEmit` (app tipa, exit 0), `pnpm format` (Prettier aplicado) e `pnpm lint` (0 erros; 84 warnings pré-existentes no `api`; mobile não tem task de lint). OK.
+- [x] T010 [P] Gate de "done": `pnpm --filter mobile test` (10/10 verde), `pnpm --filter mobile exec tsc --noEmit` (app tipa, exit 0), `pnpm format` (Prettier aplicado) e `pnpm lint` (0 erros; 84 warnings pré-existentes no `api`; mobile não tem task de lint). OK.
 - [ ] T011 Smoke manual end-to-end conforme `quickstart.md` §1–6 (sem gap; snackbar ~5s; chip durável; re-troca sem fantasma; desfazer direto preservado; desfazer do registro intacto). **PENDENTE — requer simulador/emulador + API/Postgres semeados; não executável no ambiente atual. Deixado para o Bruno.**
-- [ ] T012 [P] Atualizar `docs/estado-atual.md` e a seção SPECKIT do `CLAUDE.md` para refletir 005 implementada e testada (o que mudou no mobile, contagem de testes, "sem API/core/migration").
+- [x] T012 [P] Atualizar `docs/estado-atual.md` e a seção SPECKIT do `CLAUDE.md` para refletir 005 implementada (reducer testado; smoke manual + merge pendentes): o que mudou no mobile, contagem de testes (mobile 10), "sem API/core/migration".
 
 ---
 
