@@ -55,8 +55,8 @@
 
 **Independent Test**: confirmar troca → "↺ Desfazer" aparece; tocar dentro de ~5s reverte tudo; sem toque, some em ~5s (quickstart §2).
 
-- [ ] T007 [P] [US2] Criar `apps/mobile/src/UndoSwapToast.tsx`: snackbar posicionado no rodapé (View absoluto), props `{ visible: boolean; optionLabel: string; onUndo: () => void }`, com rótulo curto (ex.: "Trocado para {optionLabel}") e um `Pressable` "↺ Desfazer". Sem timer próprio (o pai controla o ciclo de vida). Critério: componente isolado, sem dependência de estado global.
-- [ ] T008 [US2] Em `apps/mobile/src/HomeScreen.tsx`, adicionar `swapToast: { mealId, optionLabel } | null`; setá-lo (objeto novo) em `handleConfirmRebalance` junto do `applySwap`; `useEffect` keyed em `swapToast` que agenda `setTimeout(…, 5000)` para limpar e faz `clearTimeout` no cleanup (reinicia em nova troca, limpa no unmount — US2 cenário 4); renderizar `UndoSwapToast`; "Desfazer" → `handleUndoSwap(swapToast.mealId)` + limpar o toast. Critério: snackbar aparece ~5s, reverte ao tocar, some sozinho; nova troca reinicia a janela.
+- [X] T007 [P] [US2] Criar `apps/mobile/src/UndoSwapToast.tsx`: snackbar posicionado no rodapé (View absoluto), props `{ visible: boolean; optionLabel: string; onUndo: () => void }`, com rótulo curto (ex.: "Trocado para {optionLabel}") e um `Pressable` "↺ Desfazer". Sem timer próprio (o pai controla o ciclo de vida). Critério: componente isolado, sem dependência de estado global.
+- [X] T008 [US2] Em `apps/mobile/src/HomeScreen.tsx`, adicionar `swapToast: { mealId, optionLabel } | null`; setá-lo (objeto novo) em `handleConfirmRebalance` junto do `applySwap`; `useEffect` keyed em `swapToast` que agenda `setTimeout(…, 5000)` para limpar e faz `clearTimeout` no cleanup (reinicia em nova troca, limpa no unmount — US2 cenário 4); renderizar `UndoSwapToast`; "Desfazer" → `handleUndoSwap(swapToast.mealId)` + limpar o toast. Critério: snackbar aparece ~5s, reverte ao tocar, some sozinho; nova troca reinicia a janela.
 
 **Checkpoint**: US1 + US2 funcionando; desfazer imediato e durável.
 

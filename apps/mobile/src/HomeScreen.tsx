@@ -39,6 +39,7 @@ import {
 import { SubstitutionSheet } from "./SubstitutionSheet";
 import { RebalancePreviewSheet } from "./RebalancePreviewSheet";
 import { CombineSheet } from "./CombineSheet";
+import { UndoSwapToast } from "./UndoSwapToast";
 import {
   activeOptionId as getActiveOptionId,
   applySwap,
@@ -81,6 +82,12 @@ export function HomeScreen() {
   // rebalanceamento moram DENTRO da troca, então desfazer é atômico e nenhum
   // ajuste derivado vira "mudança do item" (sem desfazer por-item neles).
   const [swaps, setSwaps] = useState<SwapState>({});
+  // Snackbar temporário pós-troca (~5s): atalho de 1 toque pra desfazer a troca
+  // inteira. Objeto novo a cada troca → o timer reinicia (ver useEffect abaixo).
+  const [swapToast, setSwapToast] = useState<{
+    readonly mealId: string;
+    readonly optionLabel: string;
+  } | null>(null);
   // US2: consumo efetivo (foodId + gramas) por item trocado/combinado, pro
   // POST registro derivar "troquei". itemId -> 1..2 alimentos consumidos.
   const [consumoOverrides, setConsumoOverrides] = useState<
@@ -131,10 +138,19 @@ export function HomeScreen() {
     load(dayTypeId);
   }, [load, dayTypeId]);
 
+  // Auto-dismiss do snackbar em ~5s. Nova troca cria um objeto novo → o effect
+  // re-roda, limpa o timer anterior e reinicia a janela; unmount limpa o timer.
+  useEffect(() => {
+    if (!swapToast) return;
+    const timer = setTimeout(() => setSwapToast(null), 5000);
+    return () => clearTimeout(timer);
+  }, [swapToast]);
+
   const resetOverrides = useCallback(() => {
     setNameOverrides({});
     setSwaps({});
     setConsumoOverrides({});
+    setSwapToast(null);
   }, []);
 
   // US2 — aplica a substituição (estado local).
@@ -207,14 +223,17 @@ export function HomeScreen() {
               : formatGrams(it.gramasNovo),
         }),
       );
+      setSwapToast({ mealId: meal.id, optionLabel: option.label });
       setChoice(null);
     },
     [],
   );
 
-  // Desfaz a troca INTEIRA de uma refeição (opção + ajustes derivados juntos).
+  // Desfaz a troca INTEIRA de uma refeição (opção + ajustes derivados juntos) e
+  // fecha o snackbar. Acionado pelo snackbar e pelo chip da opção default.
   const handleUndoSwap = useCallback((mealId: string) => {
     setSwaps((prev) => undoSwap(prev, mealId));
+    setSwapToast(null);
   }, []);
 
   // Desfaz a mudança DIRETA de um item (substituir/combinar) — volta ao
@@ -377,6 +396,13 @@ export function HomeScreen() {
         options={data.availableDayTypes}
         onPick={handleSwitchDayType}
         onClose={() => setPickingDayType(false)}
+      />
+      <UndoSwapToast
+        visible={swapToast !== null}
+        optionLabel={swapToast?.optionLabel ?? ""}
+        onUndo={() => {
+          if (swapToast) handleUndoSwap(swapToast.mealId);
+        }}
       />
     </View>
   );
