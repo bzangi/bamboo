@@ -13,8 +13,8 @@
 
 ## Requirement Completeness
 
-- [ ] Nenhum marcador [NEEDS CLARIFICATION] remanescente
-- [ ] Requisitos testáveis e inequívocos
+- [x] Nenhum marcador [NEEDS CLARIFICATION] remanescente — **todos resolvidos** (Sessões 2026-06-10; ver Notes)
+- [x] Requisitos testáveis e inequívocos — FR-001/FR-005/FR-006 fechados com as decisões do dono (FR-002 segue parcialmente dependente da regra de derivação da porção, fixada no plan — Assumption do limiar)
 - [x] Success criteria mensuráveis
 - [x] Success criteria tech-agnostic
 - [x] Cenários de aceitação definidos
@@ -24,14 +24,14 @@
 
 ## Feature Readiness
 
-- [ ] Cada FR com critério de aceitação claro
+- [x] Cada FR com critério de aceitação claro — fechados com as decisões do gate
 - [x] User scenarios cobrem os fluxos primários
 - [x] Bate com os Success Criteria
 - [x] Sem vazamento de implementação
 
 ## Notes
 
-- **Gate parcialmente respondido (Sessão 2026-06-10)**: o dono decidiu **Q1a → A (heurística determinística)** e **Q2d → ampliação da ingestão TACO incluída**; Q2a (lote) e Q2b (grupos do sistema) eram recomendações não contestadas, adotadas como default vetável. **Pendentes de conversa** ("vamos conversar melhor"): **Q1b vigência** (FR-001), **Q2c taxonomia canônica** (FR-006) e **Q3 inteira** (FR-005) — os 3 marcadores remanescentes; por isso "nenhum marcador remanescente", "requisitos inequívocos" e "cada FR com critério claro" ainda não passam. **Pendências fora dos marcadores que a revisão adversarial fechou na spec** (não dependem das Q1–Q3): "dados completos" agora definido por Assumption (denominador de SC-001/SC-007, FR-004 binário); FR-002 marcado como parcialmente pendente da Q3c ("coerente" depende da regra de derivação da porção); o limiar de "encaixe confiável"/"porção plausível" virou Assumption explícita (existe e é observável; valor exato no plan).
+- **Gate fechado (Sessões 2026-06-10)**: **Q1a → A** (heurística determinística); **Q1b → vale imediatamente** (desvio do Princípio V registrado; gatilho de reversão no SC-002); **Q2a → lote** e **Q2b → grupos do sistema** (recomendações não contestadas); **Q2c → taxonomia = as 13 categorias da TACO** (Cereais · Verduras/hortaliças · Frutas · Gorduras e óleos · Pescados · Carnes · Leite · Ovos · Bebidas · Miscelâneas · Açúcares · Leguminosas · Nozes); **Q2d → ampliação da ingestão TACO incluída**; **Q3 → (a) sem grupo no ambíguo, com adição manual pela nutri; (b) um grupo por vínculo; (c) porção derivada com guarda**. Pendência delegada ao plan (com aprovação no gate do plan): nutriente-base por grupo + reconciliação dos 4 grupos do seed + valores dos limiares de confiança/plausibilidade. **Pendências fora dos marcadores que a revisão adversarial fechou na spec** (não dependem das Q1–Q3): "dados completos" agora definido por Assumption (denominador de SC-001/SC-007, FR-004 binário); FR-002 marcado como parcialmente pendente da Q3c ("coerente" depende da regra de derivação da porção); o limiar de "encaixe confiável"/"porção plausível" virou Assumption explícita (existe e é observável; valor exato no plan).
 - **Cada marcador agrega sub-perguntas; só sai da spec quando TODAS forem respondidas**: Q1 (a método, b vigência), Q2 (a momento, b grupos do sistema vs por-nutri, c taxonomia canônica, d base/ampliação da ingestão), Q3 (a ambíguo, b multi-grupo, c porção). Resposta parcial deixa o marcador meio-resolvido — não remover.
 - **Q1 — Abordagem + vigência** (FR-001): (a) heurística determinística vs tabela curada vs IA/LLM em lote — atenção: 3 dos 4 grupos vigentes têm o mesmo nutriente-base (carb), macro dominante sozinho não separa; (b) **vínculo automático vale imediatamente ou exige revisão prévia?** — promovida de Assumption a clarification: Princípio V/decisoes-produto.md:85 (confirmação antes de valer) × decisoes-produto.md:89 (pré-classifica por default) colidem; decisão é do dono. Recomendação: A + vale imediatamente (desvio consciente do Princípio V, a registrar); se C (IA), revisão prévia obrigatória.
 - **Q2 — Escopo + taxonomia + base** (FR-006): (a) lote vs sob demanda; (b) classificar só nos grupos do sistema (o modelo de dados JÁ suporta sistema + por-nutri coexistindo — a premissa anterior "muda o modelo" estava errada; o custo de por-nutri é operacional); (c) os 4 grupos do seed não cobrem a TACO — quem define/aprova o conjunto canônico, e quais são; (d) a ingestão atual é allow-list de 23 (16 já vinculados) — ampliar pra TACO completa entra na feature? Recomendação: lote + grupos do sistema + taxonomia expandida aprovada pelo dono + ampliação incluída.
