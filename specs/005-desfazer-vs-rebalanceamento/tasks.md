@@ -16,7 +16,7 @@
 
 **Purpose**: dar ao `apps/mobile` um runner de teste para o módulo puro (não existia).
 
-- [ ] T001 [P] Adicionar Vitest ao `apps/mobile`: incluir devDep `vitest` em `apps/mobile/package.json` (na versão usada no workspace, `^4`), adicionar script `"test": "vitest run"`, e criar `apps/mobile/vitest.config.ts` com `test: { environment: 'node', include: ['src/**/*.test.ts'] }`. Critério: `pnpm --filter mobile test` roda (mesmo sem testes ainda) sem erro de config.
+- [X] T001 [P] Adicionar Vitest ao `apps/mobile`: incluir devDep `vitest` em `apps/mobile/package.json` (na versão usada no workspace, `^4`), adicionar script `"test": "vitest run"`, e criar `apps/mobile/vitest.config.ts` com `test: { environment: 'node', include: ['src/**/*.test.ts'] }`. Critério: `pnpm --filter mobile test` roda (mesmo sem testes ainda) sem erro de config.
 
 **Checkpoint**: runner de teste disponível no app.
 
@@ -28,8 +28,8 @@
 
 **⚠️ CRITICAL**: nenhuma user story começa antes desta fase.
 
-- [ ] T002 Escrever testes que FALHAM em `apps/mobile/src/swaps.test.ts` cobrindo o reducer: (a) `applySwap` com outcome `rebalanceado` produz `adjustments` = `itemId → rótulo` a partir de `refeicoesAfetadas[].itensAjustados[]` (usa `medidaCaseira` quando presente, senão gramas); (b) `applySwap` com `sem-acao`/`recusa-orientada` → `adjustments` vazio mas opção ativa setada; (c) `undoSwap` remove opção + ajustes juntos (depois: `activeOptionId` `undefined` e `flattenAdjustments` sem os itens) — SC-001; (d) re-troca (`applySwap` 2×) deixa só os ajustes da 2ª — FR-006; (e) `flattenAdjustments` une trocas de refeições distintas sem colisão. Critério: `pnpm --filter mobile test` falha por `swaps.ts` inexistente.
-- [ ] T003 Implementar `apps/mobile/src/swaps.ts`: tipos `ActiveSwap` (`chosenOptionId`, `previousOptionId`, `adjustments`) e `SwapState = Record<mealId, ActiveSwap>`; funções puras `applySwap(state, {mealId, chosenOptionId, previousOptionId, outcome})`, `undoSwap(state, mealId)`, `activeOptionId(state, mealId)`, `flattenAdjustments(state)` — sem I/O, sem mutação, retornam novo estado por spread; tipos de `@bamboo/types` só como import type. Critério: T002 passa (`pnpm --filter mobile test` verde).
+- [X] T002 Escrever testes que FALHAM em `apps/mobile/src/swaps.test.ts` cobrindo o reducer: (a) `applySwap` com outcome `rebalanceado` produz `adjustments` = `itemId → rótulo` a partir de `refeicoesAfetadas[].itensAjustados[]` (usa `medidaCaseira` quando presente, senão gramas); (b) `applySwap` com `sem-acao`/`recusa-orientada` → `adjustments` vazio mas opção ativa setada; (c) `undoSwap` remove opção + ajustes juntos (depois: `activeOptionId` `undefined` e `flattenAdjustments` sem os itens) — SC-001; (d) re-troca (`applySwap` 2×) deixa só os ajustes da 2ª — FR-006; (e) `flattenAdjustments` une trocas de refeições distintas sem colisão. Critério: `pnpm --filter mobile test` falha por `swaps.ts` inexistente.
+- [X] T003 Implementar `apps/mobile/src/swaps.ts`: tipos `ActiveSwap` (`chosenOptionId`, `previousOptionId`, `adjustments`) e `SwapState = Record<mealId, ActiveSwap>`; funções puras `applySwap(state, {mealId, chosenOptionId, previousOptionId, outcome})`, `undoSwap(state, mealId)`, `activeOptionId(state, mealId)`, `flattenAdjustments(state)` — sem I/O, sem mutação, retornam novo estado por spread; tipos de `@bamboo/types` só como import type. Critério: T002 passa (`pnpm --filter mobile test` verde).
 
 **Checkpoint**: lógica de troca pronta e testada; UI pode consumir.
 
