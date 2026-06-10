@@ -182,9 +182,7 @@ const tipoPlanejado = async (dayTypeId: string): Promise<DiaPlanejado> => {
   };
 };
 
-const comoNutricionais = (
-  itens: readonly ItemPlanejado[],
-): ItemNutricional[] =>
+const comoNutricionais = (itens: readonly ItemPlanejado[]): ItemNutricional[] =>
   itens.map((i) => ({ macros: i.macros, gramas: i.quantityGrams }));
 
 // Alvo do dia (mesma definição da Fase 2): soma das opções default do tipo.
@@ -597,7 +595,9 @@ afterAll(async () => {
       .where(inArray(schema.mealEvent.id, insertedEventIds));
   }
   if (extraPatientId) {
-    await db.delete(schema.patient).where(eq(schema.patient.id, extraPatientId));
+    await db
+      .delete(schema.patient)
+      .where(eq(schema.patient.id, extraPatientId));
   }
   await app?.close();
 });
@@ -748,9 +748,11 @@ describe('US3 — série diária + média (a linha dos 80%)', () => {
   });
 
   it('US3.3 — média do período = média aritmética EXATA dos dias com dado (SC-010)', async () => {
-    const res = await getAdesao(patientId, isoDaysAgo(10), isoDaysAgo(3)).expect(
-      200,
-    );
+    const res = await getAdesao(
+      patientId,
+      isoDaysAgo(10),
+      isoDaysAgo(3),
+    ).expect(200);
     const days = res.body.days as DayShape[];
     const comDado = days.filter((d) => d.status === 'com-dado');
     expect(comDado.length).toBeGreaterThan(0);
@@ -761,9 +763,11 @@ describe('US3 — série diária + média (a linha dos 80%)', () => {
   });
 
   it('US3.2 — período inteiro anterior ao primeiro registro → série toda sem-dado, media null', async () => {
-    const res = await getAdesao(patientId, isoDaysAgo(20), isoDaysAgo(16)).expect(
-      200,
-    );
+    const res = await getAdesao(
+      patientId,
+      isoDaysAgo(20),
+      isoDaysAgo(16),
+    ).expect(200);
     const days = res.body.days as DayShape[];
     expect(days).toHaveLength(5);
     expect(days.every((d) => d.status === 'sem-dado')).toBe(true);

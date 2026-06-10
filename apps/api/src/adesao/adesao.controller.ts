@@ -1,7 +1,14 @@
 // Via da NUTRI (FR-016): namespace /nutri, atrás do NutriKeyGuard. A única
 // superfície que serializa adesão. Controller fino — validação de formato e
 // orquestração no service (padrão da casca).
-import { Controller, Get, Param, ParseUUIDPipe, Query, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import {
   ApiBadRequestResponse,
   ApiForbiddenResponse,

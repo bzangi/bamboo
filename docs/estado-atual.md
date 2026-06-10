@@ -131,8 +131,8 @@ Detalhamento do paradigma com exemplos canônicos em `CLAUDE.md`; invariantes go
 
 **Pendente de verdade (a partir daqui):**
 
-- **Gate Specify→Plan (2026-06-10):** specs `006-metrica-adesao`, `007-ciclo-de-acompanhamento` e `008-auto-classificacao` **rascunhadas e commitadas** (a partir de `docs/handoff-proximas-fases.md`), cada uma com 3 marcadores `[NEEDS CLARIFICATION]` ao dono + assumptions vetáveis. **Nenhuma implementação até o aval.**
-- **Fase 3 (resto):** ciclo como objeto (spec `007` em gate), adesão (só nutri — spec `006` em gate), **relatório de ciclo** (a feature que vende; depende de 006+007), auto-classificação de alimentos em grupos (spec `008` em gate), **UI da nutri (web)** — implementação não iniciada.
+- **Gate de 2026-06-10 (respondido pelo dono):** `006-metrica-adesao` **implementada e testada** (core 109 + e2e 78; via da nutri `GET /nutri/...` com `NUTRI_API_KEY` fail-closed; sem migration); `007-ciclo-de-acompanhamento` e `008-auto-classificacao` com **specs fechadas** (zero marcadores), aguardando plan/aval.
+- **Fase 3 (resto):** ciclo como objeto (spec `007` fechada), ~~adesão~~ **adesão entregue** (`006`), **relatório de ciclo** (a feature que vende; depende de 006+007 — 006 pronta), auto-classificação (spec `008` fechada), **UI da nutri (web)** — não iniciada.
 - **Fase 4 (resto):** import de plano por IA (PDF→estruturado), offline robusto, notificações, comida fora da lista — não iniciados.
 - **Fase 5+:** billing, Pix/Stripe, deploy/infra.
 - **Endurecer LGPD/auth:** sair do gate de exposição + `FR-016` para controle de acesso, criptografia e consentimento reais; substituir o auth stub.

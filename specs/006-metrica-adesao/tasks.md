@@ -89,9 +89,9 @@ Monorepo pnpm: núcleo em `packages/core/src/`, casca em `apps/api/src/`, e2e em
 
 ## Phase 7: Polish & Cross-Cutting
 
-- [ ] T016 Regenerar OpenAPI (`apps/api/src/gen-openapi.ts`) com o endpoint novo documentado (Swagger no controller: header `x-nutri-key`, query, response)
-- [ ] T017 Validação manual do `quickstart.md` (API + Postgres locais; curl com e sem chave) e atualização do bloco SPECKIT em `CLAUDE.md` + `docs/estado-atual.md` (006 implementada; novas contagens de teste)
-- [ ] T018 Done-gate: `pnpm --filter @bamboo/core test` (90+novos) · `pnpm --filter api test:e2e` (61+novos, seed antes) · `pnpm --filter api build` · `pnpm lint` · `pnpm format` — tudo verde; commits na main por fase (Foundational → US1 → US2 → US3 → US4 → polish)
+- [x] T016 Regenerar OpenAPI (`apps/api/src/gen-openapi.ts`) com o endpoint novo documentado (Swagger no controller: header `x-nutri-key`, query, response)
+- [x] T017 Validação manual do `quickstart.md` (API + Postgres locais; curl com e sem chave) e atualização do bloco SPECKIT em `CLAUDE.md` + `docs/estado-atual.md` (006 implementada; novas contagens de teste)
+- [x] T018 Done-gate: `pnpm --filter @bamboo/core test` (90+novos) · `pnpm --filter api test:e2e` (61+novos, seed antes) · `pnpm --filter api build` · `pnpm lint` · `pnpm format` — tudo verde; commits na main por fase (Foundational → US1 → US2 → US3 → US4 → polish)
 
 ---
 

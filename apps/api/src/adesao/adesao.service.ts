@@ -183,9 +183,7 @@ export class AdesaoService {
       // Tipo-de-dia do alvo: snapshot uniforme dos registros; senão fallback.
       const tipos = new Set(registradas.map((r) => r.dayTypeId));
       const tipoAlvo =
-        tipos.size === 1
-          ? [...tipos][0]
-          : tipoPorWeekday.get(weekdayOf(date));
+        tipos.size === 1 ? [...tipos][0] : tipoPorWeekday.get(weekdayOf(date));
       if (!tipoAlvo) {
         days.push(diaSemDado(date)); // sem programação pro weekday (defensivo)
         continue;

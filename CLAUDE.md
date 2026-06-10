@@ -263,17 +263,26 @@ Dado de saúde desde a Fase 0: controle de acesso, criptografia, consentimento. 
 
 <!-- SPECKIT START -->
 
-**Pipeline pós-Fase 4 (gate da Sessão 2026-06-10):** `006-metrica-adesao` — spec **aprovada**
-(fórmula contínua saturada na faixa de kcal + flags por macro; não-registrada = neutra +
-cobertura; tipo-de-dia dos registros com fallback no default; **média diária = métrica final**)
-e **plan rascunhado** em `specs/006-metrica-adesao/plan.md` (+ research D1–D8, data-model,
-contracts core/http, quickstart; **sem migration**; via da nutri = `GET /nutri/...` com guard
-`x-nutri-key` fail-closed) — **aguardando aval Plan→Tasks**. `007-ciclo-de-acompanhamento` —
-spec **resolvida** (ciclo de vida A+C híbrido; vínculo plano×ciclo 1:N; vigência = o ciclo
-observa o plano ativo; histórico fora de ciclo), aguardando aval Specify→Plan.
-`008-auto-classificacao` — parcial (heurística determinística + ampliação da ingestão TACO
-decididas); vigência (Q1b), taxonomia (Q2c) e Q3 em conversa com o dono. **Nenhuma
-implementação até o aval.** 006+007 são a fundação do relatório de ciclo (a feature que vende).
+Feature ativa mais recente: **006-metrica-adesao** (métrica de adesão a partir do registro,
+só nutri): **implementada e testada** (plan aprovado "planos aprovados", Sessão 2026-06-10).
+Entregue: núcleo novo `packages/core/src/adesao.ts` (`adesaoDoDia` — valor contínuo **saturado
+na faixa de kcal** via `avaliarFaixa` da Fase 2, classificação dentro/fora, **flags por macro**,
+cobertura — e `mediaAdesao`; 19 testes novos); casca nova `apps/api/src/adesao/` (loader batch
+por período sem N+1; tipo-de-dia do alvo = snapshot dos registros com fallback no
+`day_schedule` — Q3-B; pareamento por position; régua corrente; só leitura — nada persiste);
+via da nutri `GET /nutri/patients/:id/adesao?from&to` atrás do `NutriKeyGuard` (`x-nutri-key`
+= env `NUTRI_API_KEY`, **fail-closed**) — requisição com identidade de paciente é negada
+(SC-008) e nenhuma resposta do paciente carrega adesão (SC-005/007). **Sem migration; zero
+mudança no mobile.** Resultado: **core 109 + e2e 78 verdes**, lint/build/OpenAPI limpos;
+commits na main (Foundational → US1 → US2–US4 → polish). Artefatos:
+`specs/006-metrica-adesao/` (spec/plan/tasks/research D1–D8/data-model/contracts/quickstart).
+
+Pipeline do gate 2026-06-10: `007-ciclo-de-acompanhamento` — spec **fechada** (ciclo de vida
+A+C híbrido; vínculo plano×ciclo 1:N; vigência = o ciclo **observa** o plano ativo; histórico
+fora de ciclo), plan em elaboração. `008-auto-classificacao` — spec **fechada** (heurística
+determinística; vínculo vale imediatamente com gatilho de reversão no SC-002; taxonomia = 13
+categorias TACO; ampliação da ingestão TACO inclusa; sem-grupo no ambíguo; um grupo por
+vínculo; porção derivada com guarda), aguardando plan. 007 + 006 fundam o relatório de ciclo.
 
 Feature **005-desfazer-vs-rebalanceamento** (mobile-only): **implementada; reducer testado;
 mergeada na main (`5826d1d`); smoke manual da UI pendente**. Bug: o "↺ desfazer" por-item aparecia em itens rebalanceados de

@@ -30,6 +30,16 @@
               "example": "f5258d1a-b07e-4b72-abdd-792fa9afd88b",
               "type": "string"
             }
+          },
+          {
+            "name": "dayTypeId",
+            "required": false,
+            "in": "query",
+            "description": "Override do tipo-de-dia (Fase 2 — troca de cardápio, só exibição): exibe esse tipo-de-dia e re-ancora \"o agora\", sem rebalancear. Deve pertencer ao plano ativo.",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -44,7 +54,7 @@
             }
           },
           "400": {
-            "description": "patientId não é um UUID válido",
+            "description": "patientId/dayTypeId não é um UUID válido",
             "content": {
               "application/json": {
                 "schema": {
@@ -132,6 +142,173 @@
         "summary": "Substituições de um item flexível",
         "tags": [
           "Substituição"
+        ]
+      }
+    },
+    "/patients/{patientId}/rebalance/option-choice": {
+      "post": {
+        "description": "Recalcula os macros do dia ao escolher uma opção diferente da default de uma refeição e devolve a prévia das refeições seguintes reescaladas (ou sem-acao quando cabe na faixa, ou recusa-orientada quando estoura o piso). Não persiste nada. recusa-orientada é HTTP 200 (\"nunca barra\"). Números respeitam o gate de exposição.",
+        "operationId": "RebalanceController_optionChoice",
+        "parameters": [
+          {
+            "name": "patientId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "desfecho do motor (sem-acao | rebalanceado | recusa-orientada)"
+          },
+          "400": {
+            "description": "patientId ou corpo inválido"
+          },
+          "404": {
+            "description": "paciente/plano/refeição inexistente"
+          },
+          "422": {
+            "description": "opção não pertence à refeição"
+          }
+        },
+        "summary": "Prévia do rebalanceamento ao escolher uma opção (gatilho P1)",
+        "tags": [
+          "Rebalanceamento"
+        ]
+      }
+    },
+    "/meal-items/{mealItemId}/combine": {
+      "post": {
+        "description": "Troca um item flexível por DOIS alvos do mesmo grupo, dividindo o nutriente-base por um split (default 50/50, ajustável) e preservando-o; cada parte vem com a medida caseira. Item travado/sem grupo → 422. Alvo fora do grupo ou sem o nutriente-base → 422. Não persiste.",
+        "operationId": "CombinationController_combine",
+        "parameters": [
+          {
+            "name": "mealItemId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "as duas partes com gramas + medida caseira"
+          },
+          "400": {
+            "description": "mealItemId ou corpo inválido"
+          },
+          "404": {
+            "description": "item inexistente"
+          },
+          "422": {
+            "description": "item não combinável ou alvo inválido"
+          }
+        },
+        "summary": "Combinar um item em dois (1→2)",
+        "tags": [
+          "Combinação"
+        ]
+      }
+    },
+    "/patients/{patientId}/registro": {
+      "post": {
+        "description": "Registra feito/pulei ou desfaz o estado de uma refeição num dia (upsert idempotente). \"troquei\" é DERIVADO no servidor (FR-003), nunca enviado pelo cliente. Re-deriva \"o agora\" e devolve o estado vigente. Nunca devolve número de adesão/percentual (FR-016).",
+        "operationId": "RegistroController_registrar",
+        "parameters": [
+          {
+            "name": "patientId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "estado vigente após a operação + \"o agora\" re-derivado"
+          },
+          "400": {
+            "description": "patientId ou corpo inválido"
+          },
+          "404": {
+            "description": "paciente sem plano ativo; refeição/opção/item não pertence"
+          },
+          "422": {
+            "description": "food fora do grupo do item; itens vazio em troquei"
+          }
+        },
+        "summary": "Registrar / corrigir / desfazer o estado de uma refeição num dia",
+        "tags": [
+          "Registro"
+        ]
+      }
+    },
+    "/nutri/patients/{patientId}/adesao": {
+      "get": {
+        "description": "Derivada sob demanda do registro vigente (nunca persistida). Dia = valor saturado na faixa de kcal + classificação dentro/fora + flags por macro + cobertura do registro; dias sem dado vêm marcados (nunca 0%). media = média aritmética dos dias com dado. Requer a credencial stub da nutri (x-nutri-key) — requisições dos fluxos do paciente são negadas (403).",
+        "operationId": "AdesaoController_serie",
+        "parameters": [
+          {
+            "name": "patientId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "from",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "example": "2026-06-01",
+              "type": "string"
+            }
+          },
+          {
+            "name": "to",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "example": "2026-06-07",
+              "type": "string"
+            }
+          },
+          {
+            "name": "x-nutri-key",
+            "in": "header",
+            "description": "credencial stub da nutri (env NUTRI_API_KEY; fail-closed)",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "série diária + média do período"
+          },
+          "400": {
+            "description": "from/to inválidos (formato, ordem ou período > 366 dias)"
+          },
+          "403": {
+            "description": "x-nutri-key ausente/errada (inclui identidade de paciente)"
+          },
+          "404": {
+            "description": "paciente não encontrado"
+          }
+        },
+        "summary": "Série de adesão por dia + média do período (visível só à nutri)",
+        "tags": [
+          "Adesão (só nutri)"
         ]
       }
     }
@@ -302,6 +479,24 @@
           "items"
         ]
       },
+      "MealRegistroModel": {
+        "type": "object",
+        "properties": {
+          "state": {
+            "type": "string",
+            "enum": [
+              "feito",
+              "troquei",
+              "pulei"
+            ],
+            "example": "feito",
+            "description": "estado vigente (troquei é derivado no servidor)"
+          }
+        },
+        "required": [
+          "state"
+        ]
+      },
       "MealModel": {
         "type": "object",
         "properties": {
@@ -330,6 +525,21 @@
             "type": "number",
             "example": 2,
             "description": "nº de outras opções da refeição (não expandidas no v0)"
+          },
+          "registro": {
+            "nullable": true,
+            "description": "Fase 3: estado vigente do registro desta refeição hoje; null = não-registrada",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/MealRegistroModel"
+              }
+            ]
+          },
+          "isCurrent": {
+            "type": "boolean",
+            "example": false,
+            "description": "Fase 3: é \"o agora\" (1ª não-registrada na ordem do plano)"
           }
         },
         "required": [
@@ -337,7 +547,9 @@
           "name",
           "position",
           "defaultOption",
-          "otherOptionsCount"
+          "otherOptionsCount",
+          "registro",
+          "isCurrent"
         ]
       },
       "TodayResponseModel": {
@@ -364,7 +576,13 @@
           "currentMealId": {
             "type": "string",
             "format": "uuid",
-            "description": "a refeição do momento (v0: 1ª por position)"
+            "nullable": true,
+            "description": "Fase 3: 1ª refeição NÃO-registrada na ordem do plano; null se dia concluído"
+          },
+          "diaConcluido": {
+            "type": "boolean",
+            "example": false,
+            "description": "Fase 3: true quando todas as refeições do dia estão registradas"
           },
           "meals": {
             "type": "array",
@@ -378,6 +596,7 @@
           "exposure",
           "dayType",
           "currentMealId",
+          "diaConcluido",
           "meals"
         ]
       },
