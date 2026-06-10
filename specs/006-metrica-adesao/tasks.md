@@ -55,7 +55,7 @@ Monorepo pnpm: núcleo em `packages/core/src/`, casca em `apps/api/src/`, e2e em
 
 **Independent Test**: registrar um dia com troquei equivalente dentro do grupo (total na faixa) e conferir adesão idêntica à de um dia todo feito
 
-- [ ] T011 [US2] **[TDD — escrever, ver passar ou corrigir]** e2e em `apps/api/test/adesao.e2e-spec.ts`: US2.1 **troquei** equivalente (desfecho nutricional = planejado) ⇒ adesão **idêntica** ao dia todo feito (SC-002) · US2.2 **opção não-default** cumprida com total na faixa ⇒ aderente · US2.3 **pulei compensado** (total na faixa) ⇒ `valorPct=100` (saturação) · US2.4 **troquei** que estoura a faixa ⇒ fora de adesão (consumo real conta fielmente). Qualquer falha aqui é bug de T007–T009 — corrigir lá (a fórmula do core não muda sem voltar ao contrato)
+- [x] T011 [US2] **[TDD — escrever, ver passar ou corrigir]** e2e em `apps/api/test/adesao.e2e-spec.ts`: US2.1 **troquei** equivalente (desfecho nutricional = planejado) ⇒ adesão **idêntica** ao dia todo feito (SC-002) · US2.2 **opção não-default** cumprida com total na faixa ⇒ aderente · US2.3 **pulei compensado** (total na faixa) ⇒ `valorPct=100` (saturação) · US2.4 **troquei** que estoura a faixa ⇒ fora de adesão (consumo real conta fielmente). Qualquer falha aqui é bug de T007–T009 — corrigir lá (a fórmula do core não muda sem voltar ao contrato)
 
 **Checkpoint**: a tese ("% da intenção cumprida") verificada ponta a ponta
 
@@ -67,8 +67,8 @@ Monorepo pnpm: núcleo em `packages/core/src/`, casca em `apps/api/src/`, e2e em
 
 **Independent Test**: registros em dias distintos (montados direto no banco pelo teste — `logged_date` passado); consultar o período; série + média exatas
 
-- [ ] T012 [US3] **[TDD — escrever e VER FALHAR]** e2e: helper de teste que insere `meal_event`(+`meal_event_item`) com `logged_date` de dias passados direto via `@bamboo/db` · US3.1 série em ordem cronológica, um item por dia, sem-dado explícito (nunca 0%) · US3.2 período inteiro anterior ao 1º registro ⇒ série toda sem-dado e `media: null` · US3.3 média = média aritmética EXATA só dos com-dado (SC-010) · dia com tipos-de-dia **divergentes** nos registros ⇒ fallback no default da programação (edge da spec)
-- [ ] T013 [US3] Fechar a série no service/mapper (iterar [from..to] dia a dia, `mediaAdesao` do core pros com-dado) até T012 verde
+- [x] T012 [US3] **[TDD — escrever e VER FALHAR]** e2e: helper de teste que insere `meal_event`(+`meal_event_item`) com `logged_date` de dias passados direto via `@bamboo/db` · US3.1 série em ordem cronológica, um item por dia, sem-dado explícito (nunca 0%) · US3.2 período inteiro anterior ao 1º registro ⇒ série toda sem-dado e `media: null` · US3.3 média = média aritmética EXATA só dos com-dado (SC-010) · dia com tipos-de-dia **divergentes** nos registros ⇒ fallback no default da programação (edge da spec)
+- [x] T013 [US3] Fechar a série no service/mapper (iterar [from..to] dia a dia, `mediaAdesao` do core pros com-dado) até T012 verde
 
 **Checkpoint**: a matéria-prima da "linha dos 80%" existe
 
@@ -80,8 +80,8 @@ Monorepo pnpm: núcleo em `packages/core/src/`, casca em `apps/api/src/`, e2e em
 
 **Independent Test**: exercitar fluxos do paciente e a via da nutri sem credencial; nenhuma adesão aparece, acesso negado
 
-- [ ] T014 [US4] **[TDD — escrever e VER FALHAR onde aplicável]** e2e: `GET /nutri/...` **sem** header ⇒ 403 (a chamada "com identidade de paciente" — SC-008) · header **errado** ⇒ 403 · US4.1/4.2: `GET /patients/:id/today` (incl. `exposure` máximo) e respostas de registro/substituição/rebalance **sem nenhum campo de adesão** (asserção de chaves) · FR-009: estado do banco idêntico antes/depois da consulta de adesão (count de `meal_event`)
-- [ ] T015 [US4] Ajustes que T014 revelar (esperado: nenhum — o guard e o isolamento do módulo já garantem)
+- [x] T014 [US4] **[TDD — escrever e VER FALHAR onde aplicável]** e2e: `GET /nutri/...` **sem** header ⇒ 403 (a chamada "com identidade de paciente" — SC-008) · header **errado** ⇒ 403 · US4.1/4.2: `GET /patients/:id/today` (incl. `exposure` máximo) e respostas de registro/substituição/rebalance **sem nenhum campo de adesão** (asserção de chaves) · FR-009: estado do banco idêntico antes/depois da consulta de adesão (count de `meal_event`)
+- [x] T015 [US4] Ajustes que T014 revelar (esperado: nenhum — o guard e o isolamento do módulo já garantem)
 
 **Checkpoint**: LGPD/exposição verificadas — SC-005/007/008
 
