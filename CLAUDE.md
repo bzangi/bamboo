@@ -263,7 +263,13 @@ Dado de saúde desde a Fase 0: controle de acesso, criptografia, consentimento. 
 
 <!-- SPECKIT START -->
 
-Nenhuma feature ativa (aguardando a próxima). Última concluída: **004-motor-le-registro**
+Feature ativa: **005-desfazer-vs-rebalanceamento** (mobile-only; corrige o "↺ desfazer"
+por-item que quebrava o rebalanceamento). Plano: `specs/005-desfazer-vs-rebalanceamento/plan.md`
+(spec/research/data-model/quickstart no mesmo dir). Em execução no worktree
+`005-desfazer-vs-rebalanceamento` (branch `worktree-005-desfazer-vs-rebalanceamento`), ainda não
+mergeado na main.
+
+Última concluída: **004-motor-le-registro**
 (Fase 4 — o motor de rebalanceamento lê o registro): **implementada e testada**. Corrigiu os 2
 bugs: trocar opção recalculava refeições já feitas; trocar tipo-de-dia não recalculava pelo
 consumido. **Sem migration** (lê `meal_event`/`meal_event_item` da Fase 3). A matemática da engine
