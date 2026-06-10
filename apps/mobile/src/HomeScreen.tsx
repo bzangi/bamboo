@@ -39,6 +39,14 @@ import {
 import { SubstitutionSheet } from "./SubstitutionSheet";
 import { RebalancePreviewSheet } from "./RebalancePreviewSheet";
 import { CombineSheet } from "./CombineSheet";
+import { UndoSwapToast } from "./UndoSwapToast";
+import {
+  activeOptionId as getActiveOptionId,
+  applySwap,
+  flattenAdjustments,
+  undoSwap,
+  type SwapState,
+} from "./swaps";
 
 type ScreenState =
   | { readonly status: "loading" }
@@ -69,17 +77,26 @@ export function HomeScreen() {
   const [nameOverrides, setNameOverrides] = useState<
     Readonly<Record<string, NameOverride>>
   >({});
-  const [qtyOverrides, setQtyOverrides] = useState<
-    Readonly<Record<string, string>>
-  >({}); // ajustes de quantidade vindos do rebalanceamento
-  const [optionOverrides, setOptionOverrides] = useState<
-    Readonly<Record<string, string>>
-  >({}); // mealId -> optionId ativa
+  // Troca de OPÇÃO por refeição-gatilho: opção ativa + ajustes derivados juntos.
+  // Substitui os antigos optionOverrides + qtyOverrides — agora os ajustes do
+  // rebalanceamento moram DENTRO da troca, então desfazer é atômico e nenhum
+  // ajuste derivado vira "mudança do item" (sem desfazer por-item neles).
+  const [swaps, setSwaps] = useState<SwapState>({});
+  // Snackbar temporário pós-troca (~5s): atalho de 1 toque pra desfazer a troca
+  // inteira. Objeto novo a cada troca → o timer reinicia (ver useEffect abaixo).
+  const [swapToast, setSwapToast] = useState<{
+    readonly mealId: string;
+    readonly optionLabel: string;
+  } | null>(null);
   // US2: consumo efetivo (foodId + gramas) por item trocado/combinado, pro
   // POST registro derivar "troquei". itemId -> 1..2 alimentos consumidos.
   const [consumoOverrides, setConsumoOverrides] = useState<
     Readonly<Record<string, readonly ConsumoItem[]>>
   >({});
+  // Rótulos de quantidade derivados do rebalanceamento (itemId -> rótulo),
+  // achatados das trocas ativas. Só display; o desfazer por-item NÃO depende
+  // disto (depende de nameOverride = mudança direta no item).
+  const qtyOverrides = useMemo(() => flattenAdjustments(swaps), [swaps]);
 
   // Sheets abertos.
   const [subItem, setSubItem] = useState<MealItemDto | null>(null);
@@ -121,11 +138,19 @@ export function HomeScreen() {
     load(dayTypeId);
   }, [load, dayTypeId]);
 
+  // Auto-dismiss do snackbar em ~5s. Nova troca cria um objeto novo → o effect
+  // re-roda, limpa o timer anterior e reinicia a janela; unmount limpa o timer.
+  useEffect(() => {
+    if (!swapToast) return;
+    const timer = setTimeout(() => setSwapToast(null), 5000);
+    return () => clearTimeout(timer);
+  }, [swapToast]);
+
   const resetOverrides = useCallback(() => {
     setNameOverrides({});
-    setQtyOverrides({});
-    setOptionOverrides({});
+    setSwaps({});
     setConsumoOverrides({});
+    setSwapToast(null);
   }, []);
 
   // US2 — aplica a substituição (estado local).
@@ -186,34 +211,36 @@ export function HomeScreen() {
   // US3 — confirma a troca de opção: ativa a opção + aplica os ajustes das seguintes.
   const handleConfirmRebalance = useCallback(
     (meal: MealDto, option: MealOptionDto, outcome: RebalanceOutcomeDto) => {
-      setOptionOverrides((prev) => ({ ...prev, [meal.id]: option.id }));
-      if (outcome.kind === "rebalanceado") {
-        setQtyOverrides((prev) => {
-          const next = { ...prev };
-          for (const r of outcome.refeicoesAfetadas) {
-            for (const it of r.itensAjustados) {
-              next[it.itemId] = it.medidaCaseira
-                ? `${it.medidaCaseira.label} (${formatGrams(it.gramasNovo)})`
-                : formatGrams(it.gramasNovo);
-            }
-          }
-          return next;
-        });
-      }
+      setSwaps((prev) =>
+        applySwap(prev, {
+          mealId: meal.id,
+          chosenOptionId: option.id,
+          previousOptionId: meal.defaultOption.id,
+          outcome,
+          formatLabel: (it) =>
+            it.medidaCaseira
+              ? `${it.medidaCaseira.label} (${formatGrams(it.gramasNovo)})`
+              : formatGrams(it.gramasNovo),
+        }),
+      );
+      setSwapToast({ mealId: meal.id, optionLabel: option.label });
       setChoice(null);
     },
     [],
   );
 
-  // Desfaz o override de um item (volta ao planejado) — permite re-ajustar.
+  // Desfaz a troca INTEIRA de uma refeição (opção + ajustes derivados juntos) e
+  // fecha o snackbar. Acionado pelo snackbar e pelo chip da opção default.
+  const handleUndoSwap = useCallback((mealId: string) => {
+    setSwaps((prev) => undoSwap(prev, mealId));
+    setSwapToast(null);
+  }, []);
+
+  // Desfaz a mudança DIRETA de um item (substituir/combinar) — volta ao
+  // planejado, permite re-ajustar. NÃO toca ajustes de rebalanceamento (esses
+  // só se desfazem desfazendo a troca inteira, via handleUndoSwap).
   const handleReset = useCallback((itemId: string) => {
     setNameOverrides((prev) => {
-      if (!(itemId in prev)) return prev;
-      const next = { ...prev };
-      delete next[itemId];
-      return next;
-    });
-    setQtyOverrides((prev) => {
       if (!(itemId in prev)) return prev;
       const next = { ...prev };
       delete next[itemId];
@@ -254,7 +281,7 @@ export function HomeScreen() {
       let consumo: RegistroConsumo | undefined;
       if (intent === "feito") {
         const activeOption =
-          meal.options.find((o) => o.id === optionOverrides[mealId]) ??
+          meal.options.find((o) => o.id === getActiveOptionId(swaps, mealId)) ??
           meal.defaultOption;
         // Itens consumidos só da opção ativa (substituídos/combinados nela).
         const items = activeOption.items.flatMap(
@@ -276,7 +303,7 @@ export function HomeScreen() {
         })
         .finally(() => setRegisteringMealId(null));
     },
-    [consumoOverrides, dayTypeId, load, optionOverrides, registeringMealId],
+    [consumoOverrides, dayTypeId, load, swaps, registeringMealId],
   );
 
   if (state.status === "loading") {
@@ -332,13 +359,14 @@ export function HomeScreen() {
             isCurrent={meal.id === data.currentMealId}
             registering={registeringMealId === meal.id}
             onRegistrar={handleRegistrar}
-            activeOptionId={optionOverrides[meal.id]}
+            activeOptionId={getActiveOptionId(swaps, meal.id)}
             nameOverrides={nameOverrides}
             qtyOverrides={qtyOverrides}
             onChooseOption={(option) => setChoice({ meal, option })}
             onSubstitute={setSubItem}
             onCombine={setCombineItem}
             onReset={handleReset}
+            onUndoSwap={handleUndoSwap}
           />
         ))}
       </ScrollView>
@@ -368,6 +396,13 @@ export function HomeScreen() {
         onPick={handleSwitchDayType}
         onClose={() => setPickingDayType(false)}
       />
+      <UndoSwapToast
+        visible={swapToast !== null}
+        optionLabel={swapToast?.optionLabel ?? ""}
+        onUndo={() => {
+          if (swapToast) handleUndoSwap(swapToast.mealId);
+        }}
+      />
     </View>
   );
 }
@@ -391,6 +426,7 @@ function MealCard({
   onSubstitute,
   onCombine,
   onReset,
+  onUndoSwap,
 }: {
   readonly meal: MealDto;
   readonly isCurrent: boolean;
@@ -403,6 +439,7 @@ function MealCard({
   readonly onSubstitute: (item: MealItemDto) => void;
   readonly onCombine: (item: MealItemDto) => void;
   readonly onReset: (itemId: string) => void;
+  readonly onUndoSwap: (mealId: string) => void;
 }) {
   const activeOption =
     meal.options.find((o) => o.id === activeOptionId) ?? meal.defaultOption;
@@ -494,7 +531,13 @@ function MealCard({
                 key={o.id}
                 style={[styles.chip, active && styles.chipActive]}
                 disabled={active}
-                onPress={() => onChooseOption(o)}
+                onPress={() => {
+                  // Com troca ativa, re-tocar a opção default desfaz a troca
+                  // inteira; tocar outra opção não-default é re-troca (prévia).
+                  if (activeOptionId && o.id === meal.defaultOption.id)
+                    onUndoSwap(meal.id);
+                  else onChooseOption(o);
+                }}
               >
                 <Text
                   style={[styles.chipText, active && styles.chipTextActive]}
@@ -570,7 +613,10 @@ function ItemRow({
       </View>
 
       {/* "deixa trocar num toque" — sempre disponível em item flexível: dá pra
-          trocar/combinar de novo. Com override aplicado, oferece desfazer. */}
+          trocar/combinar de novo. O "↺ desfazer" por-item aparece SÓ quando o
+          item foi mudado DIRETAMENTE (substituir/combinar = nameOverride);
+          ajuste vindo do rebalanceamento (qtyOverride) NÃO se desfaz item a
+          item — só desfazendo a troca inteira (chip da opção / snackbar). */}
       {item.substitutable ? (
         <View style={styles.itemActions}>
           <Pressable onPress={() => onSubstitute(item)}>
@@ -579,7 +625,7 @@ function ItemRow({
           <Pressable onPress={() => onCombine(item)}>
             <Text style={styles.action}>Combinar 2 ›</Text>
           </Pressable>
-          {nameOverride || qtyOverride ? (
+          {nameOverride ? (
             <Pressable onPress={() => onReset(item.id)}>
               <Text style={styles.actionReset}>↺ desfazer</Text>
             </Pressable>

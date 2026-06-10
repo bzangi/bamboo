@@ -1,7 +1,7 @@
 # Bamboo — Estado Atual
 
 > **Status:** pré-MVP · **não é greenfield** (Fases 0–4 implementadas e testadas) · RN-first.
-> **Atualizado em:** 2026-06-06.
+> **Atualizado em:** 2026-06-10.
 
 Documento vivo — snapshot do estado real do repositório nesta data, verificado por leitura direta dos arquivos e do histórico git. Em conflito com o cabeçalho do `CLAUDE.md`, **este snapshot vence**: o repo está bem além do que aquele header lista — Fases 0–4 implementadas e testadas.
 
@@ -16,7 +16,7 @@ Monorepo **pnpm workspaces + Turborepo**, Node 20+, TypeScript strict. `pnpm@11.
 | App | Stack | Estado |
 |---|---|---|
 | `apps/api` | NestJS 11 | 5 endpoints (casca fina sobre `@bamboo/core`): `GET /patients/:id/today[?dayTypeId]`, `GET /meal-items/:id/substitutions`, `POST /meal-items/:id/combine`, `POST /patients/:id/rebalance/option-choice`, `POST /patients/:id/registro`. **61 e2e** (8 specs) em `test/`. |
-| `apps/mobile` | Expo SDK 56 / RN 0.85 / React 19 | `HomeScreen.tsx` (Home "o agora") + bottom-sheets `SubstitutionSheet`, `CombineSheet`, `RebalancePreviewSheet`, consumindo `@bamboo/api-client`. |
+| `apps/mobile` | Expo SDK 56 / RN 0.85 / React 19 | `HomeScreen.tsx` (Home "o agora") + bottom-sheets `SubstitutionSheet`, `CombineSheet`, `RebalancePreviewSheet`, consumindo `@bamboo/api-client`. **005:** reducer puro `swaps.ts` (troca de opção + ajustes derivados juntos) + snackbar `UndoSwapToast`; **Vitest** no app (10 testes do reducer). |
 | `apps/web` | Next.js | Só boilerplate `create-turbo` — sem feature (UI da nutri é fase posterior). |
 
 **Packages (seis — não quatro):**
@@ -99,11 +99,13 @@ Detalhamento do paradigma com exemplos canônicos em `CLAUDE.md`; invariantes go
 
 > **Integração `004-motor-le-registro` (rotulada "Fase 4" no `CLAUDE.md`) — implementada e testada:** o motor de rebalanceamento passa a **ler o registro**. Corrigiu 2 bugs: (a) trocar a opção recalculava refeições já feitas; (b) trocar o tipo-de-dia não recalculava pelo consumido. **Sem migration** (lê `meal_event`/`meal_event_item` da Fase 3); a matemática da engine não mudou (D1). Núcleo: `isRegistered` (obrigatório) em `RefeicaoDia` + `previewTrocaOpcao` exclui registradas das alavancas. Casca: novo `apps/api/src/registro-consumo.ts` (consumo real type-agnostic), `rebalance.service` (troca de opção ciente do registro), `getToday` (troca de tipo-de-dia recalcula pelo consumido com `?dayTypeId` override ativo; tipo padrão nunca auto-ajusta — Q1), `registro.service` (troquei grava snapshot COMPLETO em `meal_event_item` — D3b). Rebalanceamento efêmero. `core 90 + e2e 61` verdes.
 
+> **`005-desfazer-vs-rebalanceamento` (mobile-only) — implementada; reducer testado; smoke manual + merge pendentes:** corrige o "↺ desfazer" por-item que quebrava o rebalanceamento. O estado local juntava ajustes derivados do rebalanceamento e a condição do botão por-item, então desfazer um item rebalanceado revertia só ele, sem recalcular (gap). Fix: consolidou a troca de opção em `swaps[mealId] = {chosenOptionId, previousOptionId, adjustments}` (reducer puro `apps/mobile/src/swaps.ts` — estado de apresentação, fora do core), com os ajustes derivados DENTRO da troca → (a) desfazer por-item só p/ `nameOverride` (mudança direta) — FR-001/002; (b) desfazer da troca atômico — opção + ajustes (FR-003); (c) re-troca substitui (FR-006). Desfazer da troca: snackbar `UndoSwapToast` ~5s (FR-004) + chip da opção default durável (FR-005). **Sem API/core/migration; efêmero** (FR-007/008); só a troca de opção rebalanceia (FR-009). Setup: **Vitest** no `apps/mobile` (não existia). `mobile 10 (reducer) verdes + tsc 0 + lint 0 erros`; **smoke manual da UI pendente** (snackbar/timing — requer simulador + API/DB). No worktree, **não mergeado**.
+
 **T0–T8 — todas implementadas e commitadas** (T0 scaffold · T1 docker · T2 schema/migration · T3 TACO · T4 `substituir()` · T5 endpoints · T6 seed · T7 Home · T8 substituição). Mapeamento legado→Spec Kit em `tasks.md` (T0→T001 … T5b+T8→T020–T024).
 
 > **Reconciliado:** `specs/001-alca-do-paciente/tasks.md` está com as 26 tarefas marcadas `[x]` (sem pendências `[ ]`), alinhado ao código e ao git.
 
-**Cobertura de teste (atual):** **90 testes** em `packages/core` (substituição + nutrição + rebalanceamento, incl. `isRegistered`/registro-aware); **61 e2e** em `apps/api` (today, substitutions, rebalance, registro, today-daytype). _(As contagens menores citadas em seções acima são herança da Fase 1 — drift de doc a reconciliar.)_
+**Cobertura de teste (atual):** **90 testes** em `packages/core` (substituição + nutrição + rebalanceamento, incl. `isRegistered`/registro-aware); **61 e2e** em `apps/api` (today, substitutions, rebalance, registro, today-daytype); **10 testes** em `apps/mobile` (reducer `swaps.ts` — 005). _(As contagens menores citadas em seções acima são herança da Fase 1 — drift de doc a reconciliar.)_
 
 **Modelo de dados — 14 tabelas (migrations `0000_loud_ulik.sql`–`0002_clear_cammi.sql`)**, schema canônico em `packages/db/src/schema.ts` (= [[schema]] + `meal.horario` + `meal_event`/`meal_event_item`):
 

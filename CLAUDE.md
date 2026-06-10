@@ -263,7 +263,23 @@ Dado de saúde desde a Fase 0: controle de acesso, criptografia, consentimento. 
 
 <!-- SPECKIT START -->
 
-Nenhuma feature ativa (aguardando a próxima). Última concluída: **004-motor-le-registro**
+Feature **005-desfazer-vs-rebalanceamento** (mobile-only): **implementada; reducer testado;
+smoke manual e merge pendentes**. Bug: o "↺ desfazer" por-item aparecia em itens rebalanceados de
+OUTRAS refeições (consequência de uma troca de opção) e, ao ser tocado, revertia só aquele item sem
+recalcular — deixava o dia inconsistente (gap). Fix: consolidou a troca em `swaps[mealId] =
+{chosenOptionId, previousOptionId, adjustments}` (reducer puro novo `apps/mobile/src/swaps.ts` —
+estado de apresentação, fora do core); os ajustes derivados moram DENTRO da troca, então (a) o
+desfazer por-item passou a depender só de `nameOverride` (mudança direta: substituir/combinar) —
+FR-001/002; (b) desfazer a troca é atômico — opção + ajustes juntos (FR-003); (c) re-troca substitui
+(FR-006). Caminhos de desfazer da troca: snackbar temporário ~5s (`UndoSwapToast`, FR-004) + chip da
+opção default durável (FR-005). **Sem API/core/migration; tudo efêmero** (FR-007/008). Só a troca de
+opção rebalanceia (FR-009). Setup: Vitest adicionado ao `apps/mobile` (não existia). Resultado:
+**10 testes do reducer verdes + `tsc --noEmit` 0 + lint 0 erros**; commits no worktree
+`005-desfazer-vs-rebalanceamento` (branch `worktree-005-desfazer-vs-rebalanceamento`), **ainda não
+mergeado na main**. Pendente: smoke manual da UI (snackbar/timing — requer simulador + API/DB) e merge.
+Artefatos: `specs/005-desfazer-vs-rebalanceamento/` (spec/plan/tasks/research D1–D7/data-model/quickstart).
+
+Última concluída: **004-motor-le-registro**
 (Fase 4 — o motor de rebalanceamento lê o registro): **implementada e testada**. Corrigiu os 2
 bugs: trocar opção recalculava refeições já feitas; trocar tipo-de-dia não recalculava pelo
 consumido. **Sem migration** (lê `meal_event`/`meal_event_item` da Fase 3). A matemática da engine
