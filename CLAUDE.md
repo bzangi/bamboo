@@ -279,7 +279,10 @@ commits na main (Foundational → US1 → US2–US4 → polish). Artefatos:
 
 Pipeline do gate 2026-06-10: `007-ciclo-de-acompanhamento` — spec **fechada** (ciclo de vida
 A+C híbrido; vínculo plano×ciclo 1:N; vigência = o ciclo **observa** o plano ativo; histórico
-fora de ciclo), plan em elaboração. `008-auto-classificacao` — spec **fechada** (heurística
+fora de ciclo) e **plan rascunhado** em `specs/007-ciclo-de-acompanhamento/plan.md` (+ research
+D1–D8, data-model com a **migration 0003** `cycle`+`cycle_plan_vigencia`, contracts, quickstart;
+via `/nutri` com o guard compartilhado; operação nova `POST /nutri/.../active-plan` = o ato
+observado) — **aguardando aval Plan→Tasks**. `008-auto-classificacao` — spec **fechada** (heurística
 determinística; vínculo vale imediatamente com gatilho de reversão no SC-002; taxonomia = 13
 categorias TACO; ampliação da ingestão TACO inclusa; sem-grupo no ambíguo; um grupo por
 vínculo; porção derivada com guarda), aguardando plan. 007 + 006 fundam o relatório de ciclo.
