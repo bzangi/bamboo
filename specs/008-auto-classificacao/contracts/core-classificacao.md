@@ -10,6 +10,10 @@ export interface GrupoCanonico {
   readonly categoriasFonte: readonly string[]; // categorias TACO que mapeiam pra ele (D4)
   readonly basis: "carb" | "protein" | "fat";
   readonly ancoraGramasDoNutriente: number; // g do nutriente-base "por troca" (D6)
+  // Piso de carb pra "capturar" uma categoria COMPARTILHADA com outro grupo
+  // (split de "Verduras, hortaliças": Amidos declara carbMinPer100g=10; Vegetais
+  // não declara). Ausente = captura toda a categoria. Ver invariante 6.
+  readonly carbMinPer100g?: number;
 }
 
 export interface GuardasClassificacao {
@@ -52,8 +56,9 @@ export function classificarAlimento(input: {
 3. Categoria mapeada mas teor do basis do grupo `< minBasisPer100g` ⇒ `sem-grupo nutriente-base-insuficiente` (FR-003).
 4. Porção derivada (`ancora ÷ basisPer100g/100`, arredondada ao múltiplo de 5 mais próximo, mínimo 5) fora de `[porcaoMinG, porcaoMaxG]` ⇒ `sem-grupo porcao-implausivel` (Q3c).
 5. Tudo ok ⇒ `vinculo` com `referencePortionGrams > 0` coerente com a âncora (SC-006).
-6. **Fallback sem categoria** (`tacoCategory: null` — futuro import): macro dominante por 100 g escolhe o basis; entre os grupos desse basis, vence o de **perfil mais próximo** (menor distância euclidiana dos 3 macros normalizados pela kcal); mesmas guardas; nenhum candidato aprovado ⇒ `sem-grupo` pelo motivo da última guarda reprovada.
-7. Determinismo/pureza: mesma entrada ⇒ mesma saída; entradas não mutadas; um único grupo por resultado (v0).
+6. **Categoria compartilhada por 2 grupos** (split de "Verduras, hortaliças" — D4): candidatos = grupos cuja `categoriasFonte` inclui a categoria E (sem `carbMinPer100g`, ou `carbPer100g ≥ carbMinPer100g`); entre os candidatos, vence o de **maior `carbMinPer100g`** (mais específico). Ex.: batata (carb ~12) satisfaz Amidos (carbMin 10) e Vegetais (sem min) → Amidos; alface (carb ~1.7) só satisfaz Vegetais → Vegetais.
+7. **Fallback sem categoria** (`tacoCategory: null` — futuro import por IA): macro dominante por 100 g escolhe o basis; entre os grupos desse basis, vence o de **perfil mais próximo** (menor distância euclidiana dos 3 macros normalizados pela kcal); mesmas guardas; nenhum candidato aprovado ⇒ `sem-grupo` pelo motivo da última guarda reprovada.
+8. Determinismo/pureza: mesma entrada ⇒ mesma saída; entradas não mutadas; um único grupo por resultado (v0).
 
 ## `validarGabarito` (SC-002)
 

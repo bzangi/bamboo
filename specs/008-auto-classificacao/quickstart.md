@@ -23,7 +23,7 @@ Esperado: `~590` alimentos upsertados por `taco_id` com `taco_category`; os 23 c
 node --env-file=.env --import tsx packages/db/scripts/seed.ts
 ```
 
-Esperado: os **13 grupos canônicos** existem (os 4 antigos renomeados, ids preservados — confira que o plano semeado segue íntegro no app); vínculos curados com `origin='manual'`.
+Esperado: os **~7 grupos canônicos** existem (os 4 antigos renomeados — Carboidratos→Amidos e cereais etc., ids preservados; confira que o plano semeado segue íntegro no app); vínculos curados com `origin='manual'`.
 
 ## 3. Classificar
 

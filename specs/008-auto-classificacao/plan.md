@@ -2,13 +2,13 @@
 
 **Branch**: `008-auto-classificacao` | **Date**: 2026-06-10 | **Spec**: [spec.md](./spec.md)
 
-**Input**: Feature specification from `specs/008-auto-classificacao/spec.md` (gate fechado nas Sessões 2026-06-10: heurística determinística · vale imediatamente · taxonomia = 13 categorias TACO · ampliação da ingestão inclusa · sem-grupo no ambíguo · um grupo por vínculo · porção derivada com guarda)
+**Input**: Feature specification from `specs/008-auto-classificacao/spec.md` (gate fechado nas Sessões 2026-06-10: heurística determinística · vale imediatamente · **grupos por macro-base separando amido/fruta/vegetal (~7)** · ampliação da ingestão inclusa · sem-grupo no ambíguo · um grupo por vínculo · porção derivada com guarda)
 
-> **⚠️ 4 pontos pro aval do dono neste gate** (detalhe no research): (1) a **tabela de nutriente-base por grupo** (D3 — incl. **Leguminosas → carb**, alternativa protein); (2) o refinamento da Q1a: **a categoria vem na própria fonte TACO** (597 alimentos, campo `category`) — o sinal primário vira a categoria (zero palpite) e a heurística por perfil vira guarda + fallback (D2); (3) "Alimentos preparados" e "Outros industrializados" (37 itens) ficam **sem grupo** (são as preparações que o gate mandou deixar introcáveis); (4) os valores da guarda de plausibilidade (porção derivada ∈ [10 g, 600 g]; nutriente-base ≥ 1 g/100 g — D6).
+> **Gate Plan→Tasks fechado (Sessão 2026-06-10):** (1) **grupos por macro-base, separando amido/fruta/vegetal** — ~7 grupos canônicos (Amidos e cereais, Frutas, Vegetais, Proteínas, Laticínios, Gorduras e oleaginosas, Açúcares); a categoria TACO mapeia pro grupo, "Verduras, hortaliças" divide por perfil (Q2c refinada — opção 3 do dono; preserva arroz↔batata↔feijão); (2) **categoria da fonte** (campo `category` do dataset, 597 alimentos) como sinal primário, perfil como guarda + fallback; (3) Bebidas/Miscelâneas/preparados/industrializados ficam **sem grupo**; (4) guardas: porção ∈ [10 g, 600 g], nutriente-base ≥ 1 g/100 g.
 
 ## Summary
 
-A descoberta que simplifica tudo: o dataset TACO já ingerido (`danperrout/tabelataco`, 597 alimentos) **carrega a categoria de cada alimento** — e a taxonomia aprovada pelo dono É a taxonomia da TACO. Então a classificação automática não precisa adivinhar: **categoria da fonte → grupo canônico** (mapeamento 15→13 fixo), com a **heurística por perfil nutricional como guarda** (nutriente-base > 0, porção plausível — senão "sem confiança", relatado) **e como fallback** pra alimentos futuros sem categoria (import por IA da Fase 4).
+A descoberta que simplifica tudo: o dataset TACO já ingerido (`danperrout/tabelataco`, 597 alimentos) **carrega a categoria de cada alimento**. Então a classificação não adivinha: **categoria da fonte → grupo de macro-base** (mapeamento fixo; "Verduras, hortaliças" divide por perfil: amiláceo→Amidos, folhoso→Vegetais), com o **perfil nutricional como guarda** (nutriente-base ≥ 1 g/100 g, porção plausível — senão "sem confiança", relatado) **e como fallback** pra alimentos futuros sem categoria (import por IA da Fase 4). Os ~7 grupos preservam a flexibilidade da tese (arroz↔batata↔feijão) e alinham 100% com a curadoria do seed (gabarito ~100%).
 
 - **Migration 0004**: `food.taco_id` (unique, nullable — identidade estável pro upsert da base ampliada), `food.taco_category` (text, nullable — o sinal), `food_substitution_group.origin` (`'manual' | 'auto'`, default manual — FR-007).
 - **Ingestão ampliada** (Q2d): `ingest-taco.ts` passa a ingerir **todas** as linhas com os 4 macros completos (~590), upsert por `taco_id` (os 23 curados recebem backfill de `taco_id` por nome — sem duplicar), gravando `taco_category`.
@@ -37,7 +37,7 @@ Detalhe em [research.md](./research.md) (D1–D9); modelo/migration/tabela de gr
 
 **Constraints**: núcleo sem I/O/throw/mutação; classificação **idempotente** e **incremental** (só sem-vínculo; manual NUNCA sobrescrito); valores nutricionais reais, nunca inventados (FR-004); um grupo por alimento no v0.
 
-**Scale/Scope**: 1 arquivo novo no core (+testes); migration 0004; ingest ampliado; seed refatorado pra upsert; 1 script novo; 13 grupos canônicos semeados.
+**Scale/Scope**: 1 arquivo novo no core (+testes); migration 0004; ingest ampliado; seed refatorado pra upsert; 1 script novo; ~7 grupos canônicos semeados.
 
 ## Constitution Check
 
@@ -73,7 +73,7 @@ packages/db/
 ├── migrations/0004_*.sql          # gerada por drizzle-kit
 └── scripts/
     ├── ingest-taco.ts             # AMPLIADO: base completa (~590) por taco_id + categoria
-    ├── seed.ts                    # NÃO-DESTRUTIVO: upsert de grupos (13 canônicos) e vínculos
+    ├── seed.ts                    # NÃO-DESTRUTIVO: upsert de grupos (~7 canônicos) e vínculos
     │                              #   curados com origin='manual'
     └── classify-foods.ts          # NOVO: lote re-executável + relatório + --validar-gabarito
 

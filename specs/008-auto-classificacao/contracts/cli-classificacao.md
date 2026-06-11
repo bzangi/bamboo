@@ -12,7 +12,7 @@
 ## `packages/db/scripts/seed.ts` (NÃO-DESTRUTIVO — D7)
 
 - **Remove** o `DELETE FROM substitution_group`.
-- Grupos: upsert por (nome canônico, sistema) — garante os **13 grupos** da tabela (data-model.md), absorvendo os 4 antigos por rename (ids/FKs preservados: Carboidratos→Cereais e derivados, Proteínas→Carnes e produtos cárneos, Frutas→Frutas e derivados, Vegetais→Verduras, hortaliças e derivados).
+- Grupos: upsert por nome canônico — garante os **~7 grupos** da tabela (data-model.md), absorvendo os 4 antigos por rename mantendo o id (Carboidratos→Amidos e cereais, Proteínas→Proteínas, Frutas→Frutas, Vegetais→Vegetais); Laticínios/Gorduras e oleaginosas/Açúcares criados novos. Também deleta `cycle`/`cycle_plan_vigencia` antes de `patient` (FK da migration 0003).
 - Vínculos curados: upsert por (food, group) com **`origin='manual'`**; `reference_portion_grams` da curadoria mantida.
 - **Nunca** apaga vínculos (`manual` ou `auto`) — re-seed é seguro após classificar (FR-008/FR-009).
 

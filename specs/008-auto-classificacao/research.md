@@ -18,21 +18,21 @@
 
 **Alternatives considered**: heurística pura pra todos (rejeitado acima); categoria sem guardas (rejeitado: vincularia bebida sem carbo a "Bebidas (carb)" e quebraria a conta de substituição — FR-003 exige a guarda).
 
-## D3 — Nutriente-base por grupo (⚠️ pro aval): tabela proposta
+## D3 — Granularidade dos grupos: macro-base separando amido/fruta/vegetal (decisão do dono — Sessão 2026-06-10)
 
-**Decision**: ver a tabela completa em data-model.md. Resumo: **carb** → Cereais, Verduras/hortaliças, Frutas, Bebidas, Miscelâneas, Açúcares, **Leguminosas**; **protein** → Pescados, Carnes, Leite, Ovos; **fat** → Gorduras e óleos, Nozes e sementes.
+**Decision**: os grupos onde a troca acontece são **~7 grupos por macro-base** (não as 13 categorias TACO 1:1): Amidos e cereais (carb) · Frutas (carb) · Vegetais (carb) · Proteínas (protein) · Laticínios (protein) · Gorduras e oleaginosas (fat) · Açúcares (carb). A **categoria TACO mapeia pro grupo** (Cereais+Leguminosas→Amidos; Carnes+Pescados+Ovos→Proteínas; Gorduras+Nozes→Gorduras e oleaginosas; etc.). Tabela completa + basis + âncoras em data-model.md.
 
-**Rationale**: critério = macro dominante típico da categoria (conferível nos dados). **Leguminosas é a única decisão clínica de verdade**: feijão cozido tem ~13,6 g carb vs ~4,8 g protein/100 g → por macro dominante, **carb** (proposta); a alternativa (protein, "proteína vegetal") muda o que o grupo preserva na troca — escolha do dono. Bebidas/Miscelâneas levam carb sabendo que muitos itens reprovarão na guarda (carbo ~0) e ficarão honestamente **sem vínculo** — relatados na cobertura.
+**Rationale**: durante a implementação descobriu-se que "13 categorias = grupos" + "um grupo por alimento" **narraria a substituição** — arroz (Cereais) deixaria de trocar por batata (Verduras) e feijão (Leguminosas), contra a tese (Princípio I, flexibilidade é o produto). O dono escolheu (opção 3 da pergunta de gate) grupos por macro-base separando amido/fruta/vegetal — mais coarse que as categorias (preserva arroz↔batata↔feijão), mais finos que 3 macro-bases puras (evita arroz↔alface, embora a guarda de porção já barrasse). Bônus: a curadoria do seed (amidos/proteínas/frutas/vegetais) passa a **alinhar 100%** com o mapeamento por categoria → o gabarito (SC-002) bate ~100%, em vez de ~62% com 13 categorias.
 
-**Alternatives considered**: basis por subgrupo (ex.: separar laticínios magros/gordos — rejeitado: cria taxonomia que o dono não aprovou); kcal como basis universal (rejeitado: a troca preservaria caloria, não o nutriente que a nutri trava — contraria `equivalence_basis` existente).
+**Alternatives considered**: 13 categorias TACO (rejeitado: narra a substituição, gabarito colapsa); 3 macro-bases puras (rejeitado: arroz↔alface, banana↔arroz sem distinção — coarse demais); manter os 4 grupos do seed sem ampliar (rejeitado: não cobre gorduras/laticínios/açúcares da base ampliada).
 
-## D4 — Mapeamento 15→13 (⚠️ pro aval): preparados e industrializados ficam sem grupo
+## D4 — Mapeamento categoria→grupo + split de "Verduras, hortaliças"
 
-**Decision**: "Alimentos preparados" (32) e "Outros alimentos industrializados" (5) **não mapeiam** pra grupo nenhum — ficam sem vínculo, relatados como "categoria fora da taxonomia" na cobertura. As outras 13 categorias mapeiam 1:1 pros 13 grupos canônicos (diferenças de redação normalizadas: "Pescados e frutos do mar" = "Pescados e produtos marinhos"; "Produtos açucarados" = "Açúcares e produtos"; "Carnes e derivados" = "Carnes e produtos cárneos"; "Ovos e derivados" = "Ovos e produtos derivados").
+**Decision**: 11 das 15 categorias TACO mapeiam pra um dos 7 grupos (ver tabela). "Verduras, hortaliças e derivados" é a **única** categoria que mapeia pra 2 grupos — resolvida por perfil: `carb ≥ 10 g/100 g` (amiláceo) → Amidos; senão → Vegetais. As 4 categorias heterogêneas — "Bebidas", "Miscelâneas", "Alimentos preparados", "Outros alimentos industrializados" (~60 itens) — **não mapeiam** pra grupo nenhum (sem vínculo, motivo `categoria-fora-da-taxonomia`).
 
-**Rationale**: é exatamente o edge case que a spec cravou ("preparações como pizza ficam sem grupo — introcáveis até decisão humana", Q3a) — preparados são pratos mistos sem nutriente-base coerente; a nutri pode vincular manualmente (a correção vence). Cobertura esperada continua ≥ 80% (37/597 ≈ 6% fora por categoria + reprovados na guarda).
+**Rationale**: o split de Verduras é o que separa amido (batata, mandioca) de folhoso (alface, brócolis) — exatamente como o seed já curava — e é onde a heurística por perfil (decisão Q1a) ganha o seu papel. As categorias sem-grupo são pratos mistos/bebidas sem nutriente-base coerente — o edge case da spec ("preparações ficam sem grupo, introcáveis até decisão manual", Q3a). Cobertura esperada ≥ 80% das categorias que mapeiam.
 
-**Alternatives considered**: mapear preparados pra Miscelâneas (rejeitado: esconde o caso em vez de relatá-lo); criar grupo "Preparações" (rejeitado: criar grupo é curadoria do dono, e um grupo de mistos não tem basis coerente).
+**Alternatives considered**: classificar Verduras inteira como um grupo só (rejeitado: misturaria batata com alface — troca sem sentido nutricional); mapear preparados pra um grupo "catch-all" (rejeitado: esconde o caso; sem basis coerente).
 
 ## D5 — Identidade da base ampliada: `food.taco_id` + upsert (Q2d)
 
@@ -52,11 +52,11 @@
 
 ## D7 — Seed não-destrutivo (dependência declarada na spec)
 
-**Decision**: refatorar `seed.ts`: (a) **grupos** = upsert por (nome, sistema) — os **13 canônicos** entram aqui (com basis da tabela D3), os 4 atuais são absorvidos pelos canônicos equivalentes (Carboidratos→Cereais e derivados, Proteínas→Carnes e produtos cárneos, Frutas→Frutas e derivados, Vegetais→Verduras/hortaliças — atualização de nome por upsert mantendo os ids, então `meal_item.substitution_group_id` continua válido); (b) **vínculos curados** = upsert por (food, group) com `origin='manual'`; (c) **fim do `DELETE FROM substitution_group`** — nenhuma execução de seed apaga vínculo de classificação.
+**Decision**: refatorar `seed.ts`: (a) **grupos** = upsert por nome — os **~7 canônicos** entram aqui (basis da tabela D3/data-model), os 4 atuais absorvidos pelos equivalentes por **rename mantendo o id** (Carboidratos→Amidos e cereais, Proteínas→Proteínas, Frutas→Frutas, Vegetais→Vegetais), então `meal_item.substitution_group_id` continua válido; Laticínios/Gorduras e oleaginosas/Açúcares criados vazios; (b) **vínculos curados** = upsert por (food, group) com `origin='manual'`; (c) **fim do `DELETE FROM substitution_group`/`foodSubstitutionGroup`** — nenhuma execução de seed apaga vínculo de classificação. **Bug latente da 007 corrigido aqui**: `clearPlanTables` deleta `patient`; com a migration 0003, `cycle`/`cycle_plan_vigencia` referenciam `patient` → o seed passa a deletá-los antes (senão re-seed após abrir um ciclo viola FK).
 
-**Rationale**: sem isso, FR-008/FR-009/SC-003 são inalcançáveis (o seed apagaria a classificação a cada re-execução). A absorção dos 4 grupos preserva os planos semeados (FKs intactas) e zera a duplicação de taxonomia.
+**Rationale**: sem (c), FR-008/FR-009/SC-003 são inalcançáveis (o seed apagaria a classificação a cada re-execução). A absorção por rename preserva os planos semeados (FKs intactas) e zera duplicação de taxonomia.
 
-**Alternatives considered**: manter seed destrutivo + reclassificar após cada seed (rejeitado: apaga correções manuais — viola FR-008); criar os 13 ao LADO dos 4 (rejeitado: duas taxonomias, itens de plano apontando pra grupos órfãos da antiga).
+**Alternatives considered**: manter seed destrutivo + reclassificar após cada seed (rejeitado: apaga correções manuais — viola FR-008); criar os canônicos ao LADO dos 4 (rejeitado: duas taxonomias, itens de plano apontando pra grupos órfãos).
 
 ## D8 — Execução: script de lote re-executável + relatório (Q2a)
 
