@@ -263,6 +263,24 @@ Dado de saúde desde a Fase 0: controle de acesso, criptografia, consentimento. 
 
 <!-- SPECKIT START -->
 
+Feature **009-sinal-rebalanceamento** (coerência da troca de tipo-de-dia após consumo):
+**implementada e testada** (plan aprovado, gate Plan→Tasks 2026-06-10; desenvolvida no worktree
+`009-sinal-rebalanceamento`, test-first). Duas peças, **core intocado**: (1) badge de registro
+**pareado por posição** sob override — a refeição comida aparece registrada no novo tipo-de-dia
+(reusa o campo `registro` existente: lógica na casca, não muda contrato; `calcularTrocaTipoDia`
+devolve `{ajuste, registroPorPosition}` de uma leitura só do consumo, e o registro pareado vai
+mesmo sem ajuste/`sem-acao`); (2) sinal "ajustado" **por refeição** via campo **aditivo**
+`MealDto.rebalanceado: boolean` no `/today` (troca de tipo-de-dia) + seletor puro `deveSinalizar`
+no app que também cobre a troca de opção (deriva do `swaps` da 005). Render: badge **display-only
+sob override** (D3 — evento vive no mealId de origem) + frase de porquê (sem número, persistente).
+**Sem migration; sem mudança no motor.** Resultado: **core 120 + api e2e 11 (today-daytype) +
+mapper unit 4 + mobile 14 verdes**, `tsc`/lint 0 erros, OpenAPI regenerado. **Achado:** a suíte
+e2e completa do `apps/api` tem **flakiness PRÉ-EXISTENTE** (independente da 009 — reproduz com a
+suíte 009 excluída): `registro.e2e`/`rebalance.e2e` não limpam os `meal_event` do dia do paciente
+semeado no `beforeAll`, então vazam estado entre suítes (ordem não-determinística do vitest). Cada
+suíte passa **isolada**. Fica como dívida de isolamento de teste, fora do escopo da 009.
+Artefatos: `specs/009-sinal-rebalanceamento/` (spec/plan/research D1–D7/data-model/contracts/quickstart/tasks).
+
 Feature ativa mais recente: **006-metrica-adesao** (métrica de adesão a partir do registro,
 só nutri): **implementada e testada** (plan aprovado "planos aprovados", Sessão 2026-06-10).
 Entregue: núcleo novo `packages/core/src/adesao.ts` (`adesaoDoDia` — valor contínuo **saturado

@@ -71,6 +71,11 @@ export interface MealDto {
   readonly registro: { readonly state: RegistrationStatus } | null;
   // Fase 3: é a refeição "o agora" (1ª não-registrada na ordem do plano).
   readonly isCurrent: boolean;
+  // Fase 4 (009): refeição teve grama recalculada pela reconciliação com o
+  // consumo (troca de tipo-de-dia). Aditivo/não-quebrável; default false (sem
+  // override / sem gap / recusa do motor / refeição registrada single-count).
+  // Booleano por design — não vaza kcal/macro/percentual ("ação, não número").
+  readonly rebalanceado: boolean;
 }
 
 export interface DayTypeDto {

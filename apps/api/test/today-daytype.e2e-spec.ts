@@ -208,6 +208,7 @@ describe('GET /patients/:id/today?dayTypeId (US3 — troca de tipo-de-dia)', () 
     defaultOption: OptionDto;
     options: OptionDto[];
     registro: { state: string } | null;
+    rebalanceado: boolean;
   };
   type TodayBody = { dayType: { id: string }; meals: MealDto[] };
   const mealsOf = (body: TodayBody): MealDto[] => body.meals;
@@ -426,6 +427,88 @@ describe('GET /patients/:id/today?dayTypeId (US3 — troca de tipo-de-dia)', () 
         )!;
         expect(got.quantityGrams).toBe(planned.quantityGrams);
       }
+    } finally {
+      await registrar(originalCafeMealId, 'desfazer');
+    }
+  });
+
+  // ── 009 US1 — badge pareado por posição (feito) ───────────────────────────
+  it('009/US1 — feito no café original → café do NOVO tipo vem registrado (feito), no planejado, sem rebalanceado', async () => {
+    try {
+      await registrar(originalCafeMealId, 'feito');
+      const res = await getToday(otherDayTypeId).expect(200);
+
+      const cafeNovo = byPosition(res.body, otherCafePosition);
+      // Badge pareado por posição: o café comido aparece registrado no novo tipo.
+      expect(cafeNovo.registro).toEqual({ state: 'feito' });
+      // É a registrada (single-count): não recebe sinal e segue no planejado.
+      expect(cafeNovo.rebalanceado).toBe(false);
+      for (const planned of otherDefaultItemsByPosition.get(
+        otherCafePosition,
+      )!) {
+        const got = cafeNovo.defaultOption.items.find(
+          (i) => i.id === planned.id,
+        )!;
+        expect(got.quantityGrams).toBe(planned.quantityGrams);
+      }
+    } finally {
+      await registrar(originalCafeMealId, 'desfazer');
+    }
+  });
+
+  it('009/US1 — pulei no café original → café do NOVO tipo vem registrado (pulei)', async () => {
+    try {
+      await registrar(originalCafeMealId, 'pulei');
+      const res = await getToday(otherDayTypeId).expect(200);
+      expect(byPosition(res.body, otherCafePosition).registro).toEqual({
+        state: 'pulei',
+      });
+    } finally {
+      await registrar(originalCafeMealId, 'desfazer');
+    }
+  });
+
+  // ── 009 US2 — flag `rebalanceado` só nas reconciliadas ────────────────────
+  it('009/US2 — após consumo + troca, refeições recalculadas vêm rebalanceado=true; a registrada vem false', async () => {
+    const baseline = (await getToday(otherDayTypeId).expect(200))
+      .body as TodayBody;
+    try {
+      await registrar(originalCafeMealId, 'pulei'); // déficit → restantes aumentam
+      const res = await getToday(otherDayTypeId).expect(200);
+
+      // INV-1: a registrada (café) não sinaliza.
+      expect(byPosition(res.body, otherCafePosition).rebalanceado).toBe(false);
+
+      // INV-2: rebalanceado=true exatamente onde a grama mudou vs baseline.
+      for (const [pos, planItems] of otherDefaultItemsByPosition) {
+        if (pos === otherCafePosition) continue;
+        const meal = byPosition(res.body, pos);
+        const base = byPosition(baseline, pos);
+        const mudou = planItems.some((planned) => {
+          const got = meal.defaultOption.items.find(
+            (i) => i.id === planned.id,
+          )!;
+          const baseGot = base.defaultOption.items.find(
+            (i) => i.id === planned.id,
+          )!;
+          return got.quantityGrams !== baseGot.quantityGrams;
+        });
+        expect(meal.rebalanceado).toBe(mudou);
+      }
+    } finally {
+      await registrar(originalCafeMealId, 'desfazer');
+    }
+  });
+
+  // ── 009 US3 / INV-3 — sem override: nada sinaliza, registro por mealId ─────
+  it('009/US3 — GET /today SEM dayTypeId (tipo padrão): rebalanceado=false em tudo e registro por mealId', async () => {
+    try {
+      await registrar(originalCafeMealId, 'pulei');
+      const res = await getToday().expect(200); // sem override
+
+      for (const m of mealsOf(res.body)) expect(m.rebalanceado).toBe(false);
+      const cafe = mealsOf(res.body).find((m) => m.id === originalCafeMealId)!;
+      expect(cafe.registro).toEqual({ state: 'pulei' });
     } finally {
       await registrar(originalCafeMealId, 'desfazer');
     }

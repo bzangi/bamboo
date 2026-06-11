@@ -134,6 +134,13 @@ export class MealModel {
     description: 'Fase 3: é "o agora" (1ª não-registrada na ordem do plano)',
   })
   isCurrent!: boolean;
+  @ApiProperty({
+    type: Boolean,
+    example: false,
+    description:
+      'Fase 4 (009): refeição teve grama recalculada pela reconciliação com o consumo (troca de tipo-de-dia); aditivo, default false',
+  })
+  rebalanceado!: boolean;
 }
 
 export class DayTypeModel {

@@ -248,12 +248,16 @@ export class PlanService {
     // 7. US3 (Fase 4) — recalcular pelo CONSUMIDO na troca de tipo-de-dia. SÓ
     //    quando há `dayTypeId` (override ativo) E consumo registrado hoje. O tipo
     //    padrão por weekday (sem override) NUNCA auto-ajusta (Q1/FR-013a).
-    const ajuste = dayTypeId
-      ? await this.calcularAjusteTrocaTipoDia(patientId, pln.id, pat, mealRows)
+    // (009) Com override ativo, além do ajuste (alavancas recalculadas) vem o
+    //    registro pareado por POSIÇÃO (o badge da refeição comida segue pro novo
+    //    tipo). Ambos derivam do MESMO consumo do dia (uma leitura).
+    const troca = dayTypeId
+      ? await this.calcularTrocaTipoDia(patientId, pln.id, pat, mealRows)
       : undefined;
 
-    // 8. Monta o DTO puro (gate de exposição + derivação de "o agora" lá; ajuste
-    //    aplicado só aos itens flexíveis da opção default — US3).
+    // 8. Monta o DTO puro (gate de exposição + "o agora" lá; ajuste aplicado só
+    //    aos itens flexíveis da default — US3; registro por posição + flag
+    //    `rebalanceado` — 009).
     return toTodayResponse(
       {
         patientId: pat.id,
@@ -262,7 +266,8 @@ export class PlanService {
         availableDayTypes: dayTypes.map((d) => ({ id: d.id, label: d.name })),
         meals: mealRows,
       },
-      ajuste,
+      troca?.ajuste,
+      troca?.registroPorPosition,
     );
   }
 
@@ -271,7 +276,7 @@ export class PlanService {
   // I/O + orquestra o núcleo puro (previewTrocaTipoDia). Não lança — "nunca
   // barra": qualquer desfecho ≠ rebalanceado devolve undefined (mostra planejado;
   // /today não tem superfície de recusa). Decisões D5/D7, contracts/http-motor.md.
-  private async calcularAjusteTrocaTipoDia(
+  private async calcularTrocaTipoDia(
     patientId: string,
     planId: string,
     pat: {
@@ -280,7 +285,10 @@ export class PlanService {
       readonly nutritionistId: string;
     },
     mealRows: readonly MealRow[],
-  ): Promise<ReadonlyMap<string, number> | undefined> {
+  ): Promise<{
+    readonly ajuste?: ReadonlyMap<string, number>;
+    readonly registroPorPosition?: ReadonlyMap<number, EstadoRegistro>;
+  }> {
     // 1. Parâmetros de adaptação (resolução de 3 níveis: paciente > nutri >
     //    sistema), mesmo padrão do rebalance.service.
     const [nutri] = await this.db
@@ -309,7 +317,14 @@ export class PlanService {
       patientId,
       planId,
     });
-    if (consumoDia.porMeal.size === 0) return undefined;
+    if (consumoDia.porMeal.size === 0) return {};
+
+    // (009/US1) Estado de registro por POSIÇÃO (type-agnostic): o badge da
+    //    refeição comida segue pro slot de mesma posição no novo tipo. Derivado
+    //    sempre que há consumo — independente de o motor produzir ajuste.
+    const registroPorPosition = new Map<number, EstadoRegistro>(
+      [...consumoDia.porMeal.values()].map((c) => [c.position, c.state]),
+    );
 
     // 3. Slots JÁ registrados hoje, por position (type-agnostic). Pareia os slots
     //    entre tipos-de-dia: a refeição já comida entra via `consumido`; sua
@@ -358,15 +373,21 @@ export class PlanService {
       });
 
     // 5. Núcleo puro. Só 'rebalanceado' produz ajuste; qualquer outro desfecho
-    //    (sem-acao / recusa-orientada / entrada-invalida) → undefined (planejado).
+    //    (sem-acao / recusa-orientada / entrada-invalida) → sem ajuste (mostra
+    //    planejado). O registro pareado por posição vai junto nos dois casos —
+    //    o badge da refeição comida aparece mesmo quando não houve recálculo.
     const r = previewTrocaTipoDia({
       consumido: consumoDia.consumido,
       refeicoesRestantesNovoTipo,
       refeicoesDefaultNovoTipo,
       parametros,
     });
-    if (!r.ok || r.value.kind !== 'rebalanceado') return undefined;
+    if (!r.ok || r.value.kind !== 'rebalanceado')
+      return { registroPorPosition };
 
-    return new Map(r.value.alavancas.map((a) => [a.itemId, a.gramasNovo]));
+    return {
+      ajuste: new Map(r.value.alavancas.map((a) => [a.itemId, a.gramasNovo])),
+      registroPorPosition,
+    };
   }
 }

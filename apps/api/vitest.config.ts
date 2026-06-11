@@ -12,7 +12,8 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'node',
-    include: ['test/**/*.e2e-spec.ts'],
+    // e2e (test/, com DB) + unit puros colocados (src/, sem DB) — 009.
+    include: ['test/**/*.e2e-spec.ts', 'src/**/*.unit.test.ts'],
     setupFiles: ['./test/setup-env.ts'],
     // Banco compartilhado entre suites: roda sem paralelismo entre arquivos.
     fileParallelism: false,

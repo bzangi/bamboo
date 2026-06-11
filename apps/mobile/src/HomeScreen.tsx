@@ -47,6 +47,7 @@ import {
   undoSwap,
   type SwapState,
 } from "./swaps";
+import { deveSinalizar } from "./meal-signal";
 
 type ScreenState =
   | { readonly status: "loading" }
@@ -97,6 +98,12 @@ export function HomeScreen() {
   // achatados das trocas ativas. Só display; o desfazer por-item NÃO depende
   // disto (depende de nameOverride = mudança direta no item).
   const qtyOverrides = useMemo(() => flattenAdjustments(swaps), [swaps]);
+  // (009) itemIds ajustados na sessão (troca de opção) → alimenta o seletor do
+  // sinal "ajustado". Conjunto = chaves dos rótulos de quantidade derivados.
+  const adjustedItemIds = useMemo(
+    () => new Set(Object.keys(qtyOverrides)),
+    [qtyOverrides],
+  );
 
   // Sheets abertos.
   const [subItem, setSubItem] = useState<MealItemDto | null>(null);
@@ -360,6 +367,8 @@ export function HomeScreen() {
             registering={registeringMealId === meal.id}
             onRegistrar={handleRegistrar}
             activeOptionId={getActiveOptionId(swaps, meal.id)}
+            overrideActive={dayTypeId !== undefined}
+            sinalAjustado={deveSinalizar(meal, adjustedItemIds)}
             nameOverrides={nameOverrides}
             qtyOverrides={qtyOverrides}
             onChooseOption={(option) => setChoice({ meal, option })}
@@ -420,6 +429,8 @@ function MealCard({
   registering,
   onRegistrar,
   activeOptionId,
+  overrideActive,
+  sinalAjustado,
   nameOverrides,
   qtyOverrides,
   onChooseOption,
@@ -433,6 +444,10 @@ function MealCard({
   readonly registering: boolean;
   readonly onRegistrar: (meal: MealDto, intent: RegistroIntent) => void;
   readonly activeOptionId: string | undefined;
+  // (009) override de tipo-de-dia ativo → badge de registro é display-only (D3).
+  readonly overrideActive: boolean;
+  // (009) exibir o sinal "ajustado" nesta refeição (seletor deveSinalizar).
+  readonly sinalAjustado: boolean;
   readonly nameOverrides: Readonly<Record<string, NameOverride>>;
   readonly qtyOverrides: Readonly<Record<string, string>>;
   readonly onChooseOption: (option: MealOptionDto) => void;
@@ -468,10 +483,19 @@ function MealCard({
               meal.registro.state === "pulei" && styles.registroBadgePulei,
               meal.registro.state === "troquei" && styles.registroBadgeTroquei,
             ]}
-            disabled={registering}
-            onPress={() => onRegistrar(meal, "desfazer")}
-            accessibilityRole="button"
-            accessibilityHint="Toque para desfazer este registro"
+            // (009/D3) Sob override de tipo-de-dia o badge é DISPLAY-ONLY: o
+            // evento vive no mealId do tipo de origem; agir aqui mexeria no
+            // mealId errado. Pra alterar o registro, volte ao tipo de origem.
+            disabled={registering || overrideActive}
+            onPress={
+              overrideActive ? undefined : () => onRegistrar(meal, "desfazer")
+            }
+            accessibilityRole={overrideActive ? "text" : "button"}
+            accessibilityHint={
+              overrideActive
+                ? "Registrado hoje; para alterar, volte ao tipo-de-dia de origem"
+                : "Toque para desfazer este registro"
+            }
           >
             <Text
               style={[
@@ -483,30 +507,47 @@ function MealCard({
               {REGISTRO_LABEL[meal.registro.state]}
             </Text>
           </Pressable>
-          <Pressable
-            disabled={registering}
-            onPress={() => onRegistrar(meal, "desfazer")}
-          >
-            <Text style={styles.actionReset}>↺ desfazer</Text>
-          </Pressable>
-          {meal.registro.state === "pulei" ? (
-            <Pressable
-              disabled={registering}
-              onPress={() => onRegistrar(meal, "feito")}
-            >
-              <Text style={styles.action}>marcar feito ›</Text>
-            </Pressable>
-          ) : meal.registro.state === "feito" ? (
-            <Pressable
-              disabled={registering}
-              onPress={() => onRegistrar(meal, "pulei")}
-            >
-              <Text style={styles.action}>marcar pulei ›</Text>
-            </Pressable>
+          {!overrideActive ? (
+            <>
+              <Pressable
+                disabled={registering}
+                onPress={() => onRegistrar(meal, "desfazer")}
+              >
+                <Text style={styles.actionReset}>↺ desfazer</Text>
+              </Pressable>
+              {meal.registro.state === "pulei" ? (
+                <Pressable
+                  disabled={registering}
+                  onPress={() => onRegistrar(meal, "feito")}
+                >
+                  <Text style={styles.action}>marcar feito ›</Text>
+                </Pressable>
+              ) : meal.registro.state === "feito" ? (
+                <Pressable
+                  disabled={registering}
+                  onPress={() => onRegistrar(meal, "pulei")}
+                >
+                  <Text style={styles.action}>marcar pulei ›</Text>
+                </Pressable>
+              ) : null}
+            </>
           ) : null}
         </View>
       ) : isCurrent ? (
         <Text style={styles.nowBadge}>O agora</Text>
+      ) : null}
+
+      {/* (009) Sinal "ajustado": ação/aviso (frase de porquê, SEM número), só
+          nas refeições reconciliadas. A registrada não sinaliza (deveSinalizar
+          é false nela). Persistente enquanto o ajuste vigora. */}
+      {sinalAjustado ? (
+        <View style={styles.sinalAjustadoRow}>
+          <Text style={styles.sinalAjustadoText}>
+            {meal.rebalanceado
+              ? "↻ Ajustei o resto do dia porque você já comeu"
+              : "↻ Ajustei pra fechar seu dia"}
+          </Text>
+        </View>
       ) : null}
 
       {activeOption.items.map((item) => (
@@ -739,6 +780,17 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
     letterSpacing: 0.5,
   },
+  // (009) Sinal "ajustado": discreto, informativo, sem número. Tom de "ação".
+  sinalAjustadoRow: {
+    alignSelf: "flex-start",
+    backgroundColor: "#fff3e0",
+    borderRadius: 8,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    marginTop: 4,
+    marginBottom: 8,
+  },
+  sinalAjustadoText: { fontSize: 13, color: "#e65100", fontWeight: "600" },
   doneBanner: {
     backgroundColor: "#e8f5e9",
     borderRadius: 12,
