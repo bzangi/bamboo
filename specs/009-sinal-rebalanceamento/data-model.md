@@ -4,10 +4,10 @@
 
 ## Entidades de persistência tocadas
 
-| Entidade | Uso nesta feature | Mudança |
-|----------|-------------------|---------|
-| `meal_event` (+ `meal_event_item`) | Leitura: consumo do dia (estado + posição), via `carregarConsumoDoDia` | nenhuma |
-| `meal` / `meal_option` / `meal_item` | Leitura: cardápio do tipo exibido | nenhuma |
+| Entidade                             | Uso nesta feature                                                      | Mudança |
+| ------------------------------------ | ---------------------------------------------------------------------- | ------- |
+| `meal_event` (+ `meal_event_item`)   | Leitura: consumo do dia (estado + posição), via `carregarConsumoDoDia` | nenhuma |
+| `meal` / `meal_option` / `meal_item` | Leitura: cardápio do tipo exibido                                      | nenhuma |
 
 ## Adição no contrato (DTO de apresentação)
 

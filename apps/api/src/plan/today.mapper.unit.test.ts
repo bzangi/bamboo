@@ -41,7 +41,14 @@ const meal = (
   position: number,
   options: readonly OptionRow[],
   estadoVigente: EstadoRegistro | null = null,
-): MealRow => ({ id, name: id, position, horario: null, options, estadoVigente });
+): MealRow => ({
+  id,
+  name: id,
+  position,
+  horario: null,
+  options,
+  estadoVigente,
+});
 
 const input = (meals: readonly MealRow[]): TodayInput => ({
   patientId: 'p',

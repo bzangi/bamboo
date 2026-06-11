@@ -35,7 +35,7 @@ Sem mudança no `packages/core` (motor intocado). Logica nova vive na casca (`ap
 
 ## Constitution Check
 
-*GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
+_GATE: Must pass before Phase 0 research. Re-check after Phase 1 design._
 
 - [x] **Núcleo puro** (Princípio III): **nenhuma regra de domínio nova** — a matemática do motor (`packages/core`) não muda. A derivação (badge por posição; flag `rebalanceado`) é **mapeamento de apresentação** e vive em funções **puras** no mapper da casca (`apps/api/src/plan/today.mapper.ts`), como já fazem `derivarOAgora`/gate de exposição. Sem I/O, sem `throw`, sem mutação.
 - [x] **Casca fina** (Princípio III): I/O (leitura do consumo) fica em `plan.service`; conversão para DTO via funções puras do mapper; nada de entidade Drizzle crua na resposta.
@@ -90,6 +90,6 @@ apps/mobile/src/
 
 ## Complexity Tracking
 
-| Violation | Why Needed | Simpler Alternative Rejected Because |
-|-----------|------------|--------------------------------------|
+| Violation                                                                               | Why Needed                                                                                                                                                       | Simpler Alternative Rejected Because                                                                                                                                                                                                                                                               |
+| --------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Campo aditivo `rebalanceado` no contrato `GET /today` (a spec original dizia "sem API") | O caminho de troca de tipo-de-dia reconcilia **no servidor**; o `/today` só devolve a grama final, sem o paciente/app conseguir distinguir ajustado de planejado | App refazer a comparação exigiria mandar o registro+plano ao cliente e duplicar o motor (fere "regra no core/servidor", infla o cliente fino); 2ª leitura não existe endpoint que devolva "planejado do novo tipo sem ajuste". Campo aditivo é não-quebrável e mínimo. **Decisão do gate (Q1=A).** |
