@@ -362,9 +362,9 @@ const CURATED: ReadonlyArray<CuratedFood> = [
   },
 ];
 
-// IDs da allow-list usados para filtrar o dataset baixado.
-const ALLOWED_IDS = new Set(CURATED.map((c) => c.tacoId));
-// Mapa tacoId -> metadados curados (nome + medidas) que aplicamos sobre o dataset.
+// Mapa tacoId -> metadados curados (nome curto + medidas caseiras) aplicados
+// sobre o dataset completo: os tacoIds curados preservam nome/medidas; o resto
+// usa a descrição da fonte e fica sem medida (Feature 008).
 const CURATED_BY_ID = new Map(CURATED.map((c) => [c.tacoId, c]));
 
 /* ============================================================
@@ -378,6 +378,7 @@ const DEFAULT_TACO_URL =
 type RawTacoRow = {
   readonly id: number;
   readonly description: string;
+  readonly category: string; // categoria TACO — o sinal da auto-classificação (008)
   readonly energy_kcal: number | string;
   readonly carbohydrate_g: number | string;
   readonly protein_g: number | string;
@@ -404,12 +405,60 @@ function round2(n: number): number {
 
 type FoodToInsert = {
   readonly name: string;
+  readonly tacoId: number | null; // identidade estável da fonte (Feature 008)
+  readonly tacoCategory: string | null; // sinal da auto-classificação (008)
   readonly macros: Macro;
   readonly measures: ReadonlyArray<{
     readonly label: string;
     readonly grams: number;
   }>;
 };
+
+/* ============================================================
+ * Modo DOWNLOADED AMPLIADO (Feature 008): ingere a BASE INTEIRA (não só a
+ * allow-list) — toda linha com os 4 macros completos. Nome curado e medidas
+ * caseiras preservados pros tacoIds da allow-list; demais usam a descrição do
+ * dataset e ficam sem medida (aparecem em gramas — comportamento existente).
+ * ============================================================ */
+
+function buildAllFromDataset(rows: readonly RawTacoRow[]): {
+  foods: FoodToInsert[];
+  skipped: number;
+} {
+  const foods: FoodToInsert[] = [];
+  let skipped = 0;
+
+  for (const row of rows) {
+    const kcal = parseNutrient(row.energy_kcal);
+    const carb = parseNutrient(row.carbohydrate_g);
+    const protein = parseNutrient(row.protein_g);
+    const fat = parseNutrient(row.lipid_g);
+    const fiber = parseNutrient(row.fiber_g);
+
+    // 4 macros principais são NOT NULL no schema (FR-004: não inventamos valor).
+    if (kcal === null || carb === null || protein === null || fat === null) {
+      skipped += 1;
+      continue;
+    }
+
+    const curated = CURATED_BY_ID.get(row.id);
+    foods.push({
+      name: curated?.name ?? row.description,
+      tacoId: row.id,
+      tacoCategory: row.category ?? null,
+      measures: curated?.measures ?? [],
+      macros: {
+        kcalPer100g: round2(kcal),
+        carbPer100g: round2(carb),
+        proteinPer100g: round2(protein),
+        fatPer100g: round2(fat),
+        fiberPer100g: fiber === null ? null : round2(fiber),
+      },
+    });
+  }
+
+  return { foods, skipped };
+}
 
 /* ============================================================
  * Modo DOWNLOADED: lê de TACO_DATA_PATH (local) ou baixa a URL, filtra pela
@@ -446,55 +495,11 @@ async function loadRawDataset(): Promise<RawTacoRow[] | null> {
   }
 }
 
-function buildFromDataset(rows: RawTacoRow[]): {
-  foods: FoodToInsert[];
-  missingIds: number[];
-} {
-  const byId = new Map(rows.map((r) => [r.id, r]));
-  const foods: FoodToInsert[] = [];
-  const missingIds: number[] = [];
-
-  for (const curated of CURATED) {
-    const row = byId.get(curated.tacoId);
-    if (!row) {
-      missingIds.push(curated.tacoId);
-      continue;
-    }
-    const kcal = parseNutrient(row.energy_kcal);
-    const carb = parseNutrient(row.carbohydrate_g);
-    const protein = parseNutrient(row.protein_g);
-    const fat = parseNutrient(row.lipid_g);
-    const fiber = parseNutrient(row.fiber_g);
-
-    // Macros principais são NOT NULL no schema; se faltar algum, pula o item
-    // (não inventamos valor de dado de saúde).
-    if (kcal === null || carb === null || protein === null || fat === null) {
-      console.warn(
-        `[taco] id ${curated.tacoId} ("${row.description}") sem macro principal completo — pulado.`,
-      );
-      missingIds.push(curated.tacoId);
-      continue;
-    }
-
-    foods.push({
-      name: curated.name,
-      measures: curated.measures,
-      macros: {
-        kcalPer100g: round2(kcal),
-        carbPer100g: round2(carb),
-        proteinPer100g: round2(protein),
-        fatPer100g: round2(fat),
-        fiberPer100g: fiber === null ? null : round2(fiber),
-      },
-    });
-  }
-
-  return { foods, missingIds };
-}
-
 function buildFromCurated(): FoodToInsert[] {
   return CURATED.map((c) => ({
     name: c.name,
+    tacoId: c.tacoId,
+    tacoCategory: null, // offline: sem categoria da fonte (vínculos curados são manuais)
     macros: c.macros,
     measures: c.measures,
   }));
@@ -509,21 +514,27 @@ async function persist(foods: ReadonlyArray<FoodToInsert>): Promise<{
   measureCount: number;
 }> {
   return db.transaction(async (tx) => {
-    // Idempotente E FK-safe: upsert por nome. NÃO deletamos `food` — ela pode já
-    // estar referenciada por food_substitution_group / meal_item (se o seed já
-    // rodou). Preservar o id mantém essas FKs válidas; re-ingestar é seguro a
-    // qualquer momento.
+    // Idempotente E FK-safe: upsert por `taco_id` (identidade estável), com
+    // BACKFILL por nome (os curados foram inseridos por nome antes de existir o
+    // taco_id). NÃO deletamos `food` — preservar o id mantém as FKs do seed
+    // (food_substitution_group / meal_item) válidas.
     const existing = await tx
-      .select({ id: food.id, name: food.name })
+      .select({ id: food.id, name: food.name, tacoId: food.tacoId })
       .from(food);
+    const idByTacoId = new Map(
+      existing.filter((r) => r.tacoId !== null).map((r) => [r.tacoId, r.id]),
+    );
     const idByName = new Map(existing.map((r) => [r.name, r.id]));
 
     let foodCount = 0;
     let measureCount = 0;
 
     for (const f of foods) {
-      const macros = {
+      const values = {
+        name: f.name,
         source: "taco" as const,
+        tacoId: f.tacoId,
+        tacoCategory: f.tacoCategory,
         kcalPer100g: f.macros.kcalPer100g,
         carbPer100g: f.macros.carbPer100g,
         proteinPer100g: f.macros.proteinPer100g,
@@ -531,12 +542,14 @@ async function persist(foods: ReadonlyArray<FoodToInsert>): Promise<{
         fiberPer100g: f.macros.fiberPer100g,
       };
 
+      // Match: por taco_id; senão por nome (backfill do taco_id nos curados).
+      const existingId =
+        (f.tacoId !== null ? idByTacoId.get(f.tacoId) : undefined) ??
+        idByName.get(f.name);
+
       let foodId: string;
-      const existingId = idByName.get(f.name);
       if (existingId) {
-        // Atualiza macros mantendo o id (FKs do seed intactas).
-        await tx.update(food).set(macros).where(eq(food.id, existingId));
-        // Medidas caseiras não são referenciadas: substitui sem risco de FK.
+        await tx.update(food).set(values).where(eq(food.id, existingId));
         await tx
           .delete(foodHouseholdMeasure)
           .where(eq(foodHouseholdMeasure.foodId, existingId));
@@ -544,7 +557,7 @@ async function persist(foods: ReadonlyArray<FoodToInsert>): Promise<{
       } else {
         const [inserted] = await tx
           .insert(food)
-          .values({ name: f.name, ...macros })
+          .values(values)
           .returning({ id: food.id });
         if (!inserted) throw new Error(`falha ao inserir food: ${f.name}`);
         foodId = inserted.id;
@@ -577,10 +590,12 @@ async function main(): Promise<void> {
   let mode: "downloaded" | "curated";
 
   if (raw && Array.isArray(raw) && raw.length > 0) {
-    const { foods: built, missingIds } = buildFromDataset(raw);
+    // Feature 008: ingere a BASE INTEIRA (não só a allow-list) por taco_id +
+    // categoria — é o que dá cobertura à auto-classificação.
+    const { foods: built, skipped } = buildAllFromDataset(raw);
     if (built.length === 0) {
       console.warn(
-        "[taco] dataset baixado não cobriu nenhum item da allow-list — usando subconjunto curado.",
+        "[taco] dataset baixado vazio/sem macros completos — usando subconjunto curado.",
       );
       foods = buildFromCurated();
       mode = "curated";
@@ -588,13 +603,8 @@ async function main(): Promise<void> {
       foods = built;
       mode = "downloaded";
       console.log(
-        `[taco] MODO: downloaded — ${built.length}/${CURATED.length} alimentos da allow-list extraídos do dataset (TACO/NEPA-UNICAMP via danperrout/tabelataco).`,
+        `[taco] MODO: downloaded — ${built.length} alimentos da base completa (TACO/NEPA-UNICAMP via danperrout/tabelataco); ${skipped} pulados por macros incompletos.`,
       );
-      if (missingIds.length > 0) {
-        console.warn(
-          `[taco] IDs não encontrados/incompletos no dataset: ${missingIds.join(", ")}`,
-        );
-      }
     }
   } else {
     foods = buildFromCurated();

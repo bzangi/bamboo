@@ -151,6 +151,48 @@ describe('GET /meal-items/:id/substitutions (US2)', () => {
     }
   });
 
+  it('Feature 008 — alimento AUTO-classificado no grupo aparece como substituto', async () => {
+    // Simula a saída da classificação automática: insere um food novo + vínculo
+    // origin='auto' no grupo do item flexível. Deve virar opção de troca, com a
+    // mesma mecânica (gramas recalculadas). Self-contained: cria e limpa.
+    const [novo] = await db
+      .insert(schema.food)
+      .values({
+        name: 'Alimento auto (e2e 008)',
+        source: 'taco',
+        kcalPer100g: 130,
+        carbPer100g: 28,
+        proteinPer100g: 2.5,
+        fatPer100g: 0.3,
+      })
+      .returning({ id: schema.food.id });
+    const [vinc] = await db
+      .insert(schema.foodSubstitutionGroup)
+      .values({
+        foodId: novo.id,
+        groupId: flexGroupId,
+        referencePortionGrams: 105,
+        origin: 'auto',
+      })
+      .returning({ id: schema.foodSubstitutionGroup.id });
+
+    try {
+      const res = await request(app.getHttpServer())
+        .get(`/meal-items/${flexItemId}/substitutions`)
+        .expect(200);
+      const alt = (
+        res.body.alternatives as Array<{ foodId: string; gramas: number }>
+      ).find((a) => a.foodId === novo.id);
+      expect(alt, 'o alimento auto-classificado deve ser uma alternativa').toBeDefined();
+      expect(alt!.gramas).toBeGreaterThan(0);
+    } finally {
+      await db
+        .delete(schema.foodSubstitutionGroup)
+        .where(eq(schema.foodSubstitutionGroup.id, vinc.id));
+      await db.delete(schema.food).where(eq(schema.food.id, novo.id));
+    }
+  });
+
   it('item travado -> 422 (não substituível)', async () => {
     await request(app.getHttpServer())
       .get(`/meal-items/${lockedItemId}/substitutions`)

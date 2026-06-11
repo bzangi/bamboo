@@ -20,7 +20,7 @@
 // (o script também faz `import 'dotenv/config'` como rede de segurança.)
 
 import "dotenv/config";
-import { sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import {
   db,
   pool,
@@ -37,6 +37,9 @@ import {
   mealItem,
   mealEvent,
   mealEventItem,
+  cycle,
+  cyclePlanVigencia,
+  GRUPOS_CANONICOS,
 } from "../src/index.js";
 
 /* ============================================================
@@ -47,9 +50,13 @@ import {
 // Grupos de substituição e os foods associados, com reference_portion_grams
 // (a porção de referência do alimento dentro do grupo — origem do recálculo).
 // Cada grupo tem >=2 foods → garante substitutos reais.
+// Curadoria da fundação (vínculos MANUAIS). Nomes de grupo = canônicos (Feature
+// 008): "Amidos e cereais" agrega os amidos (arroz, batata, mandioca, feijão);
+// "Proteínas" agrega carne/peixe/ovo. A nutri curou-os assim de propósito
+// (amidos trocáveis entre si) — origin='manual' vence a classificação automática.
 const GROUPS = [
   {
-    name: "Carboidratos",
+    name: "Amidos e cereais",
     basis: "carb" as const,
     foods: [
       { name: "Arroz branco cozido", referencePortionGrams: 100 },
@@ -97,7 +104,79 @@ const GROUPS = [
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
+// Garante os ~7 grupos canônicos (Feature 008) por UPSERT não-destrutivo:
+// renomeia o grupo legado (Carboidratos→Amidos e cereais etc.) MANTENDO o id —
+// preserva food_substitution_group e meal_item.substitution_group_id —, ou
+// insere o grupo novo. Devolve nome canônico → id.
+async function ensureGroups(tx: Tx): Promise<Record<string, string>> {
+  const existentes = await tx
+    .select({ id: substitutionGroup.id, name: substitutionGroup.name })
+    .from(substitutionGroup);
+  const idByName = new Map(existentes.map((g) => [g.name, g.id]));
+  const out: Record<string, string> = {};
+
+  for (const def of GRUPOS_CANONICOS) {
+    const jaCanonico = idByName.get(def.nome);
+    if (jaCanonico) {
+      await tx
+        .update(substitutionGroup)
+        .set({ basis: def.basis })
+        .where(eq(substitutionGroup.id, jaCanonico));
+      out[def.nome] = jaCanonico;
+      continue;
+    }
+    const legadoId = def.legado ? idByName.get(def.legado) : undefined;
+    if (legadoId) {
+      await tx
+        .update(substitutionGroup)
+        .set({ name: def.nome, basis: def.basis })
+        .where(eq(substitutionGroup.id, legadoId));
+      out[def.nome] = legadoId;
+      continue;
+    }
+    const [novo] = await tx
+      .insert(substitutionGroup)
+      .values({ name: def.nome, basis: def.basis }) // nutritionistId null = grupo do sistema
+      .returning({ id: substitutionGroup.id });
+    out[def.nome] = novo.id;
+  }
+  return out;
+}
+
+// Upsert de um vínculo alimento↔grupo MANUAL (curadoria da fundação). Idempotente.
+async function upsertManualLink(
+  tx: Tx,
+  foodIdValue: string,
+  groupId: string,
+  referencePortionGrams: number,
+): Promise<void> {
+  const [existente] = await tx
+    .select({ id: foodSubstitutionGroup.id })
+    .from(foodSubstitutionGroup)
+    .where(
+      and(
+        eq(foodSubstitutionGroup.foodId, foodIdValue),
+        eq(foodSubstitutionGroup.groupId, groupId),
+      ),
+    )
+    .limit(1);
+  if (existente) {
+    await tx
+      .update(foodSubstitutionGroup)
+      .set({ referencePortionGrams, origin: "manual" })
+      .where(eq(foodSubstitutionGroup.id, existente.id));
+  } else {
+    await tx
+      .insert(foodSubstitutionGroup)
+      .values({ foodId: foodIdValue, groupId, referencePortionGrams, origin: "manual" });
+  }
+}
+
 async function clearPlanTables(tx: Tx): Promise<void> {
+  // Ciclos (Feature 007) referenciam patient/plan — limpar antes deles (senão
+  // re-seed após abrir um ciclo viola FK).
+  await tx.execute(sql`DELETE FROM ${cyclePlanVigencia}`);
+  await tx.execute(sql`DELETE FROM ${cycle}`);
   await tx.execute(sql`DELETE FROM ${mealEventItem}`);
   await tx.execute(sql`DELETE FROM ${mealEvent}`);
   await tx.execute(sql`DELETE FROM ${mealItem}`);
@@ -106,10 +185,11 @@ async function clearPlanTables(tx: Tx): Promise<void> {
   await tx.execute(sql`DELETE FROM ${daySchedule}`);
   await tx.execute(sql`DELETE FROM ${dayType}`);
   await tx.execute(sql`DELETE FROM ${plan}`);
-  await tx.execute(sql`DELETE FROM ${foodSubstitutionGroup}`);
-  await tx.execute(sql`DELETE FROM ${substitutionGroup}`);
   await tx.execute(sql`DELETE FROM ${patient}`);
   await tx.execute(sql`DELETE FROM ${nutritionist}`);
+  // NÃO deleta substitution_group / food_substitution_group (Feature 008):
+  // preservar grupos e vínculos (auto E manual) torna o re-seed seguro depois
+  // da classificação. Os grupos são (re)garantidos por upsert (ensureGroups).
 }
 
 /* ============================================================
@@ -192,26 +272,27 @@ async function seed(): Promise<SeedResult> {
       })
       .returning({ id: patient.id });
 
-    // -------- grupos de substituição + associação alimento↔grupo --------
-    const groupIdByName: Record<string, string> = {};
+    // -------- grupos de substituição (UPSERT não-destrutivo — Feature 008) --------
+    // Garante os ~7 grupos canônicos: renomeia os 4 legados mantendo o id (FKs
+    // de meal_item intactas), insere os novos vazios. NÃO apaga grupos/vínculos.
+    const groupIdByName = await ensureGroups(tx);
+
+    // Curadoria da fundação: vínculos MANUAIS (upsert por (food, group)).
     let fsgCount = 0;
     for (const g of GROUPS) {
-      const [grp] = await tx
-        .insert(substitutionGroup)
-        .values({ name: g.name, basis: g.basis }) // nutritionistId null = grupo do sistema
-        .returning({ id: substitutionGroup.id });
-      groupIdByName[g.name] = grp.id;
-
-      await tx.insert(foodSubstitutionGroup).values(
-        g.foods.map((f) => ({
-          foodId: foodId(f.name),
-          groupId: grp.id,
-          referencePortionGrams: f.referencePortionGrams,
-        })),
-      );
-      fsgCount += g.foods.length;
+      const groupId = groupIdByName[g.name];
+      if (!groupId) throw new Error(`grupo canônico ausente: ${g.name}`);
+      for (const f of g.foods) {
+        await upsertManualLink(
+          tx,
+          foodId(f.name),
+          groupId,
+          f.referencePortionGrams,
+        );
+        fsgCount += 1;
+      }
     }
-    const carbGroupId = groupIdByName["Carboidratos"];
+    const carbGroupId = groupIdByName["Amidos e cereais"];
     const proteinGroupId = groupIdByName["Proteínas"];
 
     // -------- plano ativo --------
@@ -357,7 +438,7 @@ async function seed(): Promise<SeedResult> {
       // este é o item flexível de referência (grupo com 4 foods)
       flexibleItemId = arrozItemId;
       flexibleFoodName = "Arroz branco cozido";
-      flexibleGroupName = "Carboidratos";
+      flexibleGroupName = "Amidos e cereais";
 
       await insertItem({
         mealOptionId: opt1,
@@ -599,7 +680,7 @@ async function seed(): Promise<SeedResult> {
       counts: {
         nutritionist: 1,
         patient: 1,
-        substitutionGroup: GROUPS.length,
+        substitutionGroup: GRUPOS_CANONICOS.length,
         foodSubstitutionGroup: fsgCount,
         plan: 1,
         dayType: 2,
