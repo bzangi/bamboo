@@ -5,6 +5,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { and, asc, eq, db, pool, schema } from '@bamboo/db';
 import { RebalanceModule } from '../src/rebalance/rebalance.module';
 import { RegistroModule } from '../src/registro/registro.module';
+import { limparEventosDeHoje } from './helpers';
 
 // e2e US1 — POST /patients/:id/rebalance/option-choice (gatilho P1).
 // IDs por query (o seed gera UUIDs novos a cada run; resolve o day_type de hoje).
@@ -36,6 +37,11 @@ describe('POST /patients/:id/rebalance/option-choice (US1)', () => {
         ),
       )
       .limit(1);
+    // (fix flakiness) Entrada da suíte: limpa os eventos de hoje deste
+    // paciente+plano antes dos cenários — protege os casos de "consumo real" de
+    // resíduo de outra suíte/run (idempotente; descreve cenário próprio depois).
+    await limparEventosDeHoje(patientId, pln.id);
+
     const weekday = new Date().getDay();
     const [sched] = await db
       .select({ dayTypeId: schema.daySchedule.dayTypeId })
@@ -197,6 +203,11 @@ describe('POST .../rebalance/option-choice (US1 Fase 4) — não recalcula o reg
         ),
       )
       .limit(1);
+    // (fix flakiness) Entrada da suíte: limpa os eventos de hoje deste
+    // paciente+plano antes dos cenários — protege os casos de "consumo real" de
+    // resíduo de outra suíte/run (idempotente; descreve cenário próprio depois).
+    await limparEventosDeHoje(patientId, pln.id);
+
     const weekday = new Date().getDay();
     const [sched] = await db
       .select({ dayTypeId: schema.daySchedule.dayTypeId })
@@ -383,6 +394,11 @@ describe('POST .../rebalance/option-choice (US2) — total do dia pelo consumo r
       )
       .limit(1);
     planId = pln.id;
+
+    // (fix flakiness) Entrada da suíte: limpa os eventos de hoje deste
+    // paciente+plano antes dos cenários — protege os casos de "consumo real" de
+    // resíduo de outra suíte/run (idempotente; descreve cenário próprio depois).
+    await limparEventosDeHoje(patientId, pln.id);
 
     const weekday = new Date().getDay();
     const [sched] = await db

@@ -5,6 +5,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { and, asc, desc, eq, ne, db, pool, schema } from '@bamboo/db';
 import { RegistroModule } from '../src/registro/registro.module';
 import { PlanModule } from '../src/plan/plan.module';
+import { limparEventosDeHoje } from './helpers';
 
 // e2e US1 (test-first) — POST /patients/:id/registro + reflexo no GET /today.
 // Registrar feito/pulei numa refeição do dia, "o agora" avança, estado vigente
@@ -58,6 +59,12 @@ describe('POST /patients/:id/registro (US1) + reflexo no GET /today', () => {
       .where(eq(schema.meal.dayTypeId, sched.dayTypeId))
       .orderBy(asc(schema.meal.position));
     mealIds = meals.map((m) => m.id);
+
+    // (fix flakiness) Entrada do arquivo: limpa os eventos de hoje UMA vez, pra a
+    // sequência cumulativa US1→US2→US3 começar de um slate limpo. Sem isso, a
+    // suíte deixa eventos no fim e a PRÓXIMA execução (sem re-seed) falha no
+    // "estado inicial". As suítes US2/US3 NÃO limpam (preservam o acumulado).
+    await limparEventosDeHoje(patientId, pln.id);
 
     const moduleRef = await Test.createTestingModule({
       // RegistroModule p/ o POST; PlanModule p/ o GET /today (reflexo do estado).
