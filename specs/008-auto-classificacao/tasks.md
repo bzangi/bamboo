@@ -16,7 +16,7 @@ Monorepo pnpm: núcleo em `packages/core/src/`, schema/migrations/scripts em `pa
 
 **Purpose**: migration 0004 (colunas) + esqueleto dos ~7 grupos canônicos
 
-- [ ] T001 Schema + migration: adicionar `food.taco_id` (integer, **unique**, nullable), `food.taco_category` (text, nullable) e `food_substitution_group.origin` (text, not null, **default `'manual'`**) a `packages/db/src/schema.ts`; gerar `packages/db/migrations/0004_*.sql` via drizzle-kit e aplicar no banco local. Confirmar que os vínculos existentes ficam `origin='manual'` pelo default.
+- [x] T001 Schema + migration: adicionar `food.taco_id` (integer, **unique**, nullable), `food.taco_category` (text, nullable) e `food_substitution_group.origin` (text, not null, **default `'manual'`**) a `packages/db/src/schema.ts`; gerar `packages/db/migrations/0004_*.sql` via drizzle-kit e aplicar no banco local. Confirmar que os vínculos existentes ficam `origin='manual'` pelo default.
 
 ---
 
@@ -24,9 +24,9 @@ Monorepo pnpm: núcleo em `packages/core/src/`, schema/migrations/scripts em `pa
 
 **Purpose**: a regra pura de classificação (core, TDD)
 
-- [ ] T002 **[TDD — escrever e VER FALHAR]** `packages/core/src/classificacao.test.ts` cobrindo `contracts/core-classificacao.md`: dados incompletos → `dados-incompletos`; categoria fora da taxonomia (Bebidas/Miscelâneas/preparados/industrializados/desconhecida) → `categoria-fora-da-taxonomia`; categoria mapeada com basis < 1 g/100 g → `nutriente-base-insuficiente`; porção derivada (âncora ÷ basis/100, arredondada a 5, mín 5) fora de [10,600] → `porcao-implausivel`; **split de Verduras** (carb≥10 → Amidos; <10 → Vegetais via `carbMinPer100g`); vínculo ok com `referencePortionGrams>0`; **fallback sem categoria** (macro dominante + perfil mais próximo); pureza/determinismo; `validarGabarito` (acerto/divergências, sem-grupo = erro)
-- [ ] T003 Implementar `packages/core/src/classificacao.ts` (`classificarAlimento`, `validarGabarito`, tipos `GrupoCanonico`/`GuardasClassificacao`/`Classificacao`) até T002 verde; exportar em `packages/core/src/index.ts`; `pnpm --filter @bamboo/core test` verde (baseline 120 + novos) e `check-types` limpo
-- [ ] T004 Definir o conjunto canônico compartilhado em `packages/db/src/groups.ts` (NOVO): os ~7 grupos (nome, basis, categoriasFonte, carbMinPer100g do Amidos=10, âncora-fallback) + o mapa legado→canônico (Carboidratos→Amidos e cereais, Proteínas→Proteínas, Frutas→Frutas, Vegetais→Vegetais) — fonte única consumida por seed e classify-foods; exportar em `packages/db/src/index.ts`
+- [x] T002 **[TDD — escrever e VER FALHAR]** `packages/core/src/classificacao.test.ts` cobrindo `contracts/core-classificacao.md`: dados incompletos → `dados-incompletos`; categoria fora da taxonomia (Bebidas/Miscelâneas/preparados/industrializados/desconhecida) → `categoria-fora-da-taxonomia`; categoria mapeada com basis < 1 g/100 g → `nutriente-base-insuficiente`; porção derivada (âncora ÷ basis/100, arredondada a 5, mín 5) fora de [10,600] → `porcao-implausivel`; **split de Verduras** (carb≥10 → Amidos; <10 → Vegetais via `carbMinPer100g`); vínculo ok com `referencePortionGrams>0`; **fallback sem categoria** (macro dominante + perfil mais próximo); pureza/determinismo; `validarGabarito` (acerto/divergências, sem-grupo = erro)
+- [x] T003 Implementar `packages/core/src/classificacao.ts` (`classificarAlimento`, `validarGabarito`, tipos `GrupoCanonico`/`GuardasClassificacao`/`Classificacao`) até T002 verde; exportar em `packages/core/src/index.ts`; `pnpm --filter @bamboo/core test` verde (baseline 120 + novos) e `check-types` limpo
+- [x] T004 Definir o conjunto canônico compartilhado em `packages/db/src/groups.ts` (NOVO): os ~7 grupos (nome, basis, categoriasFonte, carbMinPer100g do Amidos=10, âncora-fallback) + o mapa legado→canônico (Carboidratos→Amidos e cereais, Proteínas→Proteínas, Frutas→Frutas, Vegetais→Vegetais) — fonte única consumida por seed e classify-foods; exportar em `packages/db/src/index.ts`
 
 **Checkpoint**: regra testada + taxonomia canônica declarada
 

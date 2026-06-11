@@ -29,6 +29,13 @@
       "when": 1781134006698,
       "tag": "0003_hesitant_sugar_man",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1781136535530,
+      "tag": "0004_special_franklin_richards",
+      "breakpoints": true
     }
   ]
 }

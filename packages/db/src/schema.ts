@@ -89,6 +89,11 @@ export const food = pgTable("food", {
   id: uuid("id").primaryKey().defaultRandom(),
   name: text("name").notNull(),
   source: text("source").default("taco").notNull(),
+  // Identidade estável do alimento na fonte TACO (Feature 008): chave de upsert
+  // da ingestão ampliada. Nullable: foods de outras fontes/sem id não a têm.
+  tacoId: integer("taco_id").unique(),
+  // Categoria da fonte TACO — o SINAL primário da auto-classificação (008).
+  tacoCategory: text("taco_category"),
   // Valores por 100 g (padrão das tabelas de composição).
   kcalPer100g: doublePrecision("kcal_per_100g").notNull(),
   carbPer100g: doublePrecision("carb_per_100g").notNull(),
@@ -130,6 +135,10 @@ export const foodSubstitutionGroup = pgTable("food_substitution_group", {
     .references(() => substitutionGroup.id)
     .notNull(),
   referencePortionGrams: doublePrecision("reference_portion_grams").notNull(),
+  // Origem do vínculo (Feature 008): 'manual' = curadoria/correção humana (vence
+  // sempre, nunca sobrescrita); 'auto' = palpite da classificação. Default
+  // 'manual' → vínculos pré-existentes (curadoria da fundação) ficam manual.
+  origin: text("origin").default("manual").notNull(),
 });
 
 /* ============ plano ============ */
