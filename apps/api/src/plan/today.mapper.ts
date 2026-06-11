@@ -192,9 +192,25 @@ function toMealDto(
   exposure: ExposureLevel,
   currentMealId: string | null,
   ajuste?: ReadonlyMap<string, number>,
+  // Fase 4 (009): com override de tipo-de-dia ativo, o estado de registro é
+  // pareado por POSIÇÃO a partir do consumo do dia (type-agnostic). Ausente
+  // (sem override) → mantém o estado vigente por mealId (comportamento da 004).
+  registroPorPosition?: ReadonlyMap<number, EstadoRegistro>,
 ): MealDto {
   const options = meal.options.map((o) => toOptionDto(o, exposure, ajuste));
   const defaultOption = options.find((o) => o.isDefault) ?? options[0];
+  // (009) registro: por posição sob override; senão, vigente por mealId.
+  const estado = registroPorPosition
+    ? (registroPorPosition.get(meal.position) ?? null)
+    : meal.estadoVigente;
+  // (009) rebalanceado: refeição teve ≥1 item da opção default recalculado pela
+  // reconciliação (item presente no mapa `ajuste`). Booleano por refeição.
+  const rebalanceado =
+    !!ajuste && defaultOption != null
+      ? meal.options.some(
+          (o) => o.isDefault && o.items.some((it) => ajuste.has(it.id)),
+        )
+      : false;
   return {
     id: meal.id,
     name: meal.name,
@@ -203,8 +219,9 @@ function toMealDto(
     options,
     defaultOption,
     otherOptionsCount: options.length - 1,
-    registro: meal.estadoVigente ? { state: meal.estadoVigente } : null,
+    registro: estado ? { state: estado } : null,
     isCurrent: meal.id === currentMealId,
+    rebalanceado,
   };
 }
 
@@ -221,6 +238,9 @@ function toMealDto(
 export function toTodayResponse(
   input: TodayInput,
   ajuste?: ReadonlyMap<string, number>,
+  // Fase 4 (009): estado de registro pareado por posição (só com override
+  // ativo). Ausente → registro por mealId (estadoVigente), comportamento da 004.
+  registroPorPosition?: ReadonlyMap<number, EstadoRegistro>,
 ): TodayResponse {
   // "O agora" derivado: 1ª refeição não-registrada na ordem do plano. Todas
   // registradas → dia-concluido (currentMealId null). Sem eventos no dia, todos
@@ -246,7 +266,7 @@ export function toTodayResponse(
     currentMealId,
     diaConcluido,
     meals: input.meals.map((m) =>
-      toMealDto(m, input.exposure, currentMealId, ajuste),
+      toMealDto(m, input.exposure, currentMealId, ajuste, registroPorPosition),
     ),
   };
 }
