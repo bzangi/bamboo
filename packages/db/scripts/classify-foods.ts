@@ -168,7 +168,8 @@ async function rodarLote(dryRun: boolean): Promise<void> {
     .from(foodSubstitutionGroup);
   const comAlgum = new Set(aposVinculos.map((v) => v.groupId));
   const vazios = grupos.filter((g) => !comAlgum.has(g.id)).map((g) => g.name);
-  if (vazios.length > 0) console.log(`[classify] grupos vazios: ${vazios.join(", ")}`);
+  if (vazios.length > 0)
+    console.log(`[classify] grupos vazios: ${vazios.join(", ")}`);
 
   // Cobertura = classificados ÷ (classificados + sem-grupo elegíveis por
   // categoria). Reportamos sobre a base sem-vínculo com dados completos.

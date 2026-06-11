@@ -175,8 +175,7 @@ export function validarGabarito(
     .filter((d): d is NonNullable<typeof d> => d !== null);
 
   const acertos = casos.length - divergencias.length;
-  const acertoPct =
-    casos.length === 0 ? 100 : (acertos / casos.length) * 100;
+  const acertoPct = casos.length === 0 ? 100 : (acertos / casos.length) * 100;
 
   return { total: casos.length, acertos, acertoPct, divergencias };
 }

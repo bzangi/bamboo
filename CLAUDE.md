@@ -291,14 +291,27 @@ aberto, transacional (sem ciclo aberto, troca sem vigência). **Zero mudança no
 paciente** (snapshot do `/today` idêntico — SC-003). Resultado: **core 120 + e2e 95 verdes**.
 Artefatos: `specs/007-ciclo-de-acompanhamento/` (spec/plan/tasks/research D1–D8/data-model/
 contracts/quickstart). Com 006+007 prontas, o **relatório de ciclo** (a feature que vende)
-está destravado. `008-auto-classificacao` — spec **fechada** e **plan rascunhado** em
-`specs/008-auto-classificacao/plan.md` (+ research D1–D9, data-model com a **migration 0004**
-`food.taco_id`/`food.taco_category`/`fsg.origin` + a tabela dos 13 grupos canônicos com
-nutriente-base e âncoras, contracts core/cli, quickstart). Achado: o dataset TACO traz a
-**categoria** de cada alimento (597 itens, 15 categorias) — sinal primário da classificação;
-heurística por perfil vira guarda + fallback. **Aguardando aval Plan→Tasks** (4 pontos: tabela
-de basis incl. Leguminosas→carb?; categoria-como-sinal; preparados/industrializados sem grupo;
-guardas [10–600 g, ≥1 g/100 g]). Com 006+007 prontas, o **relatório de ciclo** está destravado.
+está destravado.
+
+Também concluída: **008-auto-classificacao** (auto-classificação de alimentos em grupos):
+**implementada e testada** (plan aprovado "manda ver" + opção 3 do gate de granularidade).
+Achado que moldou o design: o dataset TACO traz a **categoria** de cada alimento (597 itens) —
+sinal primário da classificação; a heurística por perfil vira guarda + fallback. Grupos por
+**macro-base separando amido/fruta/vegetal** (~7: Amidos e cereais/Frutas/Vegetais/Proteínas/
+Laticínios/Gorduras e oleaginosas/Açúcares) — não as 13 categorias TACO (narrariam a
+substituição; arroz↔batata↔feijão seguem trocáveis). Entregue: **migration 0004**
+(`food.taco_id` unique + `food.taco_category` + `fsg.origin` manual/auto); núcleo novo
+`packages/core/src/classificacao.ts` (`classificarAlimento` categoria→grupo + split de Verduras
+por `carbMin` + guardas basis≥1/porção[10–600] + fallback por base; `validarGabarito`; 18 testes);
+`packages/db/src/groups.ts` (taxonomia canônica compartilhada); **ingest-taco ampliado** (base
+completa, 582 foods, por taco*id + categoria); **seed não-destrutivo** (para de deletar grupos/
+vínculos, deleta cycle antes de patient, upsert dos ~7 grupos por rename, vínculos curados
+`origin='manual'`); `classify-foods.ts` (lote, relatório de cobertura, `--dry-run`,
+`--validar-gabarito` exit≠0 se <90% — gatilho de reversão SC-002). Resultado: **cobertura 89,4%**
+(506/566), **gabarito 16/16 = 100%**, idempotente; **core 138 + e2e 96 verdes**; mecânica de
+substituição intacta (≤2%). `@bamboo/core` virou dep de `@bamboo/db` (acíclico). Artefatos:
+`specs/008-auto-classificacao/`. \_Nota: 1 falha não-reproduzível observada no rebalance SC-004
+durante a execução (passou em 4 runs limpos subsequentes + isolado; rebalance não foi tocado pela 008) — vigiar se reaparecer.*
 
 Feature **005-desfazer-vs-rebalanceamento** (mobile-only): **implementada; reducer testado;
 mergeada na main (`5826d1d`); smoke manual da UI pendente**. Bug: o "↺ desfazer" por-item aparecia em itens rebalanceados de

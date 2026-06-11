@@ -116,6 +116,7 @@ Detalhamento do paradigma com exemplos canônicos em `CLAUDE.md`; invariantes go
 - **Plano:** `plan` (direto no paciente no v0), `day_type`, `day_schedule` (weekday→tipo-de-dia), `meal` (+ `horario` informativo), `meal_option` (itens penduram aqui — suporta os "3 almoços"), `meal_item` (`is_locked` + `substitution_group_id` = a marcação de flexibilidade).
 - **Fase 3 (registro):** `meal_event` + `meal_event_item` (append-only, `state` enum NULLABLE = anulação) — migration `0002_clear_cammi.sql`.
 - **Feature 007 (ciclo):** `cycle` + `cycle_plan_vigencia` — migration `0003_hesitant_sugar_man.sql` (índice único parcial: 1 ciclo ativo/paciente).
+- **Feature 008 (auto-classificação):** `food.taco_id` (unique) + `food.taco_category` + `food_substitution_group.origin` (manual/auto) — migration `0004_special_franklin_richards.sql`. Base TACO ampliada (~582 foods) + ~7 grupos canônicos por macro-base.
 - **Adiado (não existe ainda):** `day_selection`, `cycle_report` (adesão é **derivada**, sem tabela — Feature 006), índices/constraints de performance.
 
 ---
@@ -132,8 +133,8 @@ Detalhamento do paradigma com exemplos canônicos em `CLAUDE.md`; invariantes go
 
 **Pendente de verdade (a partir daqui):**
 
-- **Gate de 2026-06-10 (respondido pelo dono):** `006-metrica-adesao` **implementada e testada** (via da nutri `GET /nutri/...` com `NUTRI_API_KEY` fail-closed; sem migration) e `007-ciclo-de-acompanhamento` **implementada e testada** (migration **0003**: `cycle` + `cycle_plan_vigencia`; vigência observada via `POST /nutri/.../active-plan`). Baselines: **core 120 + e2e 95**. `008-auto-classificacao` com **spec fechada** (zero marcadores), aguardando plan.
-- **Fase 3 (resto):** ~~ciclo~~ **ciclo entregue** (`007`), ~~adesão~~ **adesão entregue** (`006`), **relatório de ciclo** (a feature que vende — **destravado**: 006+007 prontas), auto-classificação (spec `008` fechada), **UI da nutri (web)** — não iniciada.
+- **Gate de 2026-06-10 (respondido pelo dono):** `006-metrica-adesao`, `007-ciclo-de-acompanhamento` e `008-auto-classificacao` **implementadas e testadas**. 006: via da nutri `GET /nutri/...` (`NUTRI_API_KEY` fail-closed; sem migration). 007: migration **0003** (`cycle` + `cycle_plan_vigencia`; vigência observada via `POST /nutri/.../active-plan`). 008: migration **0004** (`food.taco_id`/`taco_category`/`fsg.origin`); ingest ampliado (582 foods); ~7 grupos por macro-base; `classify-foods` (cobertura 89,4%, gabarito 16/16). Baselines: **core 138 + e2e 96**.
+- **Fase 3 (resto):** ~~ciclo~~ **entregue** (`007`), ~~adesão~~ **entregue** (`006`), ~~auto-classificação~~ **entregue** (`008`), **relatório de ciclo** (a feature que vende — **destravado**: 006+007 prontas), **UI da nutri (web)** — não iniciada.
 - **Fase 4 (resto):** import de plano por IA (PDF→estruturado), offline robusto, notificações, comida fora da lista — não iniciados.
 - **Fase 5+:** billing, Pix/Stripe, deploy/infra.
 - **Endurecer LGPD/auth:** sair do gate de exposição + `FR-016` para controle de acesso, criptografia e consentimento reais; substituir o auth stub.

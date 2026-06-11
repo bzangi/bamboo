@@ -183,7 +183,10 @@ describe('GET /meal-items/:id/substitutions (US2)', () => {
       const alt = (
         res.body.alternatives as Array<{ foodId: string; gramas: number }>
       ).find((a) => a.foodId === novo.id);
-      expect(alt, 'o alimento auto-classificado deve ser uma alternativa').toBeDefined();
+      expect(
+        alt,
+        'o alimento auto-classificado deve ser uma alternativa',
+      ).toBeDefined();
       expect(alt!.gramas).toBeGreaterThan(0);
     } finally {
       await db

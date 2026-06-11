@@ -168,7 +168,12 @@ async function upsertManualLink(
   } else {
     await tx
       .insert(foodSubstitutionGroup)
-      .values({ foodId: foodIdValue, groupId, referencePortionGrams, origin: "manual" });
+      .values({
+        foodId: foodIdValue,
+        groupId,
+        referencePortionGrams,
+        origin: "manual",
+      });
   }
 }
 

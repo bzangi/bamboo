@@ -53,8 +53,8 @@ Monorepo pnpm: núcleo em `packages/core/src/`, schema/migrations/scripts em `pa
 
 **Independent Test**: mover um alimento auto pra outro grupo marcando `manual`; re-rodar classify; vínculo intacto
 
-- [ ] T009 [US2] **[TDD — escrever e VER FALHAR]** Teste de integração do script em `packages/db/scripts/classify-foods.test.ts` (Vitest com banco; seed antes) — ou caso no e2e: re-execução sobre base inalterada → 0 mudanças (idempotência, FR-010); vínculo `manual` movido → preservado após re-classificar (FR-008); só alimentos sem-vínculo são classificados (FR-011)
-- [ ] T010 [US2] Garantir no `classify-foods.ts` o filtro "só sem-vínculo" e o respeito a `origin='manual'` (idempotência/preservação) até T009 verde; `--validar-gabarito` implementado (classifica às cegas os `manual`, compara via `validarGabarito` do core, imprime acerto + divergências, **exit 1 se < 90%**)
+- [x] T009 [US2] **[TDD — escrever e VER FALHAR]** Teste de integração do script em `packages/db/scripts/classify-foods.test.ts` (Vitest com banco; seed antes) — ou caso no e2e: re-execução sobre base inalterada → 0 mudanças (idempotência, FR-010); vínculo `manual` movido → preservado após re-classificar (FR-008); só alimentos sem-vínculo são classificados (FR-011)
+- [x] T010 [US2] Garantir no `classify-foods.ts` o filtro "só sem-vínculo" e o respeito a `origin='manual'` (idempotência/preservação) até T009 verde; `--validar-gabarito` implementado (classifica às cegas os `manual`, compara via `validarGabarito` do core, imprime acerto + divergências, **exit 1 se < 90%**)
 
 **Checkpoint**: classificação clinicamente segura (humano dispõe)
 
@@ -66,7 +66,7 @@ Monorepo pnpm: núcleo em `packages/core/src/`, schema/migrations/scripts em `pa
 
 **Independent Test**: rodar 2×; adicionar alimento novo; re-rodar; só o novo classificado; relatório reflete o estado
 
-- [ ] T011 [US3] Fechar o relatório de cobertura (FR-012/SC-001): garantir que classificados + sem-grupo-com-motivo = 100% dos com-dados-completos; grupos vazios listados; rodar `--validar-gabarito` real contra o seed e **confirmar ≥ 90%** (esperado ~100% pelo alinhamento amido/proteína/fruta/vegetal); registrar o número obtido
+- [x] T011 [US3] Fechar o relatório de cobertura (FR-012/SC-001): garantir que classificados + sem-grupo-com-motivo = 100% dos com-dados-completos; grupos vazios listados; rodar `--validar-gabarito` real contra o seed e **confirmar ≥ 90%** (esperado ~100% pelo alinhamento amido/proteína/fruta/vegetal); registrar o número obtido
 
 **Checkpoint**: fundação de cobertura + gatilho de reversão verificados
 
@@ -74,9 +74,9 @@ Monorepo pnpm: núcleo em `packages/core/src/`, schema/migrations/scripts em `pa
 
 ## Phase 6: Polish & Cross-Cutting
 
-- [ ] T012 Validação manual do `quickstart.md` (migrate 0004 → ingest ampliado → seed → classify → --validar-gabarito); conferir os invariantes (idempotência, manual vence, re-seed seguro, mais opções no /substitutions)
-- [ ] T013 Atualizar `CLAUDE.md` (bloco SPECKIT — 008 implementada) + `docs/estado-atual.md` (migration 0004; base ampliada; ~7 grupos; cobertura/gabarito obtidos; `food.source`/`taco_id` no modelo)
-- [ ] T014 Done-gate: `pnpm --filter @bamboo/core test` (120+novos) · `pnpm --filter api test:e2e` (95+caso novo, seed antes) · `pnpm --filter api build` · `pnpm --filter @bamboo/db build` · `pnpm lint` · `pnpm format` — tudo verde; commits na main por fase (Setup/Foundational → US1 → US2 → US3 → polish) + push
+- [x] T012 Validação manual do `quickstart.md` (migrate 0004 → ingest ampliado → seed → classify → --validar-gabarito); conferir os invariantes (idempotência, manual vence, re-seed seguro, mais opções no /substitutions)
+- [x] T013 Atualizar `CLAUDE.md` (bloco SPECKIT — 008 implementada) + `docs/estado-atual.md` (migration 0004; base ampliada; ~7 grupos; cobertura/gabarito obtidos; `food.source`/`taco_id` no modelo)
+- [x] T014 Done-gate: `pnpm --filter @bamboo/core test` (120+novos) · `pnpm --filter api test:e2e` (95+caso novo, seed antes) · `pnpm --filter api build` · `pnpm --filter @bamboo/db build` · `pnpm lint` · `pnpm format` — tudo verde; commits na main por fase (Setup/Foundational → US1 → US2 → US3 → polish) + push
 
 ---
 

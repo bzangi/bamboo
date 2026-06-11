@@ -81,13 +81,23 @@ const macros = (
   protein: number | null,
   fat: number | null,
   kcal: number | null = 100,
-) => ({ carbPer100g: carb, proteinPer100g: protein, fatPer100g: fat, kcalPer100g: kcal });
+) => ({
+  carbPer100g: carb,
+  proteinPer100g: protein,
+  fatPer100g: fat,
+  kcalPer100g: kcal,
+});
 
 const classificar = (
   tacoCategory: string | null,
   m: ReturnType<typeof macros>,
 ): Classificacao =>
-  classificarAlimento({ tacoCategory, macros: m, grupos: GRUPOS, guardas: GUARDAS });
+  classificarAlimento({
+    tacoCategory,
+    macros: m,
+    grupos: GRUPOS,
+    guardas: GUARDAS,
+  });
 
 describe("classificarAlimento — dados e categoria", () => {
   it("macro ausente → sem-grupo dados-incompletos (nunca inventa valor)", () => {
@@ -125,44 +135,68 @@ describe("classificarAlimento — mapeamento categoria → grupo", () => {
   });
 
   it("feijão (Leguminosas) → Amidos (basis carb)", () => {
-    const r = classificar("Leguminosas e derivados", macros(13.6, 4.8, 0.5, 91));
+    const r = classificar(
+      "Leguminosas e derivados",
+      macros(13.6, 4.8, 0.5, 91),
+    );
     expect(r.kind === "vinculo" && r.grupoId).toBe("amidos");
   });
 
   it("carne, peixe e ovo (categorias distintas) → todos Proteínas", () => {
     expect(
-      (classificar("Carnes e derivados", macros(0, 30, 5, 180)) as { grupoId: string })
-        .grupoId,
+      (
+        classificar("Carnes e derivados", macros(0, 30, 5, 180)) as {
+          grupoId: string;
+        }
+      ).grupoId,
     ).toBe("proteinas");
     expect(
-      (classificar("Pescados e frutos do mar", macros(0, 25, 3, 130)) as { grupoId: string })
-        .grupoId,
+      (
+        classificar("Pescados e frutos do mar", macros(0, 25, 3, 130)) as {
+          grupoId: string;
+        }
+      ).grupoId,
     ).toBe("proteinas");
     expect(
-      (classificar("Ovos e derivados", macros(1, 13, 11, 150)) as { grupoId: string })
-        .grupoId,
+      (
+        classificar("Ovos e derivados", macros(1, 13, 11, 150)) as {
+          grupoId: string;
+        }
+      ).grupoId,
     ).toBe("proteinas");
   });
 
   it("leite → Laticínios; azeite/castanha → Gorduras e oleaginosas", () => {
     expect(
-      (classificar("Leite e derivados", macros(5, 3.3, 3, 60)) as { grupoId: string })
-        .grupoId,
+      (
+        classificar("Leite e derivados", macros(5, 3.3, 3, 60)) as {
+          grupoId: string;
+        }
+      ).grupoId,
     ).toBe("laticinios");
     expect(
-      (classificar("Gorduras e óleos", macros(0, 0, 100, 884)) as { grupoId: string })
-        .grupoId,
+      (
+        classificar("Gorduras e óleos", macros(0, 0, 100, 884)) as {
+          grupoId: string;
+        }
+      ).grupoId,
     ).toBe("gorduras");
     expect(
-      (classificar("Nozes e sementes", macros(12, 14, 50, 600)) as { grupoId: string })
-        .grupoId,
+      (
+        classificar("Nozes e sementes", macros(12, 14, 50, 600)) as {
+          grupoId: string;
+        }
+      ).grupoId,
     ).toBe("gorduras");
   });
 
   it("açúcar (Produtos açucarados) → Açúcares", () => {
     expect(
-      (classificar("Produtos açucarados", macros(99, 0, 0, 387)) as { grupoId: string })
-        .grupoId,
+      (
+        classificar("Produtos açucarados", macros(99, 0, 0, 387)) as {
+          grupoId: string;
+        }
+      ).grupoId,
     ).toBe("acucares");
   });
 });
@@ -293,7 +327,10 @@ describe("validarGabarito (SC-002)", () => {
       {
         foodId: "f3",
         grupoCuradoId: "frutas",
-        classificacao: { kind: "sem-grupo" as const, motivo: "porcao-implausivel" as const },
+        classificacao: {
+          kind: "sem-grupo" as const,
+          motivo: "porcao-implausivel" as const,
+        },
       },
     ];
     const r = validarGabarito(casos);
