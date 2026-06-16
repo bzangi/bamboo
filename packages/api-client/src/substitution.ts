@@ -1,5 +1,6 @@
 // Client tipado do endpoint GET /meal-items/:id/substitutions.
 import type { SubstitutionsResponse } from "@bamboo/types";
+import { requestJson } from "./http.js";
 
 /**
  * Lista as alternativas de troca de um item flexível (já com gramas + medida caseira).
@@ -10,11 +11,8 @@ export async function getSubstitutions(
   baseUrl: string,
   mealItemId: string,
 ): Promise<SubstitutionsResponse> {
-  const res = await fetch(
+  return requestJson<SubstitutionsResponse>(
     `${baseUrl}/meal-items/${encodeURIComponent(mealItemId)}/substitutions`,
+    { label: "getSubstitutions" },
   );
-  if (!res.ok) {
-    throw new Error(`getSubstitutions failed: ${res.status} ${res.statusText}`);
-  }
-  return (await res.json()) as SubstitutionsResponse;
 }

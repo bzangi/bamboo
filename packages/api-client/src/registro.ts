@@ -1,6 +1,7 @@
 // Client tipado do endpoint POST /patients/:id/registro (US1/US2/US3 —
 // registrar / corrigir / desfazer o estado de uma refeição num dia).
 import type { RegistroRequest, RegistroResponse } from "@bamboo/types";
+import { requestJson } from "./http.js";
 
 /**
  * Registra (feito/pulei), corrige ou desfaz o estado de uma refeição no dia.
@@ -16,16 +17,13 @@ export async function postRegistro(
   patientId: string,
   body: RegistroRequest,
 ): Promise<RegistroResponse> {
-  const res = await fetch(
+  return requestJson<RegistroResponse>(
     `${baseUrl}/patients/${encodeURIComponent(patientId)}/registro`,
     {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify(body),
+      label: "postRegistro",
     },
   );
-  if (!res.ok) {
-    throw new Error(`postRegistro failed: ${res.status} ${res.statusText}`);
-  }
-  return (await res.json()) as RegistroResponse;
 }

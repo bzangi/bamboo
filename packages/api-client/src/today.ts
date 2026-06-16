@@ -1,5 +1,6 @@
 // Client tipado do endpoint GET /patients/:id/today.
 import type { TodayResponse } from "@bamboo/types";
+import { requestJson } from "./http.js";
 
 /**
  * Busca o plano do dia ("o agora") de um paciente.
@@ -14,11 +15,8 @@ export async function getToday(
   dayTypeId?: string,
 ): Promise<TodayResponse> {
   const qs = dayTypeId ? `?dayTypeId=${encodeURIComponent(dayTypeId)}` : "";
-  const res = await fetch(
+  return requestJson<TodayResponse>(
     `${baseUrl}/patients/${encodeURIComponent(patientId)}/today${qs}`,
+    { label: "getToday" },
   );
-  if (!res.ok) {
-    throw new Error(`getToday failed: ${res.status} ${res.statusText}`);
-  }
-  return (await res.json()) as TodayResponse;
 }

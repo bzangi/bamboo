@@ -1,5 +1,6 @@
 // Client tipado do endpoint POST /patients/:id/rebalance/option-choice (US1).
 import type { OptionChoiceRequest, OptionChoiceResponse } from "@bamboo/types";
+import { requestJson } from "./http.js";
 
 /**
  * Pede a prévia do rebalanceamento ao escolher uma opção desigual (gatilho P1).
@@ -10,16 +11,13 @@ export async function postOptionChoice(
   patientId: string,
   body: OptionChoiceRequest,
 ): Promise<OptionChoiceResponse> {
-  const res = await fetch(
+  return requestJson<OptionChoiceResponse>(
     `${baseUrl}/patients/${encodeURIComponent(patientId)}/rebalance/option-choice`,
     {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify(body),
+      label: "postOptionChoice",
     },
   );
-  if (!res.ok) {
-    throw new Error(`postOptionChoice failed: ${res.status} ${res.statusText}`);
-  }
-  return (await res.json()) as OptionChoiceResponse;
 }
