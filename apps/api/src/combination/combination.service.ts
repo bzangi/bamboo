@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Inject,
   Injectable,
+  Logger,
   NotFoundException,
   UnprocessableEntityException,
 } from '@nestjs/common';
@@ -45,12 +46,15 @@ const foodRowOf = (f: GroupFood): FoodRow => ({
 // -> HttpException na borda. Não persiste (FR-026).
 @Injectable()
 export class CombinationService {
+  private readonly logger = new Logger(CombinationService.name);
+
   constructor(@Inject(DB) private readonly db: Db) {}
 
   async combine(
     mealItemId: string,
     body: CombineRequest,
   ): Promise<CombineResponse> {
+    this.logger.log(`combine item=${mealItemId}`);
     // 1. Validação estrutural do corpo.
     const ids = body?.alvoFoodIds ?? [];
     if (
@@ -198,6 +202,8 @@ export class CombinationService {
         )
         .exhaustive();
     }
+
+    this.logger.debug('combinação calculada');
 
     // 7. DTO (gate de exposição no mapper).
     return toCombineResponse({

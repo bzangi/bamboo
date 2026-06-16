@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Inject,
   Injectable,
+  Logger,
   NotFoundException,
   UnprocessableEntityException,
 } from '@nestjs/common';
@@ -36,12 +37,17 @@ const INTENTS = ['feito', 'pulei', 'desfazer'] as const;
 // payload), gravando chosen_meal_option_id + meal_event_item na mesma transação.
 @Injectable()
 export class RegistroService {
+  private readonly logger = new Logger(RegistroService.name);
+
   constructor(@Inject(DB) private readonly db: Db) {}
 
   async registrar(
     patientId: string,
     body: RegistroRequest,
   ): Promise<RegistroResponse> {
+    this.logger.log(
+      `registrar patient=${patientId} meal=${body?.mealId} intent=${body?.intent}`,
+    );
     // 1. Validação estrutural do corpo (sem class-validator: checagem na borda).
     if (!UUID_RE.test(body?.mealId ?? '')) {
       throw new BadRequestException('mealId deve ser UUID');
@@ -189,6 +195,9 @@ export class RegistroService {
         state: e.state,
       }));
       const vigente = estadoVigente(eventos);
+      this.logger.debug(
+        `plano=${pln.id} dayType=${dayTypeId} vigente=${vigente ?? 'nenhum'}`,
+      );
 
       // 7. Resolução de adequação NO BANCO (deriva troquei, FR-003). Só em
       //    intent="feito" com sinais de adequação: opção não-default OU items.
@@ -326,6 +335,9 @@ export class RegistroService {
 
       // 9. Idempotência alvo-vs-vigente (núcleo). no-op → não insere.
       const decisao = decidirRegistro({ vigente, alvo });
+      this.logger.debug(
+        `decisão=${decisao.kind}${decisao.kind === 'inserir' ? ` state=${decisao.state}` : ' (no-op idempotente)'}`,
+      );
       if (decisao.kind === 'inserir') {
         // chosen_meal_option_id: a opção cumprida (snapshot auto-contido),
         //   gravada em feito E troquei; NULL em pulei/desfazer.

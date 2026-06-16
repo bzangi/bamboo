@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Inject,
   Injectable,
+  Logger,
   NotFoundException,
   UnprocessableEntityException,
 } from '@nestjs/common';
@@ -55,12 +56,17 @@ interface LoadedMeal {
 // Não persiste nada (FR-026). recusa-orientada vira 200 (D4 — "nunca barra").
 @Injectable()
 export class RebalanceService {
+  private readonly logger = new Logger(RebalanceService.name);
+
   constructor(@Inject(DB) private readonly db: Db) {}
 
   async optionChoice(
     patientId: string,
     body: OptionChoiceRequest,
   ): Promise<OptionChoiceResponse> {
+    this.logger.log(
+      `optionChoice patient=${patientId} trigger=${body?.triggerMealId} chosen=${body?.chosenOptionId}`,
+    );
     // Validação estrutural do corpo (sem class-validator: checagem na borda).
     if (
       !UUID_RE.test(body?.triggerMealId ?? '') ||
@@ -261,6 +267,9 @@ export class RebalanceService {
       patientId,
       planId: pln.id,
     });
+    this.logger.debug(
+      `consumo do dia: ${porMeal.size} refeição(ões) registrada(s) sai(em) das alavancas`,
+    );
 
     const diaComEscolha: RefeicaoDia[] = meals.map((m) => {
       // gatilho → opção escolhida (não registrada, é alavanca-fixada pela escolha).
@@ -318,6 +327,7 @@ export class RebalanceService {
     });
 
     if (!resultado.ok) {
+      this.logger.warn(`preview recusado pelo motor: ${resultado.error.kind}`);
       throw match(resultado.error)
         .with(
           { kind: 'entrada-invalida' },

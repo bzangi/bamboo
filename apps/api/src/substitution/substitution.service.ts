@@ -1,6 +1,7 @@
 import {
   Inject,
   Injectable,
+  Logger,
   NotFoundException,
   UnprocessableEntityException,
 } from '@nestjs/common';
@@ -21,9 +22,12 @@ import {
 // converte erro de domínio -> HttpException na borda via ts-pattern (.exhaustive).
 @Injectable()
 export class SubstitutionService {
+  private readonly logger = new Logger(SubstitutionService.name);
+
   constructor(@Inject(DB) private readonly db: Db) {}
 
   async getSubstitutions(mealItemId: string): Promise<SubstitutionsResponse> {
+    this.logger.log(`getSubstitutions item=${mealItemId}`);
     // 1. meal_item + food atual.
     const [item] = await this.db
       .select({
@@ -155,6 +159,10 @@ export class SubstitutionService {
         }),
       );
     }
+
+    this.logger.debug(
+      `${alternatives.length} alternativa(s) no grupo "${group.name}"`,
+    );
 
     // 7. Lista vazia é 200 (FR-014). Monta DTO puro.
     return toSubstitutionsResponse({

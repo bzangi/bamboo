@@ -1,4 +1,4 @@
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { and, asc, eq, inArray, schema } from '@bamboo/db';
 import {
   PARAMETROS_SISTEMA,
@@ -19,12 +19,17 @@ import { toTodayResponse, type MealRow, type OptionRow } from './today.mapper';
 // ausências em HttpException na borda. Sem estado mutável (singleton do Nest).
 @Injectable()
 export class PlanService {
+  private readonly logger = new Logger(PlanService.name);
+
   constructor(@Inject(DB) private readonly db: Db) {}
 
   async getToday(
     patientId: string,
     dayTypeId?: string,
   ): Promise<TodayResponse> {
+    this.logger.log(
+      `getToday patient=${patientId}${dayTypeId ? ` override=${dayTypeId}` : ''}`,
+    );
     // 1. Paciente (exposure + config de adaptação nível 1, p/ a troca de
     //    tipo-de-dia recalcular pelo consumido — US3).
     const [pat] = await this.db
@@ -112,6 +117,9 @@ export class PlanService {
       .orderBy(asc(schema.meal.position));
     if (meals.length === 0)
       throw new NotFoundException('sem refeições para o dia corrente');
+    this.logger.debug(
+      `dia resolvido: dayType=${resolved.dayTypeId} (${resolved.dayTypeName}), ${meals.length} refeição(ões)`,
+    );
 
     // Fase 3: estado vigente do registro de cada refeição HOJE. Carrega TODOS os
     // eventos do dia (paciente, plano, logged_date de hoje, mealId IN ids) numa
@@ -254,6 +262,11 @@ export class PlanService {
     const troca = dayTypeId
       ? await this.calcularTrocaTipoDia(patientId, pln.id, pat, mealRows)
       : undefined;
+    if (troca?.ajuste) {
+      this.logger.debug(
+        `troca de tipo-de-dia: ${troca.ajuste.size} alavanca(s) recalculada(s) pelo consumo`,
+      );
+    }
 
     // 8. Monta o DTO puro (gate de exposição + "o agora" lá; ajuste aplicado só
     //    aos itens flexíveis da default — US3; registro por posição + flag
