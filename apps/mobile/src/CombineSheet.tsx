@@ -19,6 +19,7 @@ import type {
 } from "@bamboo/types";
 import { API_URL } from "./config";
 import { formatGrams } from "./format";
+import { log } from "./logger";
 
 interface Props {
   // Item flexível a combinar; null = fechado.
@@ -59,6 +60,11 @@ export function CombineSheet({ item, onClose, onConfirm }: Props) {
         if (!cancelled) setCand({ status: "ready", cands: data.alternatives });
       })
       .catch((e: unknown) => {
+        log.error(
+          "CombineSheet",
+          `falha ao listar alimentos item=${item.id}`,
+          e,
+        );
         if (!cancelled)
           setCand({
             status: "error",
@@ -84,6 +90,11 @@ export function CombineSheet({ item, onClose, onConfirm }: Props) {
         if (!cancelled) setPartes(data.partes);
       })
       .catch((e: unknown) => {
+        log.error(
+          "CombineSheet",
+          `falha ao calcular combinação item=${item.id}`,
+          e,
+        );
         if (!cancelled)
           setCalcError(
             e instanceof Error ? e.message : "Falha ao calcular a combinação.",

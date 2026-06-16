@@ -48,6 +48,7 @@ import {
   type SwapState,
 } from "./swaps";
 import { deveSinalizar } from "./meal-signal";
+import { log } from "./logger";
 
 type ScreenState =
   | { readonly status: "loading" }
@@ -117,6 +118,9 @@ export function HomeScreen() {
   const [registeringMealId, setRegisteringMealId] = useState<string | null>(
     null,
   );
+  // Sinal transitório de falha no registro: "nunca barra" (não bloqueia a tela),
+  // mas para de fingir que salvou — mostra um aviso pra tentar de novo.
+  const [registroError, setRegistroError] = useState<string | null>(null);
 
   const load = useCallback((dt?: string) => {
     if (!PATIENT_ID) {
@@ -131,6 +135,7 @@ export function HomeScreen() {
     getToday(API_URL, PATIENT_ID, dt)
       .then((data) => setState({ status: "ready", data }))
       .catch((e: unknown) => {
+        log.error("HomeScreen", "falha ao carregar /today", e);
         setState({
           status: "error",
           message:
@@ -152,6 +157,13 @@ export function HomeScreen() {
     const timer = setTimeout(() => setSwapToast(null), 5000);
     return () => clearTimeout(timer);
   }, [swapToast]);
+
+  // Auto-dismiss do aviso de falha no registro (~6s).
+  useEffect(() => {
+    if (!registroError) return;
+    const timer = setTimeout(() => setRegistroError(null), 6000);
+    return () => clearTimeout(timer);
+  }, [registroError]);
 
   const resetOverrides = useCallback(() => {
     setNameOverrides({});
@@ -304,9 +316,21 @@ export function HomeScreen() {
       }
 
       postRegistro(API_URL, PATIENT_ID, { mealId, intent, dayTypeId, consumo })
-        .then(() => load(dayTypeId))
-        .catch(() => {
-          // mantém a tela; o paciente pode tentar de novo.
+        .then(() => {
+          setRegistroError(null);
+          load(dayTypeId);
+        })
+        .catch((e: unknown) => {
+          // ANTES: catch vazio engolia o erro (nem console, nem tela). Agora
+          // loga e avisa — sem bloquear: o paciente pode tentar de novo.
+          log.error(
+            "HomeScreen",
+            `falha ao registrar meal=${mealId} intent=${intent}`,
+            e,
+          );
+          setRegistroError(
+            "Não consegui salvar agora. Toque na refeição pra tentar de novo.",
+          );
         })
         .finally(() => setRegisteringMealId(null));
     },
@@ -350,6 +374,14 @@ export function HomeScreen() {
             <Text style={styles.dayTypeSwitch}>trocar ›</Text>
           ) : null}
         </Pressable>
+
+        {/* Falha no registro (não-bloqueante): "nunca barra", mas não finge que
+            salvou. Auto-some em ~6s; o paciente toca de novo pra tentar. */}
+        {registroError ? (
+          <View style={styles.registroErrorBanner}>
+            <Text style={styles.registroErrorText}>{registroError}</Text>
+          </View>
+        ) : null}
 
         {/* FR (US1): dia concluído = todas as refeições registradas. Sem "o
             agora"; estado de encerramento, "nunca barra". */}
@@ -800,6 +832,14 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   doneBannerText: { color: "#2e7d32", fontSize: 16, fontWeight: "700" },
+  registroErrorBanner: {
+    backgroundColor: "#fdecea",
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    marginBottom: 12,
+  },
+  registroErrorText: { color: "#c62828", fontSize: 14 },
   registroRow: {
     flexDirection: "row",
     alignItems: "center",

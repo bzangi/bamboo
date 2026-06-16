@@ -21,6 +21,7 @@ import type {
 } from "@bamboo/types";
 import { API_URL, PATIENT_ID } from "./config";
 import { formatGrams } from "./format";
+import { log } from "./logger";
 
 type LoadState =
   | { readonly status: "loading" }
@@ -59,6 +60,11 @@ export function RebalancePreviewSheet({
         if (!cancelled) setState({ status: "ready", data });
       })
       .catch((e: unknown) => {
+        log.error(
+          "RebalancePreviewSheet",
+          `falha na prévia meal=${meal.id}`,
+          e,
+        );
         if (!cancelled) {
           const message =
             e instanceof Error ? e.message : "Falha ao calcular a prévia.";
