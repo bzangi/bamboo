@@ -263,7 +263,23 @@ Dado de saúde desde a Fase 0: controle de acesso, criptografia, consentimento. 
 
 <!-- SPECKIT START -->
 
-Feature mais recente: **010-fechamento-fase-1** (nutrição da alternativa na substituição +
+Feature ativa: **011-relatorio-de-ciclo** (relatório de ciclo — a feature que vende, fecha o
+EP-5): **PLANEJADA — aguardando gates Specify→Plan e Plan→Tasks (Bruno), nada implementado**.
+Conteúdo decidido pelo dono (2026-07-20): adesão + padrão de troquei/pulei + evolução
+**semana a semana** + comparativo com o ciclo anterior; **JSON pela API** (sem UI/PDF).
+`GET /nutri/patients/:patientId/cycles/:cycleId/report` atrás do `NutriKeyGuard` —
+**composição de peças prontas**: `AdesaoService.serie()` (006, régua única — proibido
+recalcular), `CicloService.detalhe/linhaDoTempo` (007), guard de `nutri/`. Nasce:
+`packages/core/src/relatorio.ts` (fatiarSemanas/agregarAdesao/agregarEstados/compararCiclos —
+puro), `apps/api/src/relatorio/` (módulo de composição + loader de refeições esperadas/dia
+generalizando o `carregarTipoAlvo` da adesão), DTOs em `packages/types/src/relatorio.ts`.
+**Sem migration; nada persiste; e2e self-contained com paciente PRÓPRIO + cleanup total**
+(lição a2894f3/KI-001 — índice 1-ciclo-ativo/paciente colidiria com ciclo.e2e). Defaults a
+ratificar no gate: A1 semanas relativas ao início; A2 ciclo aberto ⇒ relatório parcial
+válido; A3 ciclo anterior = closedOn mais recente ≤ startedOn (desempate da 007). Artefatos:
+`specs/011-relatorio-de-ciclo/` (spec/plan/research D1–D9/data-model/contracts/quickstart).
+
+Feature **010-fechamento-fase-1** (nutrição da alternativa na substituição +
 reconciliação dos pendentes obsoletos da Fase 1): **implementada e testada, Fase 1 encerrada**
 (gates aprovados 2026-07-20 — D1 = sim, sob gate; TDD estrito, commits por checkpoint na
 `main`). **US1:** `GET /meal-items/:id/substitutions` devolve `nutrition` opcional por
