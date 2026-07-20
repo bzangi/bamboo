@@ -46,6 +46,26 @@
 
 - [ ] T015 Regressão completa + done-gate: `pnpm --filter @bamboo/core test` · `pnpm --filter api test:e2e` · `pnpm --filter mobile test` · `pnpm lint` · `pnpm format` · check-types; comparar com baseline do T001 (zero regressão — SC-003); commit final e push.
 
+## Notas pra execução (descobertas na sessão de planejamento, 2026-07-20)
+
+Uma execução parcial de T001–T003 foi feita e **descartada** (handoff limpo). O que ela aprendeu:
+
+- **T001 verificado nesta data**: docker/seed ok; baselines **core 138 · api e2e 113 (12 arquivos) · mobile 19** — todas verdes.
+- **T002**: o describe novo deve ir **ANINHADO** dentro do describe existente de
+  `substitutions.e2e-spec.ts` — o `afterAll` dele chama `pool.end()`, então um segundo
+  describe top-level no mesmo arquivo quebra (pool fechado antes do beforeAll seguinte).
+  RED confirmado nesse formato: 3 casos falham (full_kcal/macros/percent), hidden e FR-004
+  passam trivialmente hoje (viram guarda de regressão).
+- **Cadeia do join (T004)**: `meal_item → meal_option → meal → day_type → plan → patient`
+  — a refeição pendura no **tipo-de-dia**, não direto no plano (data-model.md simplificou).
+- **T003**: mover `NutritionDto` exige ajustar também o import de
+  `packages/types/src/combination.ts` (hoje importa de `./today.js`).
+- **T005**: `nutritionFor` já é exportado (`apps/api/src/plan/today.mapper.ts:106`);
+  `FoodRow = {id, name, kcalPer100g, carbPer100g, proteinPer100g, fatPer100g}`. Semântica
+  exata dos níveis: `kcal` = `Math.round` (**inteiro**), macros com **1 casa**, `*Pct`
+  **inteiros** (proporção da massa carb+protein+fat) — os asserts do e2e devem refletir isso
+  (tolerância ~1 kcal na coerência com gramas arredondadas).
+
 ## Dependencies
 
 - US1 (T002–T008) e US2 (T009–T011) independentes entre si; T003∥T002; T007/T008 após T005.

@@ -23,7 +23,7 @@ O endpoint de alternativas passa a resolver o dono do item para obter o gate:
 
 ```
 meal_item ──(meal_option_id)──> meal_option ──(meal_id)──> meal
-    ──(plan_id)──> plan ──(patient_id)──> patient.exposure
+    ──(day_type_id)──> day_type ──(plan_id)──> plan ──(patient_id)──> patient.exposure
 ```
 
 - No v0 o plano pertence direto ao paciente (decisão de modelagem da Fase 0), então o item

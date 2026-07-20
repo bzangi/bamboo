@@ -264,8 +264,11 @@ Dado de saúde desde a Fase 0: controle de acesso, criptografia, consentimento. 
 <!-- SPECKIT START -->
 
 Feature ativa: **010-fechamento-fase-1** (nutrição da alternativa na substituição +
-reconciliação dos pendentes obsoletos da Fase 1): **PLANEJADA — aguardando gates
-Specify→Plan e Plan→Tasks (Bruno), nada implementado**. Pesquisa 2026-07-20: dos cards de
+reconciliação dos pendentes obsoletos da Fase 1): **GATES APROVADOS 2026-07-20** (D1 = sim,
+sob gate; reconciliação do board ratificada) — **tasks.md T001–T015 prontas; implementação
+delegada a outro agente, ainda não executada** (ver "Notas pra execução" no tasks.md:
+baselines core 138 · e2e 113 · mobile 19 verificadas; e2e novo aninhado no describe
+existente; join passa por day_type). Pesquisa 2026-07-20: dos cards de
 Fase 1 no board, BAM-38/55/56/57 (PATCH persistir troca) e BAM-40 (useState→API) estão
 **obsoletos** — persistência de troca é via registro troquei (003/D3b; handoff §8) e o
 mobile já consome os 5 endpoints reais; único com mérito: **BAM-39** — `GET

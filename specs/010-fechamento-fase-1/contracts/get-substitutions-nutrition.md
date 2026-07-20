@@ -47,7 +47,7 @@ exclusão de alvo com nutriente-base zero, ordem das alternativas).
 | `full_kcal`        | Tudo (kcal + macros + proporções)             |
 
 - O paciente dono é resolvido pelo servidor via o próprio item
-  (`meal_item→meal_option→meal→plan→patient`); a rota **não muda**.
+  (`meal_item→meal_option→meal→day_type→plan→patient`); a rota **não muda**.
 - `current` **não** ganha bloco de nutrição (fora de escopo — já visível no card via `/today`).
 - Arredondamento: 1 casa decimal, mesmo comportamento do `/today` (`nutritionFor`).
 
