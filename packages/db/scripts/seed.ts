@@ -166,14 +166,12 @@ async function upsertManualLink(
       .set({ referencePortionGrams, origin: "manual" })
       .where(eq(foodSubstitutionGroup.id, existente.id));
   } else {
-    await tx
-      .insert(foodSubstitutionGroup)
-      .values({
-        foodId: foodIdValue,
-        groupId,
-        referencePortionGrams,
-        origin: "manual",
-      });
+    await tx.insert(foodSubstitutionGroup).values({
+      foodId: foodIdValue,
+      groupId,
+      referencePortionGrams,
+      origin: "manual",
+    });
   }
 }
 
