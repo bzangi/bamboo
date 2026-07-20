@@ -263,6 +263,23 @@ Dado de saúde desde a Fase 0: controle de acesso, criptografia, consentimento. 
 
 <!-- SPECKIT START -->
 
+Feature ativa: **010-fechamento-fase-1** (nutrição da alternativa na substituição +
+reconciliação dos pendentes obsoletos da Fase 1): **PLANEJADA — aguardando gates
+Specify→Plan e Plan→Tasks (Bruno), nada implementado**. Pesquisa 2026-07-20: dos cards de
+Fase 1 no board, BAM-38/55/56/57 (PATCH persistir troca) e BAM-40 (useState→API) estão
+**obsoletos** — persistência de troca é via registro troquei (003/D3b; handoff §8) e o
+mobile já consome os 5 endpoints reais; único com mérito: **BAM-39** — `GET
+/meal-items/:id/substitutions` devolver `nutrition` opcional por alternativa sob o gate de
+exposição do dono do item (join item→option→meal→plan→patient; reuso de `nutrientesDaPorcao`
+
+- `nutritionFor` do today.mapper; `NutritionDto` migra pra `packages/types/src/nutrition.ts`
+  pra evitar ciclo). Decisão D1 pro gate: incluir ou não (recomendação: sim, sob gate; se NÃO,
+  US1 cai e US2+US3 fecham a fase). US2: teste da montagem do consumo no app (extrair
+  `montarConsumo` puro — padrão 005) + e2e lista-vazia→200 (isolamento: restaurar exposure no
+  afterAll — lição a2894f3/KI-001). US3: smoke manual da 005 (roteiro no quickstart) +
+  reconciliar board/docs. **Sem migration; core intocado.** Artefatos:
+  `specs/010-fechamento-fase-1/` (spec/plan/research D1–D9/data-model/contracts/quickstart).
+
 Feature **009-sinal-rebalanceamento** (coerência da troca de tipo-de-dia após consumo):
 **implementada e testada** (plan aprovado, gate Plan→Tasks 2026-06-10; desenvolvida no worktree
 `009-sinal-rebalanceamento`, test-first). Duas peças, **core intocado**: (1) badge de registro
