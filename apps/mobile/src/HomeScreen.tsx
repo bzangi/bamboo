@@ -48,6 +48,7 @@ import {
   type SwapState,
 } from "./swaps";
 import { deveSinalizar } from "./meal-signal";
+import { montarConsumo, type ConsumoItem } from "./consumo";
 import { log } from "./logger";
 
 type ScreenState =
@@ -59,15 +60,6 @@ type ScreenState =
 interface NameOverride {
   readonly foodName: string;
   readonly quantityLabel: string;
-}
-
-// US2 — consumo efetivo de um item trocado/combinado, já materializado
-// (foodId + gramas). É o que vai no POST registro.consumo.items para o
-// servidor derivar "troquei". Combinação gera 2 entradas pro mesmo itemId.
-interface ConsumoItem {
-  readonly itemId: string;
-  readonly foodId: string;
-  readonly quantityGrams: number;
 }
 
 export function HomeScreen() {
@@ -302,17 +294,11 @@ export function HomeScreen() {
         const activeOption =
           meal.options.find((o) => o.id === getActiveOptionId(swaps, mealId)) ??
           meal.defaultOption;
-        // Itens consumidos só da opção ativa (substituídos/combinados nela).
-        const items = activeOption.items.flatMap(
-          (it) => consumoOverrides[it.id] ?? [],
+        consumo = montarConsumo(
+          activeOption,
+          consumoOverrides,
+          meal.defaultOption.id,
         );
-        const optionNaoDefault = !activeOption.isDefault;
-        if (optionNaoDefault || items.length > 0) {
-          consumo = {
-            chosenOptionId: activeOption.id,
-            ...(items.length > 0 ? { items } : {}),
-          };
-        }
       }
 
       postRegistro(API_URL, PATIENT_ID, { mealId, intent, dayTypeId, consumo })

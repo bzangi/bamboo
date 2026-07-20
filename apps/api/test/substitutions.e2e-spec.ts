@@ -197,6 +197,70 @@ describe('GET /meal-items/:id/substitutions (US2)', () => {
     }
   });
 
+  it('grupo sem outras alternativas -> 200 + alternatives: [] (US2b/FR-006)', async () => {
+    // Self-contained: item novo num grupo UNITÁRIO (só ele), na mesma
+    // meal_option do item flexível semeado (chain até patient já resolvida).
+    // Cria e limpa; sem efeito colateral em outras suítes.
+    const [flexRow] = await db
+      .select({ mealOptionId: schema.mealItem.mealOptionId })
+      .from(schema.mealItem)
+      .where(eq(schema.mealItem.id, flexItemId))
+      .limit(1);
+
+    const [novoFood] = await db
+      .insert(schema.food)
+      .values({
+        name: 'Alimento unitário (e2e 010)',
+        source: 'taco',
+        kcalPer100g: 100,
+        carbPer100g: 20,
+        proteinPer100g: 5,
+        fatPer100g: 2,
+      })
+      .returning({ id: schema.food.id });
+    const [novoGrupo] = await db
+      .insert(schema.substitutionGroup)
+      .values({ name: 'Grupo unitário (e2e 010)', basis: 'carb' })
+      .returning({ id: schema.substitutionGroup.id });
+    const [vinculo] = await db
+      .insert(schema.foodSubstitutionGroup)
+      .values({
+        foodId: novoFood.id,
+        groupId: novoGrupo.id,
+        referencePortionGrams: 100,
+        origin: 'manual',
+      })
+      .returning({ id: schema.foodSubstitutionGroup.id });
+    const [novoItem] = await db
+      .insert(schema.mealItem)
+      .values({
+        mealOptionId: flexRow.mealOptionId,
+        foodId: novoFood.id,
+        quantityGrams: 100,
+        isLocked: false,
+        substitutionGroupId: novoGrupo.id,
+      })
+      .returning({ id: schema.mealItem.id });
+
+    try {
+      const res = await request(app.getHttpServer())
+        .get(`/meal-items/${novoItem.id}/substitutions`)
+        .expect(200);
+      expect(res.body.alternatives).toEqual([]);
+    } finally {
+      await db
+        .delete(schema.mealItem)
+        .where(eq(schema.mealItem.id, novoItem.id));
+      await db
+        .delete(schema.foodSubstitutionGroup)
+        .where(eq(schema.foodSubstitutionGroup.id, vinculo.id));
+      await db
+        .delete(schema.substitutionGroup)
+        .where(eq(schema.substitutionGroup.id, novoGrupo.id));
+      await db.delete(schema.food).where(eq(schema.food.id, novoFood.id));
+    }
+  });
+
   it('item travado -> 422 (não substituível)', async () => {
     await request(app.getHttpServer())
       .get(`/meal-items/${lockedItemId}/substitutions`)
