@@ -1,5 +1,6 @@
 // DTOs do contrato GET /meal-items/:id/substitutions (US2 — "substituir num toque").
 // Tipos puros compartilhados entre a casca (apps/api) e os clientes.
+import type { NutritionDto } from "./nutrition.js";
 
 export type EquivalenceBasis = "carb" | "protein" | "fat" | "kcal";
 
@@ -27,6 +28,9 @@ export interface SubstitutionAlternativeDto {
   readonly gramas: number;
   // Medida caseira mais próxima, ou null se o alvo não tiver medida.
   readonly medidaCaseira: HouseholdMeasureDto | null;
+  // Nutrição da porção equivalente, filtrada pelo gate de exposição do
+  // paciente dono do item (010). Ausente quando exposure = 'hidden'.
+  readonly nutrition?: NutritionDto;
 }
 
 export interface SubstitutionsResponse {

@@ -958,6 +958,14 @@
                 "$ref": "#/components/schemas/HouseholdMeasureModel"
               }
             ]
+          },
+          "nutrition": {
+            "description": "nutrição da porção equivalente (010); ausente quando exposure = hidden",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/NutritionModel"
+              }
+            ]
           }
         },
         "required": [

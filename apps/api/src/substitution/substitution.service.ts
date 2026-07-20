@@ -28,7 +28,8 @@ export class SubstitutionService {
 
   async getSubstitutions(mealItemId: string): Promise<SubstitutionsResponse> {
     this.logger.log(`getSubstitutions item=${mealItemId}`);
-    // 1. meal_item + food atual.
+    // 1. meal_item + food atual + exposure do dono (010: gate da nutrição da
+    // alternativa — meal_item -> meal_option -> meal -> day_type -> plan -> patient).
     const [item] = await this.db
       .select({
         id: schema.mealItem.id,
@@ -41,9 +42,18 @@ export class SubstitutionService {
         carbPer100g: schema.food.carbPer100g,
         proteinPer100g: schema.food.proteinPer100g,
         fatPer100g: schema.food.fatPer100g,
+        exposure: schema.patient.exposure,
       })
       .from(schema.mealItem)
       .innerJoin(schema.food, eq(schema.mealItem.foodId, schema.food.id))
+      .innerJoin(
+        schema.mealOption,
+        eq(schema.mealItem.mealOptionId, schema.mealOption.id),
+      )
+      .innerJoin(schema.meal, eq(schema.mealOption.mealId, schema.meal.id))
+      .innerJoin(schema.dayType, eq(schema.meal.dayTypeId, schema.dayType.id))
+      .innerJoin(schema.plan, eq(schema.dayType.planId, schema.plan.id))
+      .innerJoin(schema.patient, eq(schema.plan.patientId, schema.patient.id))
       .where(eq(schema.mealItem.id, mealItemId))
       .limit(1);
     if (!item) throw new NotFoundException('item não encontrado');
@@ -156,6 +166,13 @@ export class SubstitutionService {
           name: t.name,
           gramas: r.value.gramas,
           medidaCaseira: r.value.medidaCaseira,
+          macros: {
+            kcalPer100g: t.kcalPer100g,
+            carbPer100g: t.carbPer100g,
+            proteinPer100g: t.proteinPer100g,
+            fatPer100g: t.fatPer100g,
+          },
+          exposure: item.exposure,
         }),
       );
     }

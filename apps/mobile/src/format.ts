@@ -34,11 +34,12 @@ export function formatAlternativeQuantity(
   return formatGrams(alt.gramas);
 }
 
-// Linha nutricional do item, montada APENAS com o que o gate de exposição liberou.
+// Linha nutricional montada APENAS com o que o gate de exposição liberou.
 // hidden -> nutrition ausente -> retorna null (não exibe nada).
 // Não calcula nem mostra "% de caloria" como meta/restrição.
-export function formatNutritionLine(item: MealItemDto): string | null {
-  const n: NutritionDto | undefined = item.nutrition;
+// Compartilhada pelo item do card (formatNutritionLine) e pela alternativa de
+// troca (010 — mesma linguagem visual, sob o mesmo gate).
+export function formatNutrition(n: NutritionDto | undefined): string | null {
   if (!n) return null;
 
   const parts: string[] = [];
@@ -57,4 +58,8 @@ export function formatNutritionLine(item: MealItemDto): string | null {
   }
 
   return parts.length > 0 ? parts.join(" · ") : null;
+}
+
+export function formatNutritionLine(item: MealItemDto): string | null {
+  return formatNutrition(item.nutrition);
 }

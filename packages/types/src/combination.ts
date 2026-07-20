@@ -1,5 +1,6 @@
 // DTOs do contrato POST /meal-items/:id/combine (US2 — combinação 1→2).
-import type { ExposureLevel, NutritionDto } from "./today.js";
+import type { ExposureLevel } from "./today.js";
+import type { NutritionDto } from "./nutrition.js";
 import type { HouseholdMeasureDto } from "./substitution.js";
 
 export interface CombineRequest {

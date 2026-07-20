@@ -1,9 +1,11 @@
 // Mapeamento PURO -> SubstitutionsResponse (Princípio III). Sem I/O, sem throw.
 import type {
   EquivalenceBasis,
+  ExposureLevel,
   SubstitutionAlternativeDto,
   SubstitutionsResponse,
 } from '@bamboo/types';
+import { nutritionFor } from '../plan/today.mapper';
 
 export interface CurrentRow {
   readonly foodId: string;
@@ -26,7 +28,11 @@ export interface SubstitutionsInput {
 
 const round1 = (v: number): number => Math.round(v * 10) / 10;
 
-/** Arredonda gramas (1 casa) e monta a alternativa. Função pura. */
+/**
+ * Arredonda gramas (1 casa) e monta a alternativa, com a nutrição (010) da
+ * MESMA porção exibida (gramas já arredondadas — coerência visual) filtrada
+ * pelo gate de exposição do paciente dono do item. Função pura.
+ */
 export function toAlternativeDto(input: {
   readonly foodId: string;
   readonly name: string;
@@ -35,14 +41,28 @@ export function toAlternativeDto(input: {
     readonly label: string;
     readonly grams: number;
   } | null;
+  readonly macros: {
+    readonly kcalPer100g: number;
+    readonly carbPer100g: number;
+    readonly proteinPer100g: number;
+    readonly fatPer100g: number;
+  };
+  readonly exposure: ExposureLevel;
 }): SubstitutionAlternativeDto {
+  const gramas = round1(input.gramas);
+  const nutrition = nutritionFor(
+    { id: input.foodId, name: input.name, ...input.macros },
+    gramas,
+    input.exposure,
+  );
   return {
     foodId: input.foodId,
     name: input.name,
-    gramas: round1(input.gramas),
+    gramas,
     medidaCaseira: input.medidaCaseira
       ? { label: input.medidaCaseira.label, grams: input.medidaCaseira.grams }
       : null,
+    ...(nutrition ? { nutrition } : {}),
   };
 }
 

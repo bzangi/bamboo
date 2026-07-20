@@ -18,7 +18,7 @@ import type {
   SubstitutionsResponse,
 } from "@bamboo/types";
 import { API_URL } from "./config";
-import { formatAlternativeQuantity } from "./format";
+import { formatAlternativeQuantity, formatNutrition } from "./format";
 import { log } from "./logger";
 
 type LoadState =
@@ -147,17 +147,27 @@ function SheetBody({
     <>
       <Text style={styles.groupLabel}>Equivalentes em {group.name}</Text>
       <ScrollView style={styles.list}>
-        {alternatives.map((alt) => (
-          <Pressable
-            key={alt.foodId}
-            style={styles.altRow}
-            onPress={() => onSelect(alt)}
-            accessibilityRole="button"
-          >
-            <Text style={styles.altName}>{alt.name}</Text>
-            <Text style={styles.altQty}>{formatAlternativeQuantity(alt)}</Text>
-          </Pressable>
-        ))}
+        {alternatives.map((alt) => {
+          const nutritionLine = formatNutrition(alt.nutrition);
+          return (
+            <Pressable
+              key={alt.foodId}
+              style={styles.altRow}
+              onPress={() => onSelect(alt)}
+              accessibilityRole="button"
+            >
+              <View style={styles.altMain}>
+                <Text style={styles.altName}>{alt.name}</Text>
+                <Text style={styles.altQty}>
+                  {formatAlternativeQuantity(alt)}
+                </Text>
+              </View>
+              {nutritionLine && (
+                <Text style={styles.altNutrition}>{nutritionLine}</Text>
+              )}
+            </Pressable>
+          );
+        })}
       </ScrollView>
     </>
   );
@@ -208,12 +218,14 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   altRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
     paddingVertical: 14,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: "#eee",
+  },
+  altMain: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
   },
   altName: {
     fontSize: 16,
@@ -225,6 +237,11 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: "#2e7d32",
     fontWeight: "600",
+  },
+  altNutrition: {
+    fontSize: 13,
+    color: "#888",
+    marginTop: 4,
   },
   centerBox: {
     paddingVertical: 32,

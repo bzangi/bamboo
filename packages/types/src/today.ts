@@ -3,28 +3,13 @@
 // (api-client / mobile). Nenhuma dependência de Drizzle/Nest aqui.
 
 import type { HouseholdMeasureDto } from "./substitution.js";
+import type { NutritionDto } from "./nutrition.js";
 
 export type ExposureLevel = "hidden" | "percent" | "macros" | "full_kcal";
 
 // Fase 3 (registro pendurado na consulta): estado vigente de uma refeição no
 // dia. "troquei" é derivado no servidor; "feito"/"pulei" vêm da intent.
 export type RegistrationStatus = "feito" | "troquei" | "pulei";
-
-// Nutrição da porção filtrada pelo gate de exposição (montada na borda):
-//  - hidden    -> o item NÃO traz nutrition (campo ausente).
-//  - percent   -> só proporções dos macros (carbPct/proteinPct/fatPct), sem gramas/kcal.
-//  - macros    -> gramas dos macros + proporções; sem kcal cheio.
-//  - full_kcal -> tudo (kcal + macros + proporções).
-// Campos opcionais para um único tipo cobrir os níveis sem união explodir no cliente.
-export interface NutritionDto {
-  readonly kcal?: number;
-  readonly carb?: number;
-  readonly protein?: number;
-  readonly fat?: number;
-  readonly carbPct?: number;
-  readonly proteinPct?: number;
-  readonly fatPct?: number;
-}
 
 export interface FoodRefDto {
   readonly id: string;

@@ -228,6 +228,12 @@ export class SubstitutionAlternativeModel {
     description: 'medida caseira mais próxima, ou null',
   })
   medidaCaseira!: HouseholdMeasureModel | null;
+  @ApiPropertyOptional({
+    type: NutritionModel,
+    description:
+      'nutrição da porção equivalente (010); ausente quando exposure = hidden',
+  })
+  nutrition?: NutritionModel;
 }
 
 export class SubstitutionsResponseModel {

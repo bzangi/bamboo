@@ -3,6 +3,7 @@ import { Test } from '@nestjs/testing';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { and, eq, isNotNull, db, pool, schema } from '@bamboo/db';
+import type { ExposureLevel } from '@bamboo/types';
 import { SubstitutionModule } from '../src/substitution/substitution.module';
 
 // e2e US2 — GET /meal-items/:id/substitutions. Importa SÓ o SubstitutionModule.
@@ -212,5 +213,154 @@ describe('GET /meal-items/:id/substitutions (US2)', () => {
     await request(app.getHttpServer())
       .get('/meal-items/not-a-uuid/substitutions')
       .expect(400);
+  });
+
+  // US1-010: nutrição da porção equivalente, sob o mesmo gate de exposição do
+  // /today. ANINHADO no describe pai (não top-level): o afterAll dele chama
+  // pool.end(), então um segundo describe top-level neste arquivo quebraria o
+  // beforeAll seguinte (lição a2894f3/KI-001).
+  describe('US1-010 nutrição da alternativa sob gate', () => {
+    let patientId: string;
+    let originalExposure: ExposureLevel;
+
+    async function setExposure(level: ExposureLevel): Promise<void> {
+      await db
+        .update(schema.patient)
+        .set({ exposure: level })
+        .where(eq(schema.patient.id, patientId));
+    }
+
+    beforeAll(async () => {
+      // Dono do item: meal_item -> meal_option -> meal -> day_type -> plan -> patient.
+      const [row] = await db
+        .select({
+          patientId: schema.patient.id,
+          exposure: schema.patient.exposure,
+        })
+        .from(schema.mealItem)
+        .innerJoin(
+          schema.mealOption,
+          eq(schema.mealItem.mealOptionId, schema.mealOption.id),
+        )
+        .innerJoin(schema.meal, eq(schema.mealOption.mealId, schema.meal.id))
+        .innerJoin(schema.dayType, eq(schema.meal.dayTypeId, schema.dayType.id))
+        .innerJoin(schema.plan, eq(schema.dayType.planId, schema.plan.id))
+        .innerJoin(schema.patient, eq(schema.plan.patientId, schema.patient.id))
+        .where(eq(schema.mealItem.id, flexItemId))
+        .limit(1);
+      patientId = row.patientId;
+      originalExposure = row.exposure;
+    });
+
+    // Restaura o exposure original — não vaza estado mutado entre suítes.
+    afterAll(async () => {
+      await setExposure(originalExposure);
+    });
+
+    it('full_kcal -> nutrition completo e coerente com as gramas exibidas', async () => {
+      await setExposure('full_kcal');
+      const res = await request(app.getHttpServer())
+        .get(`/meal-items/${flexItemId}/substitutions`)
+        .expect(200);
+      expect(res.body.alternatives.length).toBeGreaterThan(0);
+
+      for (const alt of res.body.alternatives as Array<{
+        foodId: string;
+        gramas: number;
+        nutrition?: Record<string, number>;
+      }>) {
+        const n = alt.nutrition;
+        expect(n).toBeDefined();
+        const [food] = await db
+          .select({
+            kcal: schema.food.kcalPer100g,
+            carb: schema.food.carbPer100g,
+            protein: schema.food.proteinPer100g,
+            fat: schema.food.fatPer100g,
+          })
+          .from(schema.food)
+          .where(eq(schema.food.id, alt.foodId))
+          .limit(1);
+        const fator = alt.gramas / 100;
+        expect(n!.kcal).toBeCloseTo(Math.round(food.kcal * fator), 0);
+        expect(n!.carb).toBeCloseTo(food.carb * fator, 1);
+        expect(n!.protein).toBeCloseTo(food.protein * fator, 1);
+        expect(n!.fat).toBeCloseTo(food.fat * fator, 1);
+        expect(Number.isInteger(n!.carbPct)).toBe(true);
+        expect(Number.isInteger(n!.proteinPct)).toBe(true);
+        expect(Number.isInteger(n!.fatPct)).toBe(true);
+      }
+    });
+
+    it('macros -> macros sem kcal', async () => {
+      await setExposure('macros');
+      const res = await request(app.getHttpServer())
+        .get(`/meal-items/${flexItemId}/substitutions`)
+        .expect(200);
+      for (const alt of res.body.alternatives as Array<{
+        nutrition?: Record<string, unknown>;
+      }>) {
+        expect(alt.nutrition).toBeDefined();
+        expect(alt.nutrition!.kcal).toBeUndefined();
+        expect(typeof alt.nutrition!.carb).toBe('number');
+        expect(typeof alt.nutrition!.protein).toBe('number');
+        expect(typeof alt.nutrition!.fat).toBe('number');
+        expect(typeof alt.nutrition!.carbPct).toBe('number');
+      }
+    });
+
+    it('percent -> só as proporções (*Pct)', async () => {
+      await setExposure('percent');
+      const res = await request(app.getHttpServer())
+        .get(`/meal-items/${flexItemId}/substitutions`)
+        .expect(200);
+      for (const alt of res.body.alternatives as Array<{
+        nutrition?: Record<string, unknown>;
+      }>) {
+        expect(alt.nutrition).toBeDefined();
+        expect(alt.nutrition!.kcal).toBeUndefined();
+        expect(alt.nutrition!.carb).toBeUndefined();
+        expect(alt.nutrition!.protein).toBeUndefined();
+        expect(alt.nutrition!.fat).toBeUndefined();
+        expect(typeof alt.nutrition!.carbPct).toBe('number');
+        expect(typeof alt.nutrition!.proteinPct).toBe('number');
+        expect(typeof alt.nutrition!.fatPct).toBe('number');
+      }
+    });
+
+    it('hidden -> campo nutrition ausente (guarda de regressão hoje)', async () => {
+      await setExposure('hidden');
+      const res = await request(app.getHttpServer())
+        .get(`/meal-items/${flexItemId}/substitutions`)
+        .expect(200);
+      for (const alt of res.body.alternatives as Array<{
+        nutrition?: unknown;
+      }>) {
+        expect(alt.nutrition).toBeUndefined();
+      }
+    });
+
+    it('FR-004: nome/gramas/medidaCaseira/ordem inalterados em qualquer exposure', async () => {
+      await setExposure('full_kcal');
+      const withNutrition = await request(app.getHttpServer())
+        .get(`/meal-items/${flexItemId}/substitutions`)
+        .expect(200);
+      await setExposure('hidden');
+      const withoutNutrition = await request(app.getHttpServer())
+        .get(`/meal-items/${flexItemId}/substitutions`)
+        .expect(200);
+
+      const strip = (
+        alts: Array<{ nutrition?: unknown; [k: string]: unknown }>,
+      ) =>
+        alts.map((alt) => {
+          const rest = { ...alt };
+          delete rest.nutrition;
+          return rest;
+        });
+      expect(strip(withoutNutrition.body.alternatives)).toEqual(
+        strip(withNutrition.body.alternatives),
+      );
+    });
   });
 });
