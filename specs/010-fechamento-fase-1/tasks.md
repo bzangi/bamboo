@@ -6,20 +6,20 @@
 
 ## Phase 1: Setup
 
-- [ ] T001 Subir ambiente de verificação: Postgres (`docker compose up -d`), seed (`node --env-file=.env --import tsx packages/db/scripts/seed.ts`), baseline das suítes atuais verde (`pnpm --filter @bamboo/core test`, `pnpm --filter api test:e2e`, `pnpm --filter mobile test`) — registrar contagens de baseline.
+- [x] T001 Subir ambiente de verificação: Postgres (`docker compose up -d`), seed (`node --env-file=.env --import tsx packages/db/scripts/seed.ts`), baseline das suítes atuais verde (`pnpm --filter @bamboo/core test`, `pnpm --filter api test:e2e`, `pnpm --filter mobile test`) — registrar contagens de baseline.
 
 ## Phase 2: User Story 1 — Nutrição da alternativa sob gate (P1)
 
 **Goal**: `GET /meal-items/:id/substitutions` devolve `nutrition` opcional por alternativa, nível a nível igual ao `/today`; sheet exibe.
 **Independent test**: e2e do gate (4 níveis) + conferência visual no app (quickstart).
 
-- [ ] T002 [US1] e2e RED em `apps/api/test/substitutions.e2e-spec.ts`: describe novo "US1-010 nutrição da alternativa sob gate" — `full_kcal` → `nutrition` completo e coerente com `gramas` (kcal+macros+pcts, 1 casa); `macros` → sem `kcal`; `percent` → só `*Pct`; `hidden` → campo AUSENTE; ordem/gramas/medidaCaseira inalterados. Muda `patient.exposure` por UPDATE e **restaura no `afterAll`** (lição a2894f3/KI-001). Rodar e **ver falhar**.
-- [ ] T003 [P] [US1] Types em `packages/types/src`: criar `nutrition.ts` com `NutritionDto` (movido de `today.ts`); `today.ts` importa de `./nutrition.js`; barrel `index.ts` re-exporta; `substitution.ts` ganha `readonly nutrition?: NutritionDto` em `SubstitutionAlternativeDto` (import de `./nutrition.js` — sem ciclo).
-- [ ] T004 [US1] Service `apps/api/src/substitution/substitution.service.ts`: passo 1 ganha joins `meal_option→meal→plan→patient` e seleciona `exposure`; passa `exposure` + macros do alvo ao montar cada alternativa.
-- [ ] T005 [US1] Mapper `apps/api/src/substitution/substitution.mapper.ts`: `toAlternativeDto` ganha `nutrition` via `nutritionFor` (import de `../plan/today.mapper`) calculado sobre as gramas equivalentes; ausente quando gate oculta.
-- [ ] T006 [US1] e2e GREEN: suíte `substitutions.e2e-spec.ts` inteira verde (casos novos + regressão da suíte).
-- [ ] T007 [P] [US1] OpenAPI: `apps/api/src/docs/swagger.models.ts` — modelo da alternativa ganha `nutrition` opcional (schema igual ao do item do today); regen `pnpm --filter api openapi:gen` e commit do diff.
-- [ ] T008 [P] [US1] Mobile display: `apps/mobile/src/format.ts` — formatter sobre `NutritionDto` (extrair miolo do `formatNutritionLine`, que passa a delegar); `apps/mobile/src/SubstitutionSheet.tsx` — linha discreta de nutrição sob nome/quantidade quando `alt.nutrition` presente. `pnpm build` + `tsc --noEmit` no mobile.
+- [x] T002 [US1] e2e RED em `apps/api/test/substitutions.e2e-spec.ts`: describe novo "US1-010 nutrição da alternativa sob gate" — `full_kcal` → `nutrition` completo e coerente com `gramas` (kcal+macros+pcts, 1 casa); `macros` → sem `kcal`; `percent` → só `*Pct`; `hidden` → campo AUSENTE; ordem/gramas/medidaCaseira inalterados. Muda `patient.exposure` por UPDATE e **restaura no `afterAll`** (lição a2894f3/KI-001). Rodar e **ver falhar**.
+- [x] T003 [P] [US1] Types em `packages/types/src`: criar `nutrition.ts` com `NutritionDto` (movido de `today.ts`); `today.ts` importa de `./nutrition.js`; barrel `index.ts` re-exporta; `substitution.ts` ganha `readonly nutrition?: NutritionDto` em `SubstitutionAlternativeDto` (import de `./nutrition.js` — sem ciclo).
+- [x] T004 [US1] Service `apps/api/src/substitution/substitution.service.ts`: passo 1 ganha joins `meal_option→meal→plan→patient` e seleciona `exposure`; passa `exposure` + macros do alvo ao montar cada alternativa.
+- [x] T005 [US1] Mapper `apps/api/src/substitution/substitution.mapper.ts`: `toAlternativeDto` ganha `nutrition` via `nutritionFor` (import de `../plan/today.mapper`) calculado sobre as gramas equivalentes; ausente quando gate oculta.
+- [x] T006 [US1] e2e GREEN: suíte `substitutions.e2e-spec.ts` inteira verde (casos novos + regressão da suíte).
+- [x] T007 [P] [US1] OpenAPI: `apps/api/src/docs/swagger.models.ts` — modelo da alternativa ganha `nutrition` opcional (schema igual ao do item do today); regen `pnpm --filter api openapi:gen` e commit do diff.
+- [x] T008 [P] [US1] Mobile display: `apps/mobile/src/format.ts` — formatter sobre `NutritionDto` (extrair miolo do `formatNutritionLine`, que passa a delegar); `apps/mobile/src/SubstitutionSheet.tsx` — linha discreta de nutrição sob nome/quantidade quando `alt.nutrition` presente. `pnpm build` + `tsc --noEmit` no mobile.
 
 **Checkpoint US1**: e2e verdes + tsc/lint zero → commit `feat(api,types,mobile): 010 US1`.
 
@@ -28,9 +28,9 @@
 **Goal**: montagem do consumo (troquei) testada no app; contrato lista-vazia com e2e explícito.
 **Independent test**: suítes novas falham sob regressão.
 
-- [ ] T009 [US2] Vitest RED em `apps/mobile/src/consumo.test.ts`: especificar `montarConsumo(activeOption, consumoOverrides, defaultOptionId)` — sem mudança → `undefined`; só substituição → `{chosenOptionId, items:[1 item efetivo]}`; combinação → 2 itens no mesmo `itemId`; opção não-default sem override → `{chosenOptionId}` sem `items`; override de item fora da opção ativa → ignorado. Rodar e **ver falhar**.
-- [ ] T010 [US2] Extrair `apps/mobile/src/consumo.ts` (função pura, padrão 005/`swaps.ts`) da lógica inline de `apps/mobile/src/HomeScreen.tsx` (handleRegistrar); `HomeScreen` delega (comportamento idêntico). Testes verdes + `tsc --noEmit`.
-- [ ] T011 [P] [US2] e2e em `apps/api/test/substitutions.e2e-spec.ts`: caso "grupo sem outras alternativas → 200 + `alternatives: []`" (cenário sem efeito colateral em outras suítes).
+- [x] T009 [US2] Vitest RED em `apps/mobile/src/consumo.test.ts`: especificar `montarConsumo(activeOption, consumoOverrides, defaultOptionId)` — sem mudança → `undefined`; só substituição → `{chosenOptionId, items:[1 item efetivo]}`; combinação → 2 itens no mesmo `itemId`; opção não-default sem override → `{chosenOptionId}` sem `items`; override de item fora da opção ativa → ignorado. Rodar e **ver falhar**.
+- [x] T010 [US2] Extrair `apps/mobile/src/consumo.ts` (função pura, padrão 005/`swaps.ts`) da lógica inline de `apps/mobile/src/HomeScreen.tsx` (handleRegistrar); `HomeScreen` delega (comportamento idêntico). Testes verdes + `tsc --noEmit`.
+- [x] T011 [P] [US2] e2e em `apps/api/test/substitutions.e2e-spec.ts`: caso "grupo sem outras alternativas → 200 + `alternatives: []`" (cenário sem efeito colateral em outras suítes).
 
 **Checkpoint US2**: mobile + e2e verdes → commit `test(mobile,api): 010 US2`.
 
@@ -38,13 +38,13 @@
 
 **Goal**: board/docs refletem a realidade; smoke da 005 executado ou registrado como pendência explícita.
 
-- [ ] T012 [US3] Notion (board Backlog & Roadmap): fechar BAM-38, BAM-55, BAM-56, BAM-57 com comentário-justificativa ("obsoleto — persistência via registro troquei, 003/D3b; handoff §8; ver specs/010") e BAM-40 ("sem objeto — app já consome os 5 endpoints reais; estado local é design da 005 FR-008"); BAM-39 → status refletindo a 010 (Concluído ao final da implementação, com referência).
-- [ ] T013 [US3] Docs: `docs/estado-atual.md` (Fase 1 concluída; 010 entregue; baselines novas) + bloco SPECKIT do `CLAUDE.md` (010 implementada e testada).
-- [ ] T014 [US3] Smoke manual da 005: executar o roteiro do `specs/010-fechamento-fase-1/quickstart.md` (7 itens, requer simulador + `pnpm mobile:dev`) e preencher a coluna Resultado; sem simulador disponível na sessão → registrar como pendência explícita designada ao Bruno (FR-009).
+- [x] T012 [US3] Notion (board Backlog & Roadmap): fechar BAM-38, BAM-55, BAM-56, BAM-57 com comentário-justificativa ("obsoleto — persistência via registro troquei, 003/D3b; handoff §8; ver specs/010") e BAM-40 ("sem objeto — app já consome os 5 endpoints reais; estado local é design da 005 FR-008"); BAM-39 → status refletindo a 010 (Concluído ao final da implementação, com referência).
+- [x] T013 [US3] Docs: `docs/estado-atual.md` (Fase 1 concluída; 010 entregue; baselines novas) + bloco SPECKIT do `CLAUDE.md` (010 implementada e testada).
+- [x] T014 [US3] Smoke manual da 005: executar o roteiro do `specs/010-fechamento-fase-1/quickstart.md` (7 itens, requer simulador + `pnpm mobile:dev`) e preencher a coluna Resultado; sem simulador disponível na sessão → registrar como pendência explícita designada ao Bruno (FR-009).
 
 ## Phase 5: Polish
 
-- [ ] T015 Regressão completa + done-gate: `pnpm --filter @bamboo/core test` · `pnpm --filter api test:e2e` · `pnpm --filter mobile test` · `pnpm lint` · `pnpm format` · check-types; comparar com baseline do T001 (zero regressão — SC-003); commit final e push.
+- [x] T015 Regressão completa + done-gate: `pnpm --filter @bamboo/core test` · `pnpm --filter api test:e2e` · `pnpm --filter mobile test` · `pnpm lint` · `pnpm format` · check-types; comparar com baseline do T001 (zero regressão — SC-003); commit final e push.
 
 ## Notas pra execução (descobertas na sessão de planejamento, 2026-07-20)
 
