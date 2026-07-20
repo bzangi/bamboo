@@ -54,8 +54,13 @@ Pré: `pnpm mobile:dev` com API+DB de pé. Marcar ✅/❌ em cada item ao execut
 | 6   | Substituir um item (dentro do grupo)                                          | "↺ desfazer" por-item aparece SÓ nesse item; itens rebalanceados de outras refeições NÃO mostram ↺ |           |
 | 7   | Registrar "feito" numa refeição com item substituído                          | Registro vira "troquei" no card (derivado no servidor)                                             |           |
 
-Resultado do smoke: _preencher na execução_ (falha ⇒ pendência explícita, FR-009 — não
-bloqueia US1/US2).
+Resultado do smoke: **pendência explícita designada ao Bruno (FR-009)** — a sessão de
+implementação (2026-07-20) tem um simulador iOS disponível, mas **não tem automação de
+toque/gesto** pro app (sem driver de input pro simulador); os 7 passos exigem interação e
+julgamento manual (cronometrar o snackbar ~5s, sequência de toques, "sentir" o desfazer
+atômico) que não dá pra executar de forma confiável sem um humano. Não bloqueia US1/US2
+(código verde e coberto por teste automatizado onde aplicável). **Ação:** Bruno roda
+`pnpm mobile:dev` com o roteiro acima e preenche a coluna Resultado.
 
 ## US3 — Reconciliação (após implementação verde)
 

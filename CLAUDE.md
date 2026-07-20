@@ -263,25 +263,29 @@ Dado de saúde desde a Fase 0: controle de acesso, criptografia, consentimento. 
 
 <!-- SPECKIT START -->
 
-Feature ativa: **010-fechamento-fase-1** (nutrição da alternativa na substituição +
-reconciliação dos pendentes obsoletos da Fase 1): **GATES APROVADOS 2026-07-20** (D1 = sim,
-sob gate; reconciliação do board ratificada) — **tasks.md T001–T015 prontas; implementação
-delegada a outro agente, ainda não executada** (ver "Notas pra execução" no tasks.md:
-baselines core 138 · e2e 113 · mobile 19 verificadas; e2e novo aninhado no describe
-existente; join passa por day_type). Pesquisa 2026-07-20: dos cards de
-Fase 1 no board, BAM-38/55/56/57 (PATCH persistir troca) e BAM-40 (useState→API) estão
-**obsoletos** — persistência de troca é via registro troquei (003/D3b; handoff §8) e o
-mobile já consome os 5 endpoints reais; único com mérito: **BAM-39** — `GET
-/meal-items/:id/substitutions` devolver `nutrition` opcional por alternativa sob o gate de
-exposição do dono do item (join item→option→meal→plan→patient; reuso de `nutrientesDaPorcao`
-
-- `nutritionFor` do today.mapper; `NutritionDto` migra pra `packages/types/src/nutrition.ts`
-  pra evitar ciclo). Decisão D1 pro gate: incluir ou não (recomendação: sim, sob gate; se NÃO,
-  US1 cai e US2+US3 fecham a fase). US2: teste da montagem do consumo no app (extrair
-  `montarConsumo` puro — padrão 005) + e2e lista-vazia→200 (isolamento: restaurar exposure no
-  afterAll — lição a2894f3/KI-001). US3: smoke manual da 005 (roteiro no quickstart) +
-  reconciliar board/docs. **Sem migration; core intocado.** Artefatos:
-  `specs/010-fechamento-fase-1/` (spec/plan/research D1–D9/data-model/contracts/quickstart).
+Feature mais recente: **010-fechamento-fase-1** (nutrição da alternativa na substituição +
+reconciliação dos pendentes obsoletos da Fase 1): **implementada e testada, Fase 1 encerrada**
+(gates aprovados 2026-07-20 — D1 = sim, sob gate; TDD estrito, commits por checkpoint na
+`main`). **US1:** `GET /meal-items/:id/substitutions` devolve `nutrition` opcional por
+alternativa (kcal/macros/proporções), calculada sobre as mesmas gramas equivalentes exibidas,
+sob o mesmo gate de exposição do `/today` (join novo `meal_item→meal_option→meal→day_type→
+plan→patient`; reuso de `nutritionFor`/`nutrientesDaPorcao` — zero matemática nova). `NutritionDto`
+migrou pra `packages/types/src/nutrition.ts` (módulo neutro, evita ciclo `today ⇄ substitution`).
+**US2 (hardening, sem mudança de comportamento):** `montarConsumo()` extraído de
+`HomeScreen.handleRegistrar` (`apps/mobile/src/consumo.ts`, padrão 005/`swaps.ts`) — a montagem
+do consumo efetivo (substituir/combinar → itens no registro) ganhou teste (`consumo.test.ts`);
+e2e novo cobre "grupo sem outras alternativas → 200 + `alternatives: []`" (self-contained, sem
+efeito colateral). **US3 (reconciliação):** board Notion (Backlog & Roadmap) reconciliado —
+status novo **Cancelado** criado no schema do board; BAM-38/55/56/57/40 fechados como Cancelado
+com justificativa (persistência de troca é via registro "troquei", 003/D3b; app já consome os 5
+endpoints reais); BAM-39 → Concluído, refletindo esta feature. Docs (`docs/estado-atual.md` +
+este bloco) atualizados. **Pendência explícita (FR-009):** smoke manual da 005 (roteiro de 7
+passos no `quickstart.md`) não executado — a sessão de implementação tinha simulador iOS
+disponível mas **sem automação de toque/gesto**; passos exigem julgamento manual (timing de
+snackbar, sequência de toques). Designado ao Bruno. **Sem migration; core intocado; sem
+endpoint novo.** Resultado: **core 138 + api e2e 119 (113 baseline + 6 novos) + mobile 24
+(19 + 5 novos)** verdes; lint/build/tsc limpos; OpenAPI regenerado. Artefatos:
+`specs/010-fechamento-fase-1/` (spec/plan/research D1–D9/data-model/contracts/quickstart).
 
 Feature **009-sinal-rebalanceamento** (coerência da troca de tipo-de-dia após consumo):
 **implementada e testada** (plan aprovado, gate Plan→Tasks 2026-06-10; desenvolvida no worktree

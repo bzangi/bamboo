@@ -1,7 +1,8 @@
 # Bamboo — Estado Atual
 
 > **Status:** pré-MVP · **não é greenfield** (Fases 0–4 implementadas e testadas) · RN-first.
-> **Atualizado em:** 2026-06-10.
+> **Fase 1 encerrada** (feature `010-fechamento-fase-1`, 2026-07-20) — ver bloco de reconciliação abaixo.
+> **Atualizado em:** 2026-07-20.
 
 Documento vivo — snapshot do estado real do repositório nesta data, verificado por leitura direta dos arquivos e do histórico git. Em conflito com o cabeçalho do `CLAUDE.md`, **este snapshot vence**: o repo está bem além do que aquele header lista — Fases 0–4 implementadas e testadas.
 
@@ -91,7 +92,7 @@ Detalhamento do paradigma com exemplos canônicos em `CLAUDE.md`; invariantes go
 | Fase | Conteúdo | Estado |
 |---|---|---|
 | 0 — Fundação | monorepo, NestJS+Postgres+Drizzle+migrations, schema, ingestão TACO | **Implementada** |
-| 1 — O batimento | seed de plano + Home "o agora" + substituir dentro do grupo (recálculo + medida caseira) | **Implementada** |
+| 1 — O batimento | seed de plano + Home "o agora" + substituir dentro do grupo (recálculo + medida caseira) | **Concluída** (010 fecha a fase: nutrição da alternativa sob gate + hardening de verificação + reconciliação do board) |
 | 2 — Rebalanceamento | recálculo multi-refeição, gatilhos, piso, prévia antes de confirmar | **Implementada** (`002-rebalanceamento`) |
 | 3 — Inteligência da nutri | **registro (feito/troquei/pulei) — implementada e testada** (`003-registro-consulta`); ciclo, adesão, **relatório de ciclo**, UI da nutri (web) — não iniciados | Em andamento |
 | 4 — Reduzir fricção | import por IA (PDF→estruturado), offline, notificações, comida fora da lista | Não iniciada |
@@ -105,7 +106,9 @@ Detalhamento do paradigma com exemplos canônicos em `CLAUDE.md`; invariantes go
 
 > **Reconciliado:** `specs/001-alca-do-paciente/tasks.md` está com as 26 tarefas marcadas `[x]` (sem pendências `[ ]`), alinhado ao código e ao git.
 
-**Cobertura de teste (atual):** **90 testes** em `packages/core` (substituição + nutrição + rebalanceamento, incl. `isRegistered`/registro-aware); **61 e2e** em `apps/api` (today, substitutions, rebalance, registro, today-daytype); **10 testes** em `apps/mobile` (reducer `swaps.ts` — 005). _(As contagens menores citadas em seções acima são herança da Fase 1 — drift de doc a reconciliar.)_
+> **`010-fechamento-fase-1` — Fase 1 formalmente encerrada (implementada e testada, 2026-07-20):** fecha a fase com 3 entregas. **US1:** `GET /meal-items/:id/substitutions` devolve `nutrition` opcional por alternativa (kcal/macros/proporções), calculada sobre as mesmas gramas equivalentes exibidas, sob o mesmo gate de exposição do `/today` (reuso de `nutritionFor`/`nutrientesDaPorcao` — zero matemática nova). `NutritionDto` migrou pra `packages/types/src/nutrition.ts` (módulo neutro, evita ciclo `today ⇄ substitution`). **US2 (hardening, sem mudança de comportamento):** `montarConsumo()` extraído de `HomeScreen.handleRegistrar` (`apps/mobile/src/consumo.ts`, padrão 005) — a montagem do consumo efetivo (substituir/combinar → itens no registro) ganhou teste; e2e novo cobre "grupo sem outras alternativas → 200 + `alternatives: []`". **US3 (reconciliação):** board Notion (Backlog & Roadmap) reconciliado — BAM-38/55/56/57/40 fechados como **Cancelado** (status novo no board) com justificativa (persistência de troca é via registro "troquei", 003/D3b; app já consome os 5 endpoints reais); BAM-39 → **Concluído**, refletindo esta feature. **Sem migration; core intocado; sem endpoint novo.** Resultado: **core 138 + api e2e 119 (113 baseline + 6 novos) + mobile 24 (19 + 5 novos)** verdes; lint/build limpos; OpenAPI regenerado. Artefatos: `specs/010-fechamento-fase-1/`.
+
+**Cobertura de teste (atual, 2026-07-20):** **138 testes** em `packages/core`; **119 e2e** em `apps/api` (today, substitutions, rebalance, registro, today-daytype, today-options, nutri/adesão, ciclo); **24 testes** em `apps/mobile` (reducer `swaps.ts` — 005; `montarConsumo` — 010). _(Contagens de core/e2e/mobile entre 008 e 009 não foram re-verificadas nesta sessão — só a baseline imediatamente anterior à 010, verificada ao vivo em 2026-07-20: core 138 · e2e 113 [12 arquivos] · mobile 19.)_
 
 **Modelo de dados — 14 tabelas (migrations `0000_loud_ulik.sql`–`0002_clear_cammi.sql`)**, schema canônico em `packages/db/src/schema.ts` (= [[schema]] + `meal.horario` + `meal_event`/`meal_event_item`):
 
