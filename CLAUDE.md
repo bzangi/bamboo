@@ -263,21 +263,34 @@ Dado de saúde desde a Fase 0: controle de acesso, criptografia, consentimento. 
 
 <!-- SPECKIT START -->
 
-Feature ativa: **011-relatorio-de-ciclo** (relatório de ciclo — a feature que vende, fecha o
-EP-5): **PLANEJADA — aguardando gates Specify→Plan e Plan→Tasks (Bruno), nada implementado**.
-Conteúdo decidido pelo dono (2026-07-20): adesão + padrão de troquei/pulei + evolução
-**semana a semana** + comparativo com o ciclo anterior; **JSON pela API** (sem UI/PDF).
+Feature **011-relatorio-de-ciclo** (relatório de ciclo — a feature que vende, fecha o
+**EP-5**): **implementada e testada, EP-5 concluído** (gates Specify→Plan e Plan→Tasks
+aprovados 2026-07-20, incluindo A1 semanas relativas ao início, A2 ciclo aberto ⇒ relatório
+parcial válido, A3 ciclo anterior = `closedOn` mais recente ≤ `startedOn` — desempate da 007).
 `GET /nutri/patients/:patientId/cycles/:cycleId/report` atrás do `NutriKeyGuard` —
-**composição de peças prontas**: `AdesaoService.serie()` (006, régua única — proibido
-recalcular), `CicloService.detalhe/linhaDoTempo` (007), guard de `nutri/`. Nasce:
-`packages/core/src/relatorio.ts` (fatiarSemanas/agregarAdesao/agregarEstados/compararCiclos —
-puro), `apps/api/src/relatorio/` (módulo de composição + loader de refeições esperadas/dia
-generalizando o `carregarTipoAlvo` da adesão), DTOs em `packages/types/src/relatorio.ts`.
-**Sem migration; nada persiste; e2e self-contained com paciente PRÓPRIO + cleanup total**
-(lição a2894f3/KI-001 — índice 1-ciclo-ativo/paciente colidiria com ciclo.e2e). Defaults a
-ratificar no gate: A1 semanas relativas ao início; A2 ciclo aberto ⇒ relatório parcial
-válido; A3 ciclo anterior = closedOn mais recente ≤ startedOn (desempate da 007). Artefatos:
-`specs/011-relatorio-de-ciclo/` (spec/plan/research D1–D9/data-model/contracts/quickstart).
+**composição de peças prontas, nenhuma régua nova**: `AdesaoService.serie()` (006, régua
+única, INTOCADA — e2e de consistência trava SC-002), `CicloService.detalhe/linhaDoTempo`
+(007). Núcleo novo `packages/core/src/relatorio.ts` (`fatiarSemanas`/`agregarAdesao`/
+`agregarEstados`/`encontrarCicloAnterior`/`compararCiclos` — puro, reusa `mediaAdesao` da
+006). Casca nova `apps/api/src/relatorio/` (module/controller/service/mapper +
+`relatorio.loader.ts` — refeições esperadas por dia). **Achado/decisão do D6 no build**:
+o loader NÃO estende `carregarTipoAlvo` do `adesao.service.ts` (extração cresceria demais) —
+duplica a resolução Q3-B deliberadamente ("Plano B" já previsto no research), com uma
+diferença consciente: fallback **vigência-aware** (plano vigente no dia via
+`cycle_plan_vigencia`, não só o ativo hoje) — `adesao.service.ts` fica intocado, zero risco
+à 006. DTOs em `packages/types/src/relatorio.ts` (decisão deliberada de sair da convenção
+local-ao-mapper da 006/007 — consumidor futuro é a web da nutri, EP-6).
+`AdesaoModule`/`CicloModule` ganharam `exports: [...]` (wiring puro) pro `RelatorioModule`
+reusar os services. **Sem migration; nada persiste** (verificado ao vivo: contagens de
+`meal_event`/`cycle`/`cyclePlanVigencia` idênticas antes/depois do GET). e2e novo
+**self-contained** com paciente-cenário PRÓPRIO + cleanup total no `afterAll` (lição
+a2894f3/KI-001 — nunca o paciente do seed, evitaria colidir com `ciclo.e2e`). Resultado:
+**core 157 (138 + 19) + api e2e 132 (119 + 13)** verdes; lint/build/OpenAPI limpos;
+quickstart validado manualmente ao vivo (docker+seed+curl, os 6 invariantes conferidos).
+Board Notion: BAM-23 ("Adesão + relatório de ciclo") e BAM-5 (EP-5 · Acompanhamento)
+fechados como Concluído, com comentário-justificativa referenciando esta feature.
+Artefatos: `specs/011-relatorio-de-ciclo/` (spec/plan/tasks/research D1–D9/data-model/
+contracts/quickstart).
 
 Feature **010-fechamento-fase-1** (nutrição da alternativa na substituição +
 reconciliação dos pendentes obsoletos da Fase 1): **implementada e testada, Fase 1 encerrada**

@@ -2,6 +2,7 @@
 
 > **Status:** pré-MVP · **não é greenfield** (Fases 0–4 implementadas e testadas) · RN-first.
 > **Fase 1 encerrada** (feature `010-fechamento-fase-1`, 2026-07-20) — ver bloco de reconciliação abaixo.
+> **EP-5 (Acompanhamento) concluído** (feature `011-relatorio-de-ciclo`, 2026-07-20) — a feature que vende: adesão + padrão de registro + evolução semanal + comparativo, composição de 006+007, sem migration.
 > **Atualizado em:** 2026-07-20.
 
 Documento vivo — snapshot do estado real do repositório nesta data, verificado por leitura direta dos arquivos e do histórico git. Em conflito com o cabeçalho do `CLAUDE.md`, **este snapshot vence**: o repo está bem além do que aquele header lista — Fases 0–4 implementadas e testadas.
@@ -94,7 +95,7 @@ Detalhamento do paradigma com exemplos canônicos em `CLAUDE.md`; invariantes go
 | 0 — Fundação | monorepo, NestJS+Postgres+Drizzle+migrations, schema, ingestão TACO | **Implementada** |
 | 1 — O batimento | seed de plano + Home "o agora" + substituir dentro do grupo (recálculo + medida caseira) | **Concluída** (010 fecha a fase: nutrição da alternativa sob gate + hardening de verificação + reconciliação do board) |
 | 2 — Rebalanceamento | recálculo multi-refeição, gatilhos, piso, prévia antes de confirmar | **Implementada** (`002-rebalanceamento`) |
-| 3 — Inteligência da nutri | **registro (feito/troquei/pulei) — implementada e testada** (`003-registro-consulta`); ciclo, adesão, **relatório de ciclo**, UI da nutri (web) — não iniciados | Em andamento |
+| 3 — Inteligência da nutri | registro (`003`), ciclo (`007`), adesão (`006`), auto-classificação (`008`) e **relatório de ciclo (`011`) — todos implementados e testados**; UI da nutri (web, EP-6) — não iniciada | **EP-5 concluído** |
 | 4 — Reduzir fricção | import por IA (PDF→estruturado), offline, notificações, comida fora da lista | Não iniciada |
 | 5+ — Negócio | billing, Pix/Stripe, deploy/infra | Não iniciada |
 
@@ -108,7 +109,9 @@ Detalhamento do paradigma com exemplos canônicos em `CLAUDE.md`; invariantes go
 
 > **`010-fechamento-fase-1` — Fase 1 formalmente encerrada (implementada e testada, 2026-07-20):** fecha a fase com 3 entregas. **US1:** `GET /meal-items/:id/substitutions` devolve `nutrition` opcional por alternativa (kcal/macros/proporções), calculada sobre as mesmas gramas equivalentes exibidas, sob o mesmo gate de exposição do `/today` (reuso de `nutritionFor`/`nutrientesDaPorcao` — zero matemática nova). `NutritionDto` migrou pra `packages/types/src/nutrition.ts` (módulo neutro, evita ciclo `today ⇄ substitution`). **US2 (hardening, sem mudança de comportamento):** `montarConsumo()` extraído de `HomeScreen.handleRegistrar` (`apps/mobile/src/consumo.ts`, padrão 005) — a montagem do consumo efetivo (substituir/combinar → itens no registro) ganhou teste; e2e novo cobre "grupo sem outras alternativas → 200 + `alternatives: []`". **US3 (reconciliação):** board Notion (Backlog & Roadmap) reconciliado — BAM-38/55/56/57/40 fechados como **Cancelado** (status novo no board) com justificativa (persistência de troca é via registro "troquei", 003/D3b; app já consome os 5 endpoints reais); BAM-39 → **Concluído**, refletindo esta feature. **Sem migration; core intocado; sem endpoint novo.** Resultado: **core 138 + api e2e 119 (113 baseline + 6 novos) + mobile 24 (19 + 5 novos)** verdes; lint/build limpos; OpenAPI regenerado. Artefatos: `specs/010-fechamento-fase-1/`.
 
-**Cobertura de teste (atual, 2026-07-20):** **138 testes** em `packages/core`; **119 e2e** em `apps/api` (today, substitutions, rebalance, registro, today-daytype, today-options, nutri/adesão, ciclo); **24 testes** em `apps/mobile` (reducer `swaps.ts` — 005; `montarConsumo` — 010). _(Contagens de core/e2e/mobile entre 008 e 009 não foram re-verificadas nesta sessão — só a baseline imediatamente anterior à 010, verificada ao vivo em 2026-07-20: core 138 · e2e 113 [12 arquivos] · mobile 19.)_
+> **`011-relatorio-de-ciclo` — EP-5 concluído (implementada e testada, 2026-07-20):** o relatório de ciclo — a feature que vende, fecha o épico Acompanhamento. **Composição de peças prontas, nenhuma régua nova**: `AdesaoService.serie()` (006, INTOCADA) + `CicloService.detalhe/linhaDoTempo` (007) + um loader novo (`relatorio.loader.ts`, D6/Plano B — resolução vigência-aware do tipo-de-dia alvo, deliberadamente duplicada do `adesao.service.ts` pra zero risco à 006). Núcleo novo `packages/core/src/relatorio.ts` (`fatiarSemanas` — A1, semana relativa ao início do ciclo — `agregarAdesao`, `agregarEstados` — D9, sem-registro = esperado − vigente — `encontrarCicloAnterior` e `compararCiclos` — A3/D3). DTOs em `packages/types/src/relatorio.ts` (`CycleReportResponse`, decisão deliberada de sair da convenção local-ao-mapper da 006/007 — consumidor futuro é a web da nutri, EP-6). Casca nova `apps/api/src/relatorio/` — `GET /nutri/patients/:patientId/cycles/:cycleId/report`, único endpoint, atrás do `NutriKeyGuard`. **US1** (retrato: adesão + padrão de registro), **US2** (evolução semana a semana — buraco/semana sem dado aparece zerada, não some), **US3** (comparativo com o ciclo anterior — deltas null quando um dos lados é sem-dado; janela do anterior > 366 dias não é erro, só perde o comparativo). e2e novo **self-contained** (`relatorio.e2e-spec.ts` — paciente-cenário próprio, nunca o do seed nem o de outra suíte, cleanup total no `afterAll` — D7). **Sem migration; nada persiste** (FR-008/SC-006, verificado ao vivo). Resultado: **core 157 (138 + 19 novos) + api e2e 132 (119 + 13 novos)** verdes; lint/build/OpenAPI limpos; quickstart validado manualmente (docker+seed+curl, os 6 invariantes conferidos ao vivo). Artefatos: `specs/011-relatorio-de-ciclo/` (spec/plan/tasks/research D1–D9/data-model/contracts/quickstart).
+
+**Cobertura de teste (atual, 2026-07-20):** **157 testes** em `packages/core`; **132 e2e** em `apps/api` (today, substitutions, rebalance, registro, today-daytype, today-options, nutri/adesão, ciclo, **relatório de ciclo**); **24 testes** em `apps/mobile` (reducer `swaps.ts` — 005; `montarConsumo` — 010). _(Baseline imediatamente anterior à 011, verificada ao vivo em 2026-07-20: core 138 · e2e 119 [12 arquivos] · mobile 24.)_
 
 **Modelo de dados — 14 tabelas (migrations `0000_loud_ulik.sql`–`0002_clear_cammi.sql`)**, schema canônico em `packages/db/src/schema.ts` (= [[schema]] + `meal.horario` + `meal_event`/`meal_event_item`):
 
@@ -120,7 +123,7 @@ Detalhamento do paradigma com exemplos canônicos em `CLAUDE.md`; invariantes go
 - **Fase 3 (registro):** `meal_event` + `meal_event_item` (append-only, `state` enum NULLABLE = anulação) — migration `0002_clear_cammi.sql`.
 - **Feature 007 (ciclo):** `cycle` + `cycle_plan_vigencia` — migration `0003_hesitant_sugar_man.sql` (índice único parcial: 1 ciclo ativo/paciente).
 - **Feature 008 (auto-classificação):** `food.taco_id` (unique) + `food.taco_category` + `food_substitution_group.origin` (manual/auto) — migration `0004_special_franklin_richards.sql`. Base TACO ampliada (~582 foods) + ~7 grupos canônicos por macro-base.
-- **Adiado (não existe ainda):** `day_selection`, `cycle_report` (adesão é **derivada**, sem tabela — Feature 006), índices/constraints de performance.
+- **Adiado (não existe ainda):** `day_selection`, `cycle_report` (adesão E o relatório de ciclo são **derivados**, sem tabela — Features 006/011), índices/constraints de performance.
 
 ---
 
@@ -137,7 +140,8 @@ Detalhamento do paradigma com exemplos canônicos em `CLAUDE.md`; invariantes go
 **Pendente de verdade (a partir daqui):**
 
 - **Gate de 2026-06-10 (respondido pelo dono):** `006-metrica-adesao`, `007-ciclo-de-acompanhamento` e `008-auto-classificacao` **implementadas e testadas**. 006: via da nutri `GET /nutri/...` (`NUTRI_API_KEY` fail-closed; sem migration). 007: migration **0003** (`cycle` + `cycle_plan_vigencia`; vigência observada via `POST /nutri/.../active-plan`). 008: migration **0004** (`food.taco_id`/`taco_category`/`fsg.origin`); ingest ampliado (582 foods); ~7 grupos por macro-base; `classify-foods` (cobertura 89,4%, gabarito 16/16). Baselines: **core 138 + e2e 96**.
-- **Fase 3 (resto):** ~~ciclo~~ **entregue** (`007`), ~~adesão~~ **entregue** (`006`), ~~auto-classificação~~ **entregue** (`008`), **relatório de ciclo** (a feature que vende — **destravado**: 006+007 prontas), **UI da nutri (web)** — não iniciada.
+- **Gate de 2026-07-20 (respondido pelo dono):** `011-relatorio-de-ciclo` **implementada e testada** — EP-5 concluído. Sem migration; composição de 006+007. Baselines: **core 157 + e2e 132**.
+- **Fase 3:** ~~ciclo~~ **entregue** (`007`), ~~adesão~~ **entregue** (`006`), ~~auto-classificação~~ **entregue** (`008`), ~~relatório de ciclo~~ **entregue** (`011` — EP-5 concluído). Falta só **UI da nutri (web, EP-6)** — não iniciada.
 - **Fase 4 (resto):** import de plano por IA (PDF→estruturado), offline robusto, notificações, comida fora da lista — não iniciados.
 - **Fase 5+:** billing, Pix/Stripe, deploy/infra.
 - **Endurecer LGPD/auth:** sair do gate de exposição + `FR-016` para controle de acesso, criptografia e consentimento reais; substituir o auth stub.
