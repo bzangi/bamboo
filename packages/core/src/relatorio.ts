@@ -277,7 +277,11 @@ const taxasDe = (
   const total = t.feito + t.troquei + t.pulei + t.semRegistro;
   return total === 0
     ? { feito: 0, troquei: 0, pulei: 0 }
-    : { feito: t.feito / total, troquei: t.troquei / total, pulei: t.pulei / total };
+    : {
+        feito: t.feito / total,
+        troquei: t.troquei / total,
+        pulei: t.pulei / total,
+      };
 };
 
 /**

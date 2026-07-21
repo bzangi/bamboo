@@ -133,11 +133,37 @@ describe("agregarEstados — D9 (sem-registro = esperado − vigente; anulado n�
       slot({ position: 2, nome: "Almoço", state: null }), // sem-registro
       slot({ position: 3, nome: "Jantar", state: "pulei" }),
     ]);
-    expect(r.totais).toEqual({ feito: 2, troquei: 1, pulei: 1, semRegistro: 1 });
+    expect(r.totais).toEqual({
+      feito: 2,
+      troquei: 1,
+      pulei: 1,
+      semRegistro: 1,
+    });
     expect(r.porRefeicao).toEqual([
-      { position: 1, nome: "Café da manhã", feito: 2, troquei: 0, pulei: 0, semRegistro: 0 },
-      { position: 2, nome: "Almoço", feito: 0, troquei: 1, pulei: 0, semRegistro: 1 },
-      { position: 3, nome: "Jantar", feito: 0, troquei: 0, pulei: 1, semRegistro: 0 },
+      {
+        position: 1,
+        nome: "Café da manhã",
+        feito: 2,
+        troquei: 0,
+        pulei: 0,
+        semRegistro: 0,
+      },
+      {
+        position: 2,
+        nome: "Almoço",
+        feito: 0,
+        troquei: 1,
+        pulei: 0,
+        semRegistro: 1,
+      },
+      {
+        position: 3,
+        nome: "Jantar",
+        feito: 0,
+        troquei: 0,
+        pulei: 1,
+        semRegistro: 0,
+      },
     ]);
   });
 
@@ -213,8 +239,16 @@ describe("compararCiclos — deltas atual − anterior; um lado sem-dado → tud
 
   it("ambos com dado → 5 deltas = atual − anterior", () => {
     const r = compararCiclos(
-      agregado({ media: 84, coberturaMedia: 0.82, totais: { feito: 38, troquei: 9, pulei: 6, semRegistro: 19 } }),
-      agregado({ media: 76.9, coberturaMedia: 0.71, totais: { feito: 70, troquei: 21, pulei: 15, semRegistro: 62 } }),
+      agregado({
+        media: 84,
+        coberturaMedia: 0.82,
+        totais: { feito: 38, troquei: 9, pulei: 6, semRegistro: 19 },
+      }),
+      agregado({
+        media: 76.9,
+        coberturaMedia: 0.71,
+        totais: { feito: 70, troquei: 21, pulei: 15, semRegistro: 62 },
+      }),
     );
     expect(r.media).toBeCloseTo(7.1, 6);
     expect(r.coberturaMedia).toBeCloseTo(0.11, 6);
@@ -223,7 +257,10 @@ describe("compararCiclos — deltas atual − anterior; um lado sem-dado → tud
   });
 
   it("anterior sem dado (media null) → os 5 deltas vêm null (nunca cálculo parcial)", () => {
-    const r = compararCiclos(agregado(), agregado({ media: null, coberturaMedia: null }));
+    const r = compararCiclos(
+      agregado(),
+      agregado({ media: null, coberturaMedia: null }),
+    );
     expect(r).toEqual({
       media: null,
       coberturaMedia: null,
@@ -234,7 +271,10 @@ describe("compararCiclos — deltas atual − anterior; um lado sem-dado → tud
   });
 
   it("atual sem dado (media null) → os 5 deltas também vêm null", () => {
-    const r = compararCiclos(agregado({ media: null, coberturaMedia: null }), agregado());
+    const r = compararCiclos(
+      agregado({ media: null, coberturaMedia: null }),
+      agregado(),
+    );
     expect(r.media).toBeNull();
     expect(r.taxaFeito).toBeNull();
   });

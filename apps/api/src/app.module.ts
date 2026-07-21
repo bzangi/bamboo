@@ -9,6 +9,7 @@ import { CombinationModule } from './combination/combination.module';
 import { RegistroModule } from './registro/registro.module';
 import { AdesaoModule } from './adesao/adesao.module';
 import { CicloModule } from './ciclo/ciclo.module';
+import { RelatorioModule } from './relatorio/relatorio.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { CicloModule } from './ciclo/ciclo.module';
     RegistroModule,
     AdesaoModule,
     CicloModule,
+    RelatorioModule,
   ],
   controllers: [AppController],
   providers: [AppService],
