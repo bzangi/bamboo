@@ -52,6 +52,9 @@ let cicloAbertoId: string; // B — aberto, parcial
 let cicloVazioId: string; // C — aberto hoje, zero registros
 let cicloJanelaInvalidaId: string; // D — > 366 dias
 let cicloSemanasId: string; // E — 17 dias, 3 semanas com padrões distintos (US2)
+let cicloDesempateId: string; // H — com dados; anterior empatado (US3)
+let cicloAnteriorPerdedorId: string; // I1 — perde o desempate (startedOn mais antigo)
+let cicloAnteriorVencedorId: string; // I2 — vence o desempate; sem registros (US3)
 
 const eventIds: string[] = [];
 
@@ -286,6 +289,86 @@ beforeAll(async () => {
     });
   }
 
+  // ── Ciclos I1/I2 (fechados no MESMO dia — desempate, US3) ──────────────
+  // I1 abriu há 60d, I2 abriu há 50d; ambos fecharam há 50d (empate de
+  // closedOn) — desempate: o de startedOn mais recente (I2) vence (D3).
+  const [i1] = await db
+    .insert(schema.cycle)
+    .values({
+      patientId,
+      startedOn: isoDaysAgo(60),
+      closedOn: isoDaysAgo(50),
+      expectedDurationDays: 10,
+    })
+    .returning({ id: schema.cycle.id });
+  cicloAnteriorPerdedorId = i1.id;
+
+  const [i2] = await db
+    .insert(schema.cycle)
+    .values({
+      patientId,
+      startedOn: isoDaysAgo(50),
+      closedOn: isoDaysAgo(50),
+      expectedDurationDays: 1,
+    })
+    .returning({ id: schema.cycle.id });
+  cicloAnteriorVencedorId = i2.id;
+  await db.insert(schema.cyclePlanVigencia).values({
+    cycleId: cicloAnteriorVencedorId,
+    planId,
+    validFrom: isoDaysAgo(50),
+    validTo: isoDaysAgo(50),
+  });
+  // I1/I2: zero registros — I2 vencedor serve também de "anterior sem dado".
+
+  // ── Ciclo H (com dados; anterior = I2 via desempate — US3) ─────────────
+  const H_INI = isoDaysAgo(45);
+  const H_FIM = isoDaysAgo(40);
+  const [h] = await db
+    .insert(schema.cycle)
+    .values({
+      patientId,
+      startedOn: H_INI,
+      closedOn: H_FIM,
+      expectedDurationDays: 6,
+    })
+    .returning({ id: schema.cycle.id });
+  cicloDesempateId = h.id;
+  await db.insert(schema.cyclePlanVigencia).values({
+    cycleId: cicloDesempateId,
+    planId,
+    validFrom: H_INI,
+    validTo: H_FIM,
+  });
+  await insertEvento({
+    mealId: meal1Id,
+    loggedDate: isoDaysAgo(43),
+    state: 'feito',
+    chosenMealOptionId: defaultOption1Id,
+    hora: '08:00:00',
+  });
+  await insertEvento({
+    mealId: meal2Id,
+    loggedDate: isoDaysAgo(43),
+    state: 'feito',
+    chosenMealOptionId: defaultOption2Id,
+    hora: '12:00:00',
+  });
+  await insertEvento({
+    mealId: meal1Id,
+    loggedDate: isoDaysAgo(41),
+    state: 'pulei',
+    chosenMealOptionId: null,
+    hora: '08:00:00',
+  });
+  await insertEvento({
+    mealId: meal2Id,
+    loggedDate: isoDaysAgo(41),
+    state: 'pulei',
+    chosenMealOptionId: null,
+    hora: '12:00:00',
+  });
+
   // ── Ciclo B (aberto, parcial — US1) ────────────────────────────────────
   const B_INI = isoDaysAgo(2);
   const [b] = await db
@@ -382,6 +465,9 @@ afterAll(async () => {
     cicloVazioId,
     cicloJanelaInvalidaId,
     cicloSemanasId,
+    cicloDesempateId,
+    cicloAnteriorPerdedorId,
+    cicloAnteriorVencedorId,
   ].filter(Boolean);
   if (cycleIds.length > 0) {
     await db
@@ -646,6 +732,91 @@ describe('GET .../report (US2 — semanas, A1 relativa ao início)', () => {
       from: isoDaysAgo(2),
       to: hojeIso(),
       parcial: true,
+    });
+  });
+});
+
+// ───────────────────── US3 — comparativo com o ciclo anterior ─────────────
+
+describe('GET .../report (US3 — comparativo, A3/D3)', () => {
+  it('presente com deltas corretos (atual − anterior); cicloAnterior traz janela + agregados', async () => {
+    const atual = await nutriGet(
+      `/nutri/patients/${patientId}/cycles/${cicloFechadoId}/report`, // A — anterior = E
+    ).expect(200);
+    const anteriorSolo = await nutriGet(
+      `/nutri/patients/${patientId}/cycles/${cicloSemanasId}/report`, // E direto
+    ).expect(200);
+
+    const comp = atual.body.comparativo as {
+      cicloAnterior: {
+        id: string;
+        startedOn: string;
+        closedOn: string;
+        adesao: { media: number | null };
+        registroTotais: {
+          feito: number;
+          troquei: number;
+          pulei: number;
+          semRegistro: number;
+        };
+      };
+      deltas: {
+        media: number | null;
+        coberturaMedia: number | null;
+        taxaFeito: number | null;
+        taxaTroquei: number | null;
+        taxaPulei: number | null;
+      };
+    };
+    expect(comp.cicloAnterior.id).toBe(cicloSemanasId);
+    expect(comp.cicloAnterior.startedOn).toBe(isoDaysAgo(23));
+    expect(comp.cicloAnterior.closedOn).toBe(isoDaysAgo(7));
+    expect(comp.cicloAnterior.adesao.media).toBe(
+      anteriorSolo.body.adesao.media,
+    );
+    expect(comp.cicloAnterior.registroTotais).toEqual({
+      feito: 14,
+      troquei: 0,
+      pulei: 6,
+      semRegistro: 14,
+    });
+
+    // taxas: atual(A) = {feito4,troquei1,pulei2,semRegistro1}/8 vs anterior(E) totais/34.
+    expect(comp.deltas.taxaFeito).toBeCloseTo(4 / 8 - 14 / 34, 6);
+    expect(comp.deltas.taxaTroquei).toBeCloseTo(1 / 8 - 0 / 34, 6);
+    expect(comp.deltas.taxaPulei).toBeCloseTo(2 / 8 - 6 / 34, 6);
+    expect(comp.deltas.media).toBeCloseTo(
+      (atual.body.adesao.media as number) -
+        (anteriorSolo.body.adesao.media as number),
+      6,
+    );
+  });
+
+  it('primeiro ciclo do paciente (sem candidato anterior) → comparativo ausente, sem erro', async () => {
+    const res = await nutriGet(
+      // I1 (perdedor do desempate) é o ciclo mais antigo do cenário — nada fechou antes dele.
+      `/nutri/patients/${patientId}/cycles/${cicloAnteriorPerdedorId}/report`,
+    ).expect(200);
+    expect(res.body.comparativo).toBeNull();
+  });
+
+  it('desempate (dois anteriores fechados no mesmo dia) → o de startedOn mais recente vence; anterior sem dado → deltas todos null', async () => {
+    const res = await nutriGet(
+      `/nutri/patients/${patientId}/cycles/${cicloDesempateId}/report`, // H
+    ).expect(200);
+    const comp = res.body.comparativo as {
+      cicloAnterior: { id: string; adesao: { media: number | null } };
+      deltas: Record<string, number | null>;
+    };
+    expect(comp).not.toBeNull();
+    expect(comp.cicloAnterior.id).toBe(cicloAnteriorVencedorId); // I2, não I1
+    expect(comp.cicloAnterior.adesao.media).toBeNull(); // anterior sem nenhum dia com dado
+    expect(comp.deltas).toEqual({
+      media: null,
+      coberturaMedia: null,
+      taxaFeito: null,
+      taxaTroquei: null,
+      taxaPulei: null,
     });
   });
 });

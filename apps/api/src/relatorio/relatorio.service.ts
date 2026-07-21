@@ -12,17 +12,23 @@ import {
 import {
   agregarAdesao,
   agregarEstados,
+  compararCiclos,
+  encontrarCicloAnterior,
   fatiarSemanas,
+  type AdesaoAgregada,
+  type CicloCandidato,
   type EstadoRegistro,
+  type RegistroTotais,
   type SlotRegistro,
 } from '@bamboo/core';
-import type { CycleReportResponse } from '@bamboo/types';
+import type { ComparativoDto, CycleReportResponse } from '@bamboo/types';
 import { AdesaoService } from '../adesao/adesao.service';
 import { CicloService } from '../ciclo/ciclo.service';
 import { DB, type Db } from '../db/db.module';
 import { localToday } from '../local-date';
 import { carregarRegistroDaJanela, type DiaRegistro } from './relatorio.loader';
 import {
+  toComparativoDto,
   toCycleReportResponse,
   toCycleWindowDto,
   toSemanaDto,
@@ -120,6 +126,13 @@ export class RelatorioService {
       return toSemanaDto(slice, adesaoSemana, registroSemana.totais);
     });
 
+    const comparativo = await this.montarComparativo(patientId, {
+      id: detalhe.id,
+      startedOn: detalhe.startedOn,
+      adesao,
+      registroTotais: registro.totais,
+    });
+
     return toCycleReportResponse({
       cycle: toCycleWindowDto({
         id: detalhe.id,
@@ -132,7 +145,85 @@ export class RelatorioService {
       adesao,
       registro,
       semanas,
-      comparativo: null, // US3 (T015) completa
+      comparativo,
+    });
+  }
+
+  // Ciclo anterior (A3/D3) + agregados dele + deltas — null quando não há
+  // candidato válido OU quando a janela do candidato excede o teto (D8: o
+  // teto é do ciclo CONSULTADO; o anterior degenerado só perde o
+  // comparativo, nunca vira erro — filosofia "nunca erro" do FR-006).
+  private async montarComparativo(
+    patientId: string,
+    atual: {
+      readonly id: string;
+      readonly startedOn: string;
+      readonly adesao: AdesaoAgregada;
+      readonly registroTotais: RegistroTotais;
+    },
+  ): Promise<ComparativoDto | null> {
+    const { cycles } = await this.cicloService.linhaDoTempo(patientId);
+    const candidatos: CicloCandidato[] = cycles
+      .filter((c): c is typeof c & { closedOn: string } => c.closedOn !== null)
+      .map((c) => ({ id: c.id, startedOn: c.startedOn, closedOn: c.closedOn }));
+
+    const escolhido = encontrarCicloAnterior(
+      candidatos,
+      atual.startedOn,
+      atual.id,
+    );
+    if (!escolhido) return null;
+
+    const detalheAnterior = await this.cicloService.detalhe(
+      patientId,
+      escolhido.id,
+    );
+    const hoje = localToday();
+    const fromAnterior = detalheAnterior.startedOn;
+    const toAnterior = detalheAnterior.closedOn ?? hoje;
+
+    if (contarDiasInclusive(fromAnterior, toAnterior) > MAX_DIAS) {
+      return null; // janela degenerada do anterior: sem comparativo utilizável
+    }
+
+    const [serieAnterior, registroPorDiaAnterior] = await Promise.all([
+      this.adesaoService.serie(patientId, fromAnterior, toAnterior),
+      carregarRegistroDaJanela(this.db, {
+        patientId,
+        from: fromAnterior,
+        to: toAnterior,
+        vigencias: detalheAnterior.vigencias,
+        hoje,
+      }),
+    ]);
+
+    const adesaoAnterior = agregarAdesao(serieAnterior.days);
+    const registroAnterior = agregarEstados(
+      slotsNoIntervalo(registroPorDiaAnterior, fromAnterior, toAnterior),
+    );
+
+    const deltas = compararCiclos(
+      {
+        media: atual.adesao.media,
+        coberturaMedia: atual.adesao.coberturaMedia,
+        totais: atual.registroTotais,
+      },
+      {
+        media: adesaoAnterior.media,
+        coberturaMedia: adesaoAnterior.coberturaMedia,
+        totais: registroAnterior.totais,
+      },
+    );
+
+    return toComparativoDto({
+      cicloAnterior: {
+        id: escolhido.id,
+        startedOn: detalheAnterior.startedOn,
+        closedOn: detalheAnterior.closedOn as string, // candidato filtrado: sempre fechado
+      },
+      adesaoAnterior,
+      registroTotaisAnterior: registroAnterior.totais,
+      deltas,
     });
   }
 }
