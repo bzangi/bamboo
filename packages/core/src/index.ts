@@ -12,3 +12,4 @@ export * from "./registro.js";
 export * from "./adesao.js";
 export * from "./ciclo.js";
 export * from "./classificacao.js";
+export * from "./relatorio.js";
