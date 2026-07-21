@@ -51,6 +51,7 @@ let cicloFechadoId: string; // A — 4 dias, registros conhecidos
 let cicloAbertoId: string; // B — aberto, parcial
 let cicloVazioId: string; // C — aberto hoje, zero registros
 let cicloJanelaInvalidaId: string; // D — > 366 dias
+let cicloSemanasId: string; // E — 17 dias, 3 semanas com padrões distintos (US2)
 
 const eventIds: string[] = [];
 
@@ -229,6 +230,62 @@ beforeAll(async () => {
   });
   // isoDaysAgo(3) meal2: sem registro (deliberado).
 
+  // ── Ciclo E (17 dias, 3 semanas com padrões distintos — US2) ──────────
+  // Semana 1 (7d): tudo feito. Semana 2 (7d): ZERO registros (buraco —
+  // acceptance #4). Semana 3 (3d, parcial): tudo pulei.
+  const E_INI = isoDaysAgo(23);
+  const E_FIM = isoDaysAgo(7);
+  const [e] = await db
+    .insert(schema.cycle)
+    .values({
+      patientId,
+      startedOn: E_INI,
+      closedOn: E_FIM,
+      expectedDurationDays: 17,
+    })
+    .returning({ id: schema.cycle.id });
+  cicloSemanasId = e.id;
+  await db.insert(schema.cyclePlanVigencia).values({
+    cycleId: cicloSemanasId,
+    planId,
+    validFrom: E_INI,
+    validTo: E_FIM,
+  });
+
+  for (let n = 23; n >= 17; n--) {
+    await insertEvento({
+      mealId: meal1Id,
+      loggedDate: isoDaysAgo(n),
+      state: 'feito',
+      chosenMealOptionId: defaultOption1Id,
+      hora: '08:00:00',
+    });
+    await insertEvento({
+      mealId: meal2Id,
+      loggedDate: isoDaysAgo(n),
+      state: 'feito',
+      chosenMealOptionId: defaultOption2Id,
+      hora: '12:00:00',
+    });
+  }
+  // isoDaysAgo(16)..isoDaysAgo(10): semana 2 — nenhum registro (deliberado).
+  for (let n = 9; n >= 7; n--) {
+    await insertEvento({
+      mealId: meal1Id,
+      loggedDate: isoDaysAgo(n),
+      state: 'pulei',
+      chosenMealOptionId: null,
+      hora: '08:00:00',
+    });
+    await insertEvento({
+      mealId: meal2Id,
+      loggedDate: isoDaysAgo(n),
+      state: 'pulei',
+      chosenMealOptionId: null,
+      hora: '12:00:00',
+    });
+  }
+
   // ── Ciclo B (aberto, parcial — US1) ────────────────────────────────────
   const B_INI = isoDaysAgo(2);
   const [b] = await db
@@ -324,6 +381,7 @@ afterAll(async () => {
     cicloAbertoId,
     cicloVazioId,
     cicloJanelaInvalidaId,
+    cicloSemanasId,
   ].filter(Boolean);
   if (cycleIds.length > 0) {
     await db
@@ -492,5 +550,102 @@ describe('GET /nutri/patients/:id/cycles/:cycleId/report (US1 — retrato)', () 
       `/nutri/patients/${patientId}/cycles/${cicloFechadoId}/report`,
     ).expect(200);
     expect(await contagensGlobais()).toEqual(antes);
+  });
+});
+
+// ───────────────────── US2 — evolução semana a semana ─────────────────────
+
+describe('GET .../report (US2 — semanas, A1 relativa ao início)', () => {
+  it('3 semanas com padrões distintos: em ordem, intervalos corretos, última exata', async () => {
+    const res = await nutriGet(
+      `/nutri/patients/${patientId}/cycles/${cicloSemanasId}/report`,
+    ).expect(200);
+    const semanas = res.body.semanas as {
+      indice: number;
+      from: string;
+      to: string;
+      parcial: boolean;
+      adesao: {
+        media: number | null;
+        diasComDado: number;
+        diasSemDado: number;
+      };
+      registro: {
+        feito: number;
+        troquei: number;
+        pulei: number;
+        semRegistro: number;
+      };
+    }[];
+    expect(semanas).toHaveLength(3);
+    expect(semanas.map((s) => s.indice)).toEqual([1, 2, 3]);
+
+    // Semana 1: tudo feito, com dado todo dia.
+    expect(semanas[0]).toMatchObject({
+      from: isoDaysAgo(23),
+      to: isoDaysAgo(17),
+      parcial: false,
+    });
+    expect(semanas[0].adesao.diasComDado).toBe(7);
+    expect(semanas[0].adesao.diasSemDado).toBe(0);
+    expect(semanas[0].registro).toEqual({
+      feito: 14,
+      troquei: 0,
+      pulei: 0,
+      semRegistro: 0,
+    });
+
+    // Semana 2: buraco total — aparece na série, sem-dado e zerada (acceptance #4).
+    expect(semanas[1]).toMatchObject({
+      from: isoDaysAgo(16),
+      to: isoDaysAgo(10),
+      parcial: false,
+    });
+    expect(semanas[1].adesao.media).toBeNull();
+    expect(semanas[1].adesao.diasComDado).toBe(0);
+    expect(semanas[1].adesao.diasSemDado).toBe(7);
+    expect(semanas[1].registro).toEqual({
+      feito: 0,
+      troquei: 0,
+      pulei: 0,
+      semRegistro: 14,
+    });
+
+    // Semana 3: última fatia PARCIAL (3 dias) — tudo pulei.
+    expect(semanas[2]).toMatchObject({
+      from: isoDaysAgo(9),
+      to: isoDaysAgo(7),
+      parcial: true,
+    });
+    expect(semanas[2].adesao.diasComDado).toBe(3); // pulei É registro (com-dado)
+    expect(semanas[2].registro).toEqual({
+      feito: 0,
+      troquei: 0,
+      pulei: 6,
+      semRegistro: 0,
+    });
+  });
+
+  it('SC-002 por semana: adesao.media da semana 1 == media de GET /adesao na mesma janela', async () => {
+    const relatorio = await nutriGet(
+      `/nutri/patients/${patientId}/cycles/${cicloSemanasId}/report`,
+    ).expect(200);
+    const adesao = await nutriGet(`/nutri/patients/${patientId}/adesao`)
+      .query({ from: isoDaysAgo(23), to: isoDaysAgo(17) })
+      .expect(200);
+    expect(relatorio.body.semanas[0].adesao.media).toBe(adesao.body.media);
+  });
+
+  it('ciclo aberto (janela de 3 dias, duração prevista 21) → só a semana real, nenhuma semana futura', async () => {
+    const res = await nutriGet(
+      `/nutri/patients/${patientId}/cycles/${cicloAbertoId}/report`,
+    ).expect(200);
+    expect(res.body.semanas).toHaveLength(1);
+    expect(res.body.semanas[0]).toMatchObject({
+      indice: 1,
+      from: isoDaysAgo(2),
+      to: hojeIso(),
+      parcial: true,
+    });
   });
 });

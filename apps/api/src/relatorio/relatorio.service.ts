@@ -6,11 +6,13 @@
 import {
   Inject,
   Injectable,
+  InternalServerErrorException,
   UnprocessableEntityException,
 } from '@nestjs/common';
 import {
   agregarAdesao,
   agregarEstados,
+  fatiarSemanas,
   type EstadoRegistro,
   type SlotRegistro,
 } from '@bamboo/core';
@@ -20,7 +22,11 @@ import { CicloService } from '../ciclo/ciclo.service';
 import { DB, type Db } from '../db/db.module';
 import { localToday } from '../local-date';
 import { carregarRegistroDaJanela, type DiaRegistro } from './relatorio.loader';
-import { toCycleReportResponse, toCycleWindowDto } from './relatorio.mapper';
+import {
+  toCycleReportResponse,
+  toCycleWindowDto,
+  toSemanaDto,
+} from './relatorio.mapper';
 
 const MAX_DIAS = 366; // mesmo teto vigente da consulta de adesão (D8)
 
@@ -39,17 +45,23 @@ const contarDiasInclusive = (from: string, to: string): number => {
   return dias;
 };
 
-// Slots (refeição esperada × dia) pro agregador de estados do core (D9).
-const montarSlots = (
+const slotsDoDia = (dia: DiaRegistro): SlotRegistro[] =>
+  dia.refeicoesEsperadas.map((refeicao) => {
+    const state: EstadoRegistro | null =
+      dia.vigentesPorPosition.get(refeicao.position) ?? null;
+    return { position: refeicao.position, nome: refeicao.nome, state };
+  });
+
+// Slots (refeição esperada × dia) pro agregador de estados do core (D9),
+// recortados por intervalo — usado tanto pro ciclo inteiro quanto por semana.
+const slotsNoIntervalo = (
   registroPorDia: ReadonlyMap<string, DiaRegistro>,
+  from: string,
+  to: string,
 ): SlotRegistro[] => {
   const slots: SlotRegistro[] = [];
-  for (const dia of registroPorDia.values()) {
-    for (const refeicao of dia.refeicoesEsperadas) {
-      const state: EstadoRegistro | null =
-        dia.vigentesPorPosition.get(refeicao.position) ?? null;
-      slots.push({ position: refeicao.position, nome: refeicao.nome, state });
-    }
+  for (const [date, dia] of registroPorDia.entries()) {
+    if (date >= from && date <= to) slots.push(...slotsDoDia(dia));
   }
   return slots;
 };
@@ -89,7 +101,24 @@ export class RelatorioService {
     ]);
 
     const adesao = agregarAdesao(serie.days);
-    const registro = agregarEstados(montarSlots(registroPorDia));
+    const registro = agregarEstados(slotsNoIntervalo(registroPorDia, from, to));
+
+    const semanasResult = fatiarSemanas(from, to);
+    if (!semanasResult.ok) {
+      // Estruturalmente inalcançável: from ≤ to garantido por construção
+      // (from = startedOn, to = closedOn ?? hoje — sempre ≥ startedOn).
+      throw new InternalServerErrorException('relatório: janela inválida');
+    }
+    const semanas = semanasResult.value.map((slice) => {
+      const diasDaSemana = serie.days.filter(
+        (d) => d.date >= slice.from && d.date <= slice.to,
+      );
+      const adesaoSemana = agregarAdesao(diasDaSemana);
+      const registroSemana = agregarEstados(
+        slotsNoIntervalo(registroPorDia, slice.from, slice.to),
+      );
+      return toSemanaDto(slice, adesaoSemana, registroSemana.totais);
+    });
 
     return toCycleReportResponse({
       cycle: toCycleWindowDto({
@@ -102,7 +131,7 @@ export class RelatorioService {
       }),
       adesao,
       registro,
-      semanas: [], // US2 (T012) completa
+      semanas,
       comparativo: null, // US3 (T015) completa
     });
   }
