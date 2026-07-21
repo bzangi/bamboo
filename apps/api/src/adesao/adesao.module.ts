@@ -11,5 +11,6 @@ import { NutriKeyGuard } from '../nutri/nutri-key.guard';
   imports: [DbModule],
   controllers: [AdesaoController],
   providers: [AdesaoService, NutriKeyGuard],
+  exports: [AdesaoService],
 })
 export class AdesaoModule {}

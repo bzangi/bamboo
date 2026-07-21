@@ -11,5 +11,6 @@ import { NutriKeyGuard } from '../nutri/nutri-key.guard';
   imports: [DbModule],
   controllers: [CicloController],
   providers: [CicloService, NutriKeyGuard],
+  exports: [CicloService],
 })
 export class CicloModule {}
