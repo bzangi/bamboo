@@ -376,6 +376,14 @@ describe('POST .../rebalance/option-choice (US2) — total do dia pelo consumo r
   // ajuste item-a-item (o café é a alavanca dos casos US2). Preenchido no setup.
   const cafePlanejado = new Map<string, number>();
 
+  // (KI-004) Programação de HOJE, para restaurar no afterAll. Esta suíte precisa
+  // do cenário de 'treino': as asserções são calibradas nos deltas de kcal desse
+  // plano, e o motor resolve o tipo-de-dia pelo weekday do servidor
+  // (rebalance.service.ts:130-147) sem aceitar override. No fim de semana o seed
+  // programa 'descanso', cujo plano é menor e mantém o dia DENTRO da faixa →
+  // 'sem-acao' em vez de 'rebalanceado'. Então fixamos e devolvemos.
+  let scheduleBackup: { id: string; dayTypeId: string } | null = null;
+
   beforeAll(async () => {
     const [pat] = await db
       .select({ id: schema.patient.id })
@@ -400,9 +408,14 @@ describe('POST .../rebalance/option-choice (US2) — total do dia pelo consumo r
     // resíduo de outra suíte/run (idempotente; descreve cenário próprio depois).
     await limparEventosDeHoje(patientId, pln.id);
 
+    // (KI-004) Fixa a programação de HOJE em 'treino' — ver o comentário do
+    // scheduleBackup. Idempotente: se hoje já é treino, não escreve nada.
     const weekday = new Date().getDay();
     const [sched] = await db
-      .select({ dayTypeId: schema.daySchedule.dayTypeId })
+      .select({
+        id: schema.daySchedule.id,
+        dayTypeId: schema.daySchedule.dayTypeId,
+      })
       .from(schema.daySchedule)
       .where(
         and(
@@ -411,7 +424,24 @@ describe('POST .../rebalance/option-choice (US2) — total do dia pelo consumo r
         ),
       )
       .limit(1);
-    dayTypeId = sched.dayTypeId;
+    const [treino] = await db
+      .select({ id: schema.dayType.id })
+      .from(schema.dayType)
+      .where(
+        and(
+          eq(schema.dayType.planId, planId),
+          eq(schema.dayType.name, 'treino'),
+        ),
+      )
+      .limit(1);
+    if (sched.dayTypeId !== treino.id) {
+      scheduleBackup = { id: sched.id, dayTypeId: sched.dayTypeId };
+      await db
+        .update(schema.daySchedule)
+        .set({ dayTypeId: treino.id })
+        .where(eq(schema.daySchedule.id, sched.id));
+    }
+    dayTypeId = treino.id;
 
     const meals = await db
       .select({
@@ -443,8 +473,12 @@ describe('POST .../rebalance/option-choice (US2) — total do dia pelo consumo r
       .where(eq(schema.mealOption.mealId, almocoMealId));
     almocoDefaultOptId = almocoOpts.find((o) => o.isDefault)!.id;
 
-    // Item da "Batata inglesa cozida" no jantar (carbo flexível) → alvo da
-    // substituição que vira 'troquei'.
+    // Item de amido FLEXÍVEL no jantar (150 g) → origem da substituição que vira
+    // 'troquei'. Resolvido pelo GRUPO, não pelo nome do alimento: o tipo-de-dia
+    // vem do weekday de HOJE (:404), e os dois tipos do seed têm amidos
+    // diferentes no jantar — 'Batata inglesa cozida' (treino, seg–sex) vs
+    // 'Batata doce cozida' (descanso, sáb/dom), ambos 150 g em "Amidos e
+    // cereais". Fixar o nome fazia o beforeAll estourar no fim de semana (KI-004).
     const [batata] = await db
       .select({ id: schema.mealItem.id })
       .from(schema.mealItem)
@@ -452,13 +486,18 @@ describe('POST .../rebalance/option-choice (US2) — total do dia pelo consumo r
         schema.mealOption,
         eq(schema.mealItem.mealOptionId, schema.mealOption.id),
       )
-      .innerJoin(schema.food, eq(schema.mealItem.foodId, schema.food.id))
+      .innerJoin(
+        schema.substitutionGroup,
+        eq(schema.mealItem.substitutionGroupId, schema.substitutionGroup.id),
+      )
       .where(
         and(
           eq(schema.mealOption.mealId, jantarMealId),
-          eq(schema.food.name, 'Batata inglesa cozida'),
+          eq(schema.substitutionGroup.name, 'Amidos e cereais'),
+          eq(schema.mealItem.isLocked, false),
         ),
       )
+      .orderBy(asc(schema.mealItem.id))
       .limit(1);
     jantarBatataItemId = batata.id;
 
@@ -500,6 +539,14 @@ describe('POST .../rebalance/option-choice (US2) — total do dia pelo consumo r
 
   afterAll(async () => {
     await app?.close();
+    // (KI-004) Devolve a programação de hoje ANTES de fechar o pool — senão as
+    // suítes seguintes veriam 'treino' num sábado.
+    if (scheduleBackup) {
+      await db
+        .update(schema.daySchedule)
+        .set({ dayTypeId: scheduleBackup.dayTypeId })
+        .where(eq(schema.daySchedule.id, scheduleBackup.id));
+    }
     // pool.end() único do arquivo: esta é a última suíte do e2e-spec.
     await pool.end();
   });
