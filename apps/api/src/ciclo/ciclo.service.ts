@@ -259,10 +259,17 @@ export class CicloService {
     };
   }
 
-  async detalhe(
-    patientId: string,
-    cycleId: string,
-  ): Promise<CicloDetalheResponse> {
+  /**
+   * Janela + vigências de UM ciclo, SEM os registros (012/FR-011).
+   *
+   * Existe porque o relatório de ciclo só precisa disto: chamava `detalhe` e
+   * jogava `registros` no lixo, pagando um range-scan de `meal_event` por ciclo
+   * consultado (dois, com comparativo).
+   *
+   * Guarda os dois 404 que `detalhe` expõe — paciente inexistente e ciclo que
+   * não é do paciente. `detalhe` NÃO os repete: compõe em cima desta.
+   */
+  async janela(patientId: string, cycleId: string): Promise<CicloDto> {
     await this.exigirPaciente(patientId);
     const [ciclo] = await this.db
       .select({
@@ -282,15 +289,20 @@ export class CicloService {
     if (!ciclo) throw new NotFoundException('ciclo não encontrado no paciente');
 
     const vigencias = await this.vigenciasDe([ciclo.id]);
+    return toCicloDto(ciclo, vigencias.get(ciclo.id) ?? []);
+  }
+
+  async detalhe(
+    patientId: string,
+    cycleId: string,
+  ): Promise<CicloDetalheResponse> {
+    const janela = await this.janela(patientId, cycleId);
     const registros = await this.registrosDaJanela(
       patientId,
-      ciclo.startedOn,
-      ciclo.closedOn ?? localToday(),
+      janela.startedOn,
+      janela.closedOn ?? localToday(),
     );
-    return {
-      ...toCicloDto(ciclo, vigencias.get(ciclo.id) ?? []),
-      registros,
-    };
+    return { ...janela, registros };
   }
 
   async cicloDoDia(

@@ -1,5 +1,5 @@
 // Casca da Feature 011 — orquestra o relatório de ciclo: janela do ciclo
-// (007, via CicloService.detalhe — 404 herdado) + série de adesão (006, via
+// (007, via CicloService.janela — 404 herdado) + série de adesão (006, via
 // AdesaoService.serie — UMA RÉGUA SÓ, nunca recalculada aqui, FR-003/FR-009)
 // + loader novo (padrão de registro esperado/vigente) → agregações puras do
 // core. SÓ LEITURA: nenhuma escrita em nenhum caminho (FR-008/SC-006).
@@ -84,10 +84,10 @@ export class RelatorioService {
     patientId: string,
     cycleId: string,
   ): Promise<CycleReportResponse> {
-    const detalhe = await this.cicloService.detalhe(patientId, cycleId); // 404 herdado
+    const janela = await this.cicloService.janela(patientId, cycleId); // 404 herdado; sem os registros (012/FR-011)
     const hoje = localToday();
-    const from = detalhe.startedOn;
-    const to = detalhe.closedOn ?? hoje; // aberto: janela até hoje (A2)
+    const from = janela.startedOn;
+    const to = janela.closedOn ?? hoje; // aberto: janela até hoje (A2)
 
     if (contarDiasInclusive(from, to) > MAX_DIAS) {
       throw new UnprocessableEntityException(
@@ -101,7 +101,7 @@ export class RelatorioService {
         patientId,
         from,
         to,
-        vigencias: detalhe.vigencias,
+        vigencias: janela.vigencias,
         hoje,
       }),
     ]);
@@ -127,18 +127,18 @@ export class RelatorioService {
     });
 
     const comparativo = await this.montarComparativo(patientId, {
-      id: detalhe.id,
-      startedOn: detalhe.startedOn,
+      id: janela.id,
+      startedOn: janela.startedOn,
       adesao,
       registroTotais: registro.totais,
     });
 
     return toCycleReportResponse({
       cycle: toCycleWindowDto({
-        id: detalhe.id,
-        startedOn: detalhe.startedOn,
-        closedOn: detalhe.closedOn,
-        expectedDurationDays: detalhe.expectedDurationDays,
+        id: janela.id,
+        startedOn: janela.startedOn,
+        closedOn: janela.closedOn,
+        expectedDurationDays: janela.expectedDurationDays,
         from,
         to,
       }),
@@ -174,13 +174,13 @@ export class RelatorioService {
     );
     if (!escolhido) return null;
 
-    const detalheAnterior = await this.cicloService.detalhe(
+    const janelaAnterior = await this.cicloService.janela(
       patientId,
       escolhido.id,
     );
     const hoje = localToday();
-    const fromAnterior = detalheAnterior.startedOn;
-    const toAnterior = detalheAnterior.closedOn ?? hoje;
+    const fromAnterior = janelaAnterior.startedOn;
+    const toAnterior = janelaAnterior.closedOn ?? hoje;
 
     if (contarDiasInclusive(fromAnterior, toAnterior) > MAX_DIAS) {
       return null; // janela degenerada do anterior: sem comparativo utilizável
@@ -192,7 +192,7 @@ export class RelatorioService {
         patientId,
         from: fromAnterior,
         to: toAnterior,
-        vigencias: detalheAnterior.vigencias,
+        vigencias: janelaAnterior.vigencias,
         hoje,
       }),
     ]);
@@ -218,8 +218,8 @@ export class RelatorioService {
     return toComparativoDto({
       cicloAnterior: {
         id: escolhido.id,
-        startedOn: detalheAnterior.startedOn,
-        closedOn: detalheAnterior.closedOn as string, // candidato filtrado: sempre fechado
+        startedOn: janelaAnterior.startedOn,
+        closedOn: janelaAnterior.closedOn as string, // candidato filtrado: sempre fechado
       },
       adesaoAnterior,
       registroTotaisAnterior: registroAnterior.totais,
