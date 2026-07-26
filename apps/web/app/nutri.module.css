@@ -1,0 +1,489 @@
+/* Um módulo para as duas telas da nutri.
+ *
+ * Estrutura: coluna única sobre uma RÉGUA vertical (o colmo) com um NÓ em cada
+ * seção. A régua é o dispositivo estrutural da página e diz algo verdadeiro — as
+ * seções são segmentos de uma leitura só, na ordem em que a nutri lê. Sem
+ * numeração 01/02/03: as seções não são uma sequência de passos.
+ */
+
+.page {
+  max-width: 62rem;
+  margin: 0 auto;
+  padding: 3.5rem 1.5rem 6rem;
+}
+
+/* ───────── cabeçalho ───────── */
+
+.eyebrow {
+  font-family: var(--mono);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+.title {
+  font-size: clamp(1.75rem, 4vw, 2.5rem);
+  font-weight: 600;
+  letter-spacing: -0.025em;
+  line-height: 1.1;
+  margin-top: 0.5rem;
+}
+
+.head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding-bottom: 1.25rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.back {
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.04em;
+  color: var(--ink-2);
+  display: inline-block;
+  margin-bottom: 1.75rem;
+  border-bottom: 1px solid transparent;
+  transition: border-color 120ms ease;
+}
+
+.back:hover {
+  border-bottom-color: var(--ink-2);
+}
+
+/* ───────── seções sobre a régua ───────── */
+
+.section {
+  position: relative;
+  padding: 2.5rem 0 0 1.75rem;
+  border-left: 2px solid var(--line);
+}
+
+/* o nó do colmo */
+.section::before {
+  content: "";
+  position: absolute;
+  left: -2px;
+  top: 2.9rem;
+  width: 0.75rem;
+  height: 2px;
+  background: var(--feito);
+}
+
+.sectionTitle {
+  font-family: var(--mono);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+
+.note {
+  font-size: 0.875rem;
+  color: var(--ink-2);
+  margin-top: 0.5rem;
+  max-width: 44ch;
+  line-height: 1.5;
+}
+
+/* ───────── roster ───────── */
+
+.list {
+  list-style: none;
+  margin-top: 0.5rem;
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem 1.5rem;
+  padding: 1.125rem 1.125rem 1.125rem 1rem;
+  border-bottom: 1px solid var(--line);
+  border-left: 2px solid transparent;
+  transition:
+    border-left-color 120ms ease,
+    background-color 120ms ease;
+}
+
+.row:hover,
+.row:focus-visible {
+  border-left-color: var(--feito);
+  background: var(--surface);
+}
+
+.rowName {
+  font-size: 1.0625rem;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+
+.rowState {
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.02em;
+  color: var(--ink-2);
+}
+
+.rowStateOff {
+  color: var(--ink-3);
+}
+
+.dot {
+  display: inline-block;
+  width: 0.4375rem;
+  height: 0.4375rem;
+  border-radius: 50%;
+  background: var(--feito);
+  margin-right: 0.5rem;
+  vertical-align: 0.05em;
+}
+
+/* ───────── herói: a adesão ───────── */
+
+.hero {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 1rem 3rem;
+  margin-top: 1.5rem;
+}
+
+.figure {
+  font-family: var(--mono);
+  font-size: clamp(4rem, 13vw, 7rem);
+  font-weight: 500;
+  line-height: 0.85;
+  letter-spacing: -0.04em;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+
+.figureLabel {
+  font-family: var(--mono);
+  font-size: 0.6875rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  margin-top: 0.75rem;
+}
+
+.stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.75rem;
+  padding-bottom: 0.25rem;
+}
+
+.stat {
+  min-width: 6rem;
+}
+
+.statValue {
+  font-family: var(--mono);
+  font-size: 1.375rem;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+.statLabel {
+  font-size: 0.8125rem;
+  color: var(--ink-2);
+  margin-top: 0.25rem;
+}
+
+/* ───────── o colmo: evolução semana a semana ─────────
+ * Barras cujo LARGURA é proporcional aos dias da fatia: a semana parcial fica
+ * literalmente mais curta, em vez de fingir uma semana cheia com um selo.
+ */
+
+.culmScroll {
+  overflow-x: auto;
+  padding-top: 1.75rem;
+}
+
+.culm {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px; /* fresta de superfície entre segmentos */
+  height: 8.5rem;
+  min-width: 18rem;
+  /* Teto de largura: sem ele, 4 semanas viram 4 blocos de 300px — marca grossa
+     não é gráfico, é bandeira. */
+  max-width: 40rem;
+  position: relative;
+  border-bottom: 1px solid var(--line);
+}
+
+/* referência do topo da escala (100%) — é a escala, não enfeite */
+.culm::before {
+  content: "";
+  position: absolute;
+  inset-inline: 0;
+  top: 0;
+  border-top: 1px dashed var(--line);
+}
+
+.week {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  height: 100%;
+  min-width: 1.5rem;
+}
+
+.weekFill {
+  background: var(--feito);
+  border-radius: var(--radius) var(--radius) 0 0;
+  min-height: 2px;
+}
+
+/* Semana SEM dado: hachura fraca de altura cheia. Altura cheia (e não uma barra
+   baixa) para não ser lida como "adesão baixa"; fraca porque ausência de dado
+   não pode gritar mais alto que os dados. */
+.weekEmpty {
+  background: repeating-linear-gradient(
+    45deg,
+    var(--sem-registro),
+    var(--sem-registro) 2px,
+    transparent 2px,
+    transparent 7px
+  );
+  height: 100%;
+  opacity: 0.35;
+}
+
+.weekValue {
+  position: absolute;
+  top: -1.375rem;
+  left: 0;
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-2);
+}
+
+.culmAxis {
+  display: flex;
+  gap: 2px;
+  min-width: 18rem;
+  max-width: 40rem;
+  margin-top: 0.5rem;
+}
+
+.axisCell {
+  font-family: var(--mono);
+  font-size: 0.6875rem;
+  letter-spacing: 0.04em;
+  color: var(--ink-3);
+  min-width: 1.5rem;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.partial {
+  color: var(--pulei);
+}
+
+/* ───────── padrão de registro ───────── */
+
+.stack {
+  display: flex;
+  gap: 2px;
+  height: 1.75rem;
+  max-width: 40rem;
+  margin-top: 1.5rem;
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+/* "Sem registro" NÃO é a quarta série: é ausência de dado. Hachurada nos dois
+   lugares onde aparece (segmento e legenda) para nunca competir de igual para
+   igual com feito/troquei/pulei. */
+.segSemRegistro {
+  background: repeating-linear-gradient(
+    45deg,
+    var(--sem-registro),
+    var(--sem-registro) 2px,
+    transparent 2px,
+    transparent 6px
+  );
+  background-color: color-mix(in srgb, var(--sem-registro) 22%, transparent);
+}
+
+.stackEmpty {
+  background: repeating-linear-gradient(
+    45deg,
+    var(--sem-registro),
+    var(--sem-registro) 3px,
+    transparent 3px,
+    transparent 6px
+  );
+  flex: 1;
+  opacity: 0.55;
+}
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.75rem;
+  margin-top: 1rem;
+  list-style: none;
+}
+
+.legendItem {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  color: var(--ink-2);
+}
+
+.swatch {
+  width: 0.75rem;
+  height: 0.75rem;
+  border-radius: 2px;
+  flex: none;
+}
+
+.legendValue {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+
+/* ───────── por refeição ───────── */
+
+.scroll {
+  overflow-x: auto;
+}
+
+.meals {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 1.5rem;
+  font-size: 0.875rem;
+}
+
+.meals th {
+  font-family: var(--mono);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  text-align: right;
+  padding: 0 0 0.625rem 0.75rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.meals th:first-child,
+.meals td:first-child {
+  text-align: left;
+  padding-left: 0;
+}
+
+.meals td {
+  padding: 0.75rem 0 0.75rem 0.75rem;
+  border-bottom: 1px solid var(--line);
+  text-align: right;
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-2);
+}
+
+.meals td:first-child {
+  font-family: var(--sans);
+  color: var(--ink);
+}
+
+.mealBar {
+  display: flex;
+  gap: 1px;
+  height: 0.375rem;
+  width: 5rem;
+  margin-left: auto;
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+/* ───────── comparativo ───────── */
+
+.deltas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.625rem;
+  margin-top: 1.5rem;
+  list-style: none;
+}
+
+.delta {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 0.625rem 0.875rem;
+  background: var(--surface);
+  min-width: 8.5rem;
+}
+
+.deltaLabel {
+  font-size: 0.75rem;
+  color: var(--ink-2);
+}
+
+.deltaValue {
+  font-family: var(--mono);
+  font-size: 1.0625rem;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  margin-top: 0.25rem;
+}
+
+.tomBom {
+  color: var(--bom);
+}
+
+.tomRuim {
+  color: var(--ruim);
+}
+
+.tomNeutro,
+.tomSemDado {
+  color: var(--ink-3);
+}
+
+/* ───────── falha / vazio ───────── */
+
+.card {
+  border: 1px solid var(--line);
+  border-left: 2px solid var(--pulei);
+  border-radius: var(--radius);
+  background: var(--surface);
+  padding: 1.25rem 1.375rem;
+  margin-top: 2rem;
+  max-width: 44rem;
+}
+
+.cardTitle {
+  font-size: 1.0625rem;
+  font-weight: 600;
+}
+
+.cardBody {
+  font-size: 0.875rem;
+  color: var(--ink-2);
+  margin-top: 0.5rem;
+  line-height: 1.55;
+}
+
+.mono {
+  font-family: var(--mono);
+  font-size: 0.9em;
+}

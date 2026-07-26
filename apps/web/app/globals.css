@@ -1,13 +1,64 @@
+/* Tokens da visão da nutri (Feature 015).
+ *
+ * A paleta categórica (feito / troquei / pulei) foi VALIDADA nos dois modos:
+ * banda de luminosidade, piso de croma, separação para daltonismo (ΔE) e
+ * contraste contra a superfície. "Sem registro" NÃO é uma quarta série — é
+ * ausência de dado, então é neutro + hachurado + rótulo visível, nunca uma cor
+ * competindo com as três reais.
+ *
+ * feito/adesão = o verde do produto (o mesmo #2e7d32 do app do paciente) e
+ * troquei = azul: as duas semânticas já existem no mobile, e a nutri lê as duas
+ * telas. Consistência entre apps, não decoração.
+ */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  color-scheme: light;
+
+  --paper: #f7f7f4;
+  --surface: #ffffff;
+  --ink: #14231a;
+  --ink-2: #4a5450;
+  --ink-3: #78807c;
+  --line: #dcdcd4;
+
+  --feito: #2e7d32;
+  --troquei: #1565c0;
+  --pulei: #b45309;
+  --sem-registro: #c9c9c0;
+
+  --bom: #2e7d32;
+  --ruim: #b45309;
+
+  --radius: 4px;
+
+  --sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --mono: var(--font-geist-mono), ui-monospace, "SF Mono", monospace;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    color-scheme: dark;
+
+    --paper: #12140f;
+    --surface: #1a1d17;
+    --ink: #e8e8e0;
+    --ink-2: #a8b0aa;
+    --ink-3: #7c847e;
+    --line: #2c3129;
+
+    --feito: #43a047;
+    --troquei: #4285cd;
+    --pulei: #c97f22;
+    --sem-registro: #5a5a52;
+
+    --bom: #43a047;
+    --ruim: #c97f22;
   }
+}
+
+* {
+  box-sizing: border-box;
+  padding: 0;
+  margin: 0;
 }
 
 html,
@@ -17,14 +68,10 @@ body {
 }
 
 body {
-  color: var(--foreground);
-  background: var(--background);
-}
-
-* {
-  box-sizing: border-box;
-  padding: 0;
-  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--sans);
+  -webkit-font-smoothing: antialiased;
 }
 
 a {
@@ -32,19 +79,14 @@ a {
   text-decoration: none;
 }
 
-.imgDark {
-  display: none;
+:focus-visible {
+  outline: 2px solid var(--feito);
+  outline-offset: 3px;
 }
 
-@media (prefers-color-scheme: dark) {
-  html {
-    color-scheme: dark;
-  }
-
-  .imgLight {
-    display: none;
-  }
-  .imgDark {
-    display: unset;
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+    animation: none !important;
   }
 }
