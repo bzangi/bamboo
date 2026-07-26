@@ -411,6 +411,7 @@ export function HomeScreen() {
       <RebalancePreviewSheet
         meal={choice?.meal ?? null}
         option={choice?.option ?? null}
+        dayTypeId={dayTypeId}
         onClose={() => setChoice(null)}
         onConfirm={(option, outcome) => {
           if (choice) handleConfirmRebalance(choice.meal, option, outcome);

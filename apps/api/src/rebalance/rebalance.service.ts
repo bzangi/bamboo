@@ -132,24 +132,48 @@ export class RebalanceService {
       .limit(1);
     if (!pln) throw new NotFoundException('plano ativo não encontrado');
 
-    // 4. day_type do dia corrente (weekday do servidor; mesma resolução do /today).
-    const weekday = new Date().getDay();
-    const [sched] = await this.db
-      .select({ dayTypeId: schema.dayType.id })
-      .from(schema.daySchedule)
-      .innerJoin(
-        schema.dayType,
-        eq(schema.daySchedule.dayTypeId, schema.dayType.id),
-      )
-      .where(
-        and(
-          eq(schema.daySchedule.planId, pln.id),
-          eq(schema.daySchedule.weekday, weekday),
-        ),
-      )
-      .limit(1);
-    if (!sched)
-      throw new NotFoundException('sem programação para o dia corrente');
+    // 4. (014) day_type em vigor: override do corpo (validado pertencer ao plano
+    //    ativo) OU o default do weekday. MESMA resolução do `/today` e do
+    //    `POST /registro` — a assimetria entre os três é a causa raiz do KI-005:
+    //    o app manda o `triggerMealId` do cardápio EXIBIDO, então sob override
+    //    todo gatilho caía fora do roster do weekday e virava 404.
+    let dayTypeId: string;
+    if (body.dayTypeId) {
+      const [dt] = await this.db
+        .select({ id: schema.dayType.id })
+        .from(schema.dayType)
+        .where(
+          and(
+            eq(schema.dayType.id, body.dayTypeId),
+            eq(schema.dayType.planId, pln.id),
+          ),
+        )
+        .limit(1);
+      if (!dt)
+        throw new NotFoundException(
+          'tipo-de-dia não encontrado no plano do paciente',
+        );
+      dayTypeId = dt.id;
+    } else {
+      const weekday = new Date().getDay();
+      const [sched] = await this.db
+        .select({ dayTypeId: schema.dayType.id })
+        .from(schema.daySchedule)
+        .innerJoin(
+          schema.dayType,
+          eq(schema.daySchedule.dayTypeId, schema.dayType.id),
+        )
+        .where(
+          and(
+            eq(schema.daySchedule.planId, pln.id),
+            eq(schema.daySchedule.weekday, weekday),
+          ),
+        )
+        .limit(1);
+      if (!sched)
+        throw new NotFoundException('sem programação para o dia corrente');
+      dayTypeId = sched.dayTypeId;
+    }
 
     // 5. Medidas caseiras (1 query; agrupa em memória).
     const measureRows = await this.db
@@ -174,7 +198,7 @@ export class RebalanceService {
         position: schema.meal.position,
       })
       .from(schema.meal)
-      .where(eq(schema.meal.dayTypeId, sched.dayTypeId))
+      .where(eq(schema.meal.dayTypeId, dayTypeId))
       .orderBy(asc(schema.meal.position));
     if (mealRows.length === 0)
       throw new NotFoundException('sem refeições para o dia corrente');

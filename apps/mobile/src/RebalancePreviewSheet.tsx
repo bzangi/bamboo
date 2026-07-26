@@ -32,6 +32,10 @@ interface Props {
   // Refeição-gatilho + opção escolhida; null = fechado.
   readonly meal: MealDto | null;
   readonly option: MealOptionDto | null;
+  // (014) Override de tipo-de-dia ativo na tela, se houver. Vai no corpo: sem ele
+  // o servidor resolvia o dia pelo weekday e o gatilho — que é do cardápio EXIBIDO
+  // — caía num 404, deixando a prévia inalcançável sob override (KI-005).
+  readonly dayTypeId?: string;
   readonly onClose: () => void;
   // Confirma a troca: o pai aplica a escolha + os ajustes (estado local).
   readonly onConfirm: (
@@ -43,6 +47,7 @@ interface Props {
 export function RebalancePreviewSheet({
   meal,
   option,
+  dayTypeId,
   onClose,
   onConfirm,
 }: Props) {
@@ -55,6 +60,7 @@ export function RebalancePreviewSheet({
     postOptionChoice(API_URL, PATIENT_ID, {
       triggerMealId: meal.id,
       chosenOptionId: option.id,
+      ...(dayTypeId ? { dayTypeId } : {}),
     })
       .then((data) => {
         if (!cancelled) setState({ status: "ready", data });
@@ -74,7 +80,7 @@ export function RebalancePreviewSheet({
     return () => {
       cancelled = true;
     };
-  }, [meal, option]);
+  }, [meal, option, dayTypeId]);
 
   const visible = meal !== null && option !== null;
 

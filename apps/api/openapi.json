@@ -147,7 +147,7 @@
     },
     "/patients/{patientId}/rebalance/option-choice": {
       "post": {
-        "description": "Recalcula os macros do dia ao escolher uma opção diferente da default de uma refeição e devolve a prévia das refeições seguintes reescaladas (ou sem-acao quando cabe na faixa, ou recusa-orientada quando estoura o piso). Não persiste nada. recusa-orientada é HTTP 200 (\"nunca barra\"). Números respeitam o gate de exposição.",
+        "description": "Recalcula os macros do dia ao escolher uma opção diferente da default de uma refeição e devolve a prévia das refeições seguintes reescaladas (ou sem-acao quando cabe na faixa, ou recusa-orientada quando estoura o piso). Não persiste nada. recusa-orientada é HTTP 200 (\"nunca barra\"). Números respeitam o gate de exposição.\n\nCorpo: `{ triggerMealId, chosenOptionId, dayTypeId? }`. O `dayTypeId` é o override de tipo-de-dia da sessão (opcional, mesma semântica do POST /registro): presente, o dia considerado é o desse tipo — roster, alavancas e faixa-alvo saem dele, e o `triggerMealId` deve ser uma refeição dele; ausente, vale a programação do weekday. 404 quando o tipo-de-dia não pertence ao plano ativo.",
         "operationId": "RebalanceController_optionChoice",
         "parameters": [
           {

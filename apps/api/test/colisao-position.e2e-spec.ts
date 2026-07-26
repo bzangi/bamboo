@@ -13,24 +13,34 @@ import { PlanModule } from '../src/plan/plan.module';
 import { RebalanceModule } from '../src/rebalance/rebalance.module';
 import { RelatorioModule } from '../src/relatorio/relatorio.module';
 
-// e2e de CARACTERIZAÇÃO do KI-002 — o "teste de colisão" que o ADR-0001 exige
-// como precondição para reabrir a decisão da chave de pareamento sob override.
+// e2e do eixo "dois tipos-de-dia com a mesma position" — o único lugar da suíte
+// que monta esse cenário. Nasceu como o "teste de colisão" que o ADR-0001 exigia
+// como precondição para decidir a chave de pareamento sob override.
 //
-// ⚠️ NADA AQUI É O COMPORTAMENTO DESEJADO. Este arquivo pina o comportamento
-// ATUAL, incluindo os bugs, para que a eventual correção tenha um oráculo e para
-// que a suíte pare de ser cega ao eixo "dois tipos-de-dia com mesma position".
-// Quando a decisão de produto vier, as asserções marcadas **[BUG]** devem ser
-// invertidas de propósito — falhar aqui é o sinal de que a correção pegou.
+// TRÊS CAMADAS, com status diferentes — não confundir:
 //
-// O repro publicado no KI-002 (`docs/known-issues.md`) NÃO demonstra o Sintoma A:
-// ele registra `pulei` também na pos 2 do tipo exibido, que casa por `mealId`,
-// sai das alavancas e mascara o efeito. O repro limpo é **um único** registro
-// sob override, e é o que os testes abaixo fazem.
+//  1. **014/US1, US2, US3** — comportamento DECIDIDO e implementado. O `dayTypeId`
+//     opcional no corpo do `option-choice` matou o KI-005 (a prévia era 404 sob
+//     override) e o Sintoma A do KI-002 no caminho do override. Estes casos asseriam
+//     o bug antes da 014; foram invertidos de propósito.
+//  2. **014/A2** — RESÍDUO decidido, não bug. A opção (a) faz o motor seguir o tipo
+//     EXIBIDO, então no caminho "registrei sob B, voltei para A, escolho em A" o
+//     evento de B segue invisível — coerente com FR-013a da 004, mas divergente do
+//     badge do `/today?dayTypeId=`, que pareia por posição (009/FR-002). Pinado aqui
+//     de propósito, registrado em KI-002.
+//  3. **KI-002 Sintoma B, ainda `[BUG]`** — o descarte silencioso do relatório sob
+//     colisão de `position` (último-ganha; o estado perdido não vira nem
+//     `semRegistro`). Segue aberto; ver ADR-0002, que separa a granularidade
+//     (deliberada) do descarte (defeito).
+//
+// O repro publicado no KI-002 antes de 2026-07-26 NÃO demonstrava o Sintoma A: ele
+// registrava `pulei` também na pos 2 do tipo exibido, que casa por `mealId`, sai das
+// alavancas e mascara o efeito. O repro limpo é **um único** registro sob override.
 //
 // FIXTURE (013): declarado via `buildScenario` — 234 linhas de montagem à mão
 // viraram a spec abaixo. O construtor detém a ordem de inserção, a ordem reversa
 // de FK do teardown, a data-calendário local e a resolução determinística de
-// nutricionista/food/grupo. Nenhum bloco `it` mudou na migração.
+// nutricionista/food/grupo.
 
 const NUTRI_KEY = 'test-nutri-key';
 process.env.NUTRI_API_KEY = NUTRI_KEY;
@@ -56,14 +66,23 @@ const mealB = (position: number) =>
   cenario.ids.meal({ dayType: 'B', position });
 
 const GATILHO_ALT = 'Alternativa pesada';
+const GATILHO_ALT_B = 'Alternativa pesada B';
 
 const nutriGet = (path: string) =>
   request(app.getHttpServer()).get(path).set('x-nutri-key', NUTRI_KEY);
 
-const postOptionChoice = (triggerMealId: string, chosenOptionId: string) =>
+const postOptionChoice = (
+  triggerMealId: string,
+  chosenOptionId: string,
+  dayTypeId?: string,
+) =>
   request(app.getHttpServer())
     .post(`/patients/${patientId}/rebalance/option-choice`)
-    .send({ triggerMealId, chosenOptionId });
+    .send({
+      triggerMealId,
+      chosenOptionId,
+      ...(dayTypeId ? { dayTypeId } : {}),
+    });
 
 // Registra HOJE na posição dada, do tipo dado. `dayTypeId`, `planId` e
 // `patientId` do evento saem do grafo — a incoerência que o KI-002 investiga é
@@ -130,10 +149,20 @@ beforeAll(async () => {
               {
                 label: 'B',
                 name: 'B (override)',
+                // A pos 2 de B também tem alternativa pesada, com a MESMA
+                // calibração de A (alvo 300g, faixa ±10%, piso 50% → 160g contra
+                // 100g). É o gatilho da 014: sem ela não há como pedir prévia
+                // DENTRO do tipo exibido.
                 meals: posicoes.map((position) => ({
                   position,
                   name: `B pos${position}`,
-                  options: [{ label: 'Padrão', items: [item(100)] }],
+                  options:
+                    position === 2
+                      ? [
+                          { label: 'Padrão', items: [item(100)] },
+                          { label: GATILHO_ALT_B, items: [item(160)] },
+                        ]
+                      : [{ label: 'Padrão', items: [item(100)] }],
                 })),
               },
             ],
@@ -191,8 +220,8 @@ describe('KI-002 pré-condição — o cenário produz rebalanceamento de verdad
 
 // ───────── Sintoma A do KI-002, repro limpo ─────────
 
-describe('KI-002 Sintoma A — registro sob override é INVISÍVEL ao rebalanceamento', () => {
-  it('[BUG] registro na pos 1 do tipo B não muda NADA na prévia do tipo A', async () => {
+describe('014/A2 — o motor segue o tipo EXIBIDO: registro de outro tipo é invisível', () => {
+  it('registro na pos 1 do tipo B não muda a prévia quando o gatilho é do tipo A', async () => {
     const semRegistro = await postOptionChoice(
       mealA(2).mealId,
       mealA(2).option(GATILHO_ALT),
@@ -207,11 +236,19 @@ describe('KI-002 Sintoma A — registro sob override é INVISÍVEL ao rebalancea
       mealA(2).option(GATILHO_ALT),
     ).expect(200);
 
-    // [BUG] Corpo IDÊNTICO: o motor pareia por `mealId` (rebalance.service.ts:285),
-    // o evento tem mealId do tipo B, e o roster é o do tipo A (`:177`) — então a
-    // refeição pulada continua alavanca, com grama planejada, e seu consumo real
-    // (zero, no caso do `pulei`) não entra no total. Quando a decisão de produto
-    // vier e o pareamento virar por `position`, esta asserção DEVE falhar.
+    // ⚠️ Corpo IDÊNTICO — e isto DEIXOU DE SER BUG na 014: é o RESÍDUO decidido
+    // (spec 014, A2). A opção (a) fez o motor seguir o tipo EXIBIDO. Aqui o gatilho
+    // é de A (nenhum `dayTypeId` no corpo ⇒ weekday ⇒ A), o roster é de A, e o
+    // evento tem `mealId` de B: não casa, logo a refeição pulada segue alavanca.
+    //
+    // É coerente com FR-013a da 004 ("o tipo padrão nunca auto-ajusta") e com o
+    // `/today` SEM override, que também ignora evento de outro tipo. Mas note a
+    // divergência que SOBREVIVE: `/today?dayTypeId=A` mostra o badge na posição
+    // correspondente (009/FR-002, pareamento por POSIÇÃO) enquanto o motor ignora o
+    // mesmo evento. Está pinada no caso abaixo e registrada em KI-002.
+    //
+    // O caminho que a 014 CONSERTOU é o outro: gatilho em B com `dayTypeId: B` —
+    // ver o bloco `014/US2`, que assere o oposto disto.
     expect(comRegistro.body).toEqual(semRegistro.body);
   });
 
@@ -237,22 +274,42 @@ describe('KI-002 Sintoma A — registro sob override é INVISÍVEL ao rebalancea
 
 // ───────── o bug NÃO catalogado: a prévia morre sob override ─────────
 
-describe('KI-005 — prévia de rebalanceamento é inalcançável sob override (404)', () => {
-  it('[BUG] gatilho numa refeição do tipo B → 404, com ou sem registro', async () => {
+describe('014/US1 — a prévia FUNCIONA sob override (era 404: KI-005)', () => {
+  it('gatilho numa refeição do tipo B, com dayTypeId de B → 200 + prévia', async () => {
     const res = await postOptionChoice(
       mealB(2).mealId,
-      mealB(2).defaultOptionId,
-    ).expect(404);
-    expect(res.body.message).toBe(
-      'refeição do gatilho não está no dia corrente',
-    );
+      mealB(2).option(GATILHO_ALT_B),
+      dtBId,
+    ).expect(200);
+    // Antes da 014 isto era 404 'refeição do gatilho não está no dia corrente':
+    // o roster vinha do weekday (tipo A) e nenhuma refeição de B estava nele.
+    expect(res.body.outcome).toBeDefined();
+    expect(res.body.outcome.kind).toBe('rebalanceado');
   });
 
-  it('[BUG] o app alcança esse estado: os chips de opção não são gateados por override', async () => {
+  it('as alavancas e o alvo são do tipo EXIBIDO (B), não do weekday (A)', async () => {
+    const res = await postOptionChoice(
+      mealB(2).mealId,
+      mealB(2).option(GATILHO_ALT_B),
+      dtBId,
+    ).expect(200);
+
+    // A1 da spec: sob override o dia é comparado contra a faixa-alvo do tipo que o
+    // paciente está VENDO. Nenhum artefato respondia isso antes da 014; a opção (a)
+    // decide por construção, porque o roster é do tipo resolvido.
+    const afetadas = res.body.outcome.refeicoesAfetadas as {
+      mealId: string;
+    }[];
+    expect(afetadas.length).toBeGreaterThan(0);
+    const idsDeB = [1, 2, 3].map((p) => mealB(p).mealId);
+    for (const r of afetadas) expect(idsDeB).toContain(r.mealId);
+  });
+
+  it('o app alcança esse estado: os chips de opção não são gateados por override', async () => {
     // `HomeScreen.tsx` renderiza `meal.options.map(...)` sem consultar
-    // `overrideActive` (só o desfazer do registro é gateado), e o `triggerMealId`
-    // enviado é o `meal.id` do cardápio EXIBIDO. Sob `?dayTypeId=B`, todo
-    // `meal.id` da tela é do tipo B — logo todo toque em chip cai no 404 acima.
+    // `overrideActive`, e o `triggerMealId` enviado é o `meal.id` do cardápio
+    // EXIBIDO — sob override, sempre do tipo B. Era o que fazia todo toque em chip
+    // cair no 404; agora é justamente o caminho que funciona.
     const today = await request(app.getHttpServer())
       .get(`/patients/${patientId}/today`)
       .query({ dayTypeId: dtBId })
@@ -260,17 +317,64 @@ describe('KI-005 — prévia de rebalanceamento é inalcançável sob override (
 
     const mealsExibidas = today.body.meals as { id: string }[];
     expect(mealsExibidas.length).toBeGreaterThan(0);
-    // Toda refeição exibida sob override é inalcançável pelo rebalanceamento.
     for (const m of mealsExibidas) {
       expect([1, 2, 3].some((p) => mealB(p).mealId === m.id)).toBe(true);
     }
   });
 });
 
+describe('014/US2 — o motor enxerga o registro feito sob override', () => {
+  it('registro na pos 1 de B MUDA a prévia quando o gatilho também é de B', async () => {
+    const semRegistro = await postOptionChoice(
+      mealB(2).mealId,
+      mealB(2).option(GATILHO_ALT_B),
+      dtBId,
+    ).expect(200);
+
+    await registrarHoje('B', 1, 'pulei', '08:00:00');
+
+    const comRegistro = await postOptionChoice(
+      mealB(2).mealId,
+      mealB(2).option(GATILHO_ALT_B),
+      dtBId,
+    ).expect(200);
+
+    // O Sintoma A do KI-002, morto neste caminho: com o roster de B, o `mealId` do
+    // evento casa sozinho — a refeição pulada sai das alavancas e seu consumo real
+    // (zero) entra no total. Nenhuma mudança no pareamento foi necessária, e é
+    // exatamente por isso que a opção (a) venceu a (b).
+    expect(comRegistro.body).not.toEqual(semRegistro.body);
+  });
+});
+
+describe('014/US3 — o gatilho segue validado', () => {
+  it('dayTypeId que não é do plano ativo → 404 (mesma mensagem do POST /registro)', async () => {
+    const res = await postOptionChoice(
+      mealB(2).mealId,
+      mealB(2).option(GATILHO_ALT_B),
+      '00000000-0000-4000-8000-000000000000',
+    ).expect(404);
+    expect(res.body.message).toBe(
+      'tipo-de-dia não encontrado no plano do paciente',
+    );
+  });
+
+  it('dayTypeId de B mas gatilho de A → 404: a validação continua, relativa ao tipo resolvido', async () => {
+    const res = await postOptionChoice(
+      mealA(2).mealId,
+      mealA(2).option(GATILHO_ALT),
+      dtBId,
+    ).expect(404);
+    expect(res.body.message).toBe(
+      'refeição do gatilho não está no dia corrente',
+    );
+  });
+});
+
 // ───────── a divergência na MESMA tela ─────────
 
-describe('KI-002 — /today e o motor discordam sobre o mesmo evento', () => {
-  it('[BUG] /today?dayTypeId=A mostra o badge por position; o motor ignora o mesmo evento', async () => {
+describe('KI-002/A2 — /today e o motor discordam quando o gatilho é do tipo padrão', () => {
+  it('/today?dayTypeId=A mostra o badge por position; o motor ignora o mesmo evento (resíduo A2)', async () => {
     await registrarHoje('B', 1, 'pulei', '08:00:00');
 
     // `/today` COM override pareia por position (009/FR-002) → o badge aparece

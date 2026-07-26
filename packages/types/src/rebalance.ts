@@ -8,6 +8,17 @@ import type { HouseholdMeasureDto } from "./substitution.js";
 export interface OptionChoiceRequest {
   readonly triggerMealId: string;
   readonly chosenOptionId: string;
+  /**
+   * Override de tipo-de-dia da SESSÃO (opcional), espelhando
+   * `RegistroRequest.dayTypeId`. Presente ⇒ o dia que o motor considera é o desse
+   * tipo: roster, alavancas e faixa-alvo saem dele. Ausente ⇒ `day_schedule` do
+   * weekday — o comportamento de sempre.
+   *
+   * Existe porque sem ele a prévia era INALCANÇÁVEL sob override: o roster vinha
+   * do weekday, e o gatilho — que o app manda do cardápio exibido — caía num 404
+   * (KI-005). Opcional de propósito: cliente antigo não quebra.
+   */
+  readonly dayTypeId?: string;
 }
 
 export interface ItemAjustadoDto {
