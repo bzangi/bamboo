@@ -2,7 +2,12 @@ import { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
-import { eq, gt, inArray, db, schema } from '@bamboo/db';
+import {
+  buildScenario,
+  everyWeekday,
+  localDate,
+  type Scenario,
+} from '@bamboo/db/testing';
 import { CicloModule } from '../src/ciclo/ciclo.module';
 import { PlanModule } from '../src/plan/plan.module';
 import { RebalanceModule } from '../src/rebalance/rebalance.module';
@@ -13,8 +18,7 @@ import { RelatorioModule } from '../src/relatorio/relatorio.module';
 //
 // ⚠️ NADA AQUI É O COMPORTAMENTO DESEJADO. Este arquivo pina o comportamento
 // ATUAL, incluindo os bugs, para que a eventual correção tenha um oráculo e para
-// que a suíte pare de ser cega ao eixo "dois tipos-de-dia com mesma position"
-// (hoje `relatorio.e2e` tem 1 tipo-de-dia e `adesao.e2e` só o plano ativo).
+// que a suíte pare de ser cega ao eixo "dois tipos-de-dia com mesma position".
 // Quando a decisão de produto vier, as asserções marcadas **[BUG]** devem ser
 // invertidas de propósito — falhar aqui é o sinal de que a correção pegou.
 //
@@ -23,39 +27,35 @@ import { RelatorioModule } from '../src/relatorio/relatorio.module';
 // sai das alavancas e mascara o efeito. O repro limpo é **um único** registro
 // sob override, e é o que os testes abaixo fazem.
 //
-// Self-contained (lição a2894f3/KI-001): paciente-cenário próprio, cleanup total
-// em ordem reversa de FK. Não chama `pool.end()` (pool singleton).
+// FIXTURE (013): declarado via `buildScenario` — 234 linhas de montagem à mão
+// viraram a spec abaixo. O construtor detém a ordem de inserção, a ordem reversa
+// de FK do teardown, a data-calendário local e a resolução determinística de
+// nutricionista/food/grupo. Nenhum bloco `it` mudou na migração.
 
 const NUTRI_KEY = 'test-nutri-key';
 process.env.NUTRI_API_KEY = NUTRI_KEY;
 
-const isoDaysAgo = (n: number): string => {
-  const d = new Date();
-  d.setDate(d.getDate() - n);
-  const mm = String(d.getMonth() + 1).padStart(2, '0');
-  const dd = String(d.getDate()).padStart(2, '0');
-  return `${d.getFullYear()}-${mm}-${dd}`;
-};
-const HOJE = isoDaysAgo(0);
-
-let app: INestApplication;
-let patientId: string;
-let planId: string;
-let cycleId: string;
+const HOJE = localDate();
 
 // Tipo A = programado em todo weekday (o "dia real"). Tipo B = alvo do override.
+type Tipo = 'A' | 'B';
+
+let app: INestApplication;
+let cenario: Scenario<Tipo>;
+let patientId: string;
+let cycleId: string;
 let dtAId: string;
 let dtBId: string;
-const mealAPorPos = new Map<number, string>();
-const mealBPorPos = new Map<number, string>();
-const optDefaultAPorPos = new Map<number, string>();
-const optDefaultBPorPos = new Map<number, string>();
-let optAltA2Id: string; // opção NÃO-default da pos 2 do tipo A — o gatilho
 
-const optionIds: string[] = [];
-const mealIds: string[] = [];
-const dayTypeIds: string[] = [];
-const eventIdsEfemeros: string[] = [];
+// Refeições pelo handle do cenário: `meal({dayType, position})` resolve mealId,
+// opção padrão e opções nomeadas, e DERIVA plano/paciente/tipo do grafo — nenhum
+// id é pareado à mão. `registrarA`/`registrarB` são só açúcar de leitura.
+const mealA = (position: number) =>
+  cenario.ids.meal({ dayType: 'A', position });
+const mealB = (position: number) =>
+  cenario.ids.meal({ dayType: 'B', position });
+
+const GATILHO_ALT = 'Alternativa pesada';
 
 const nutriGet = (path: string) =>
   request(app.getHttpServer()).get(path).set('x-nutri-key', NUTRI_KEY);
@@ -65,176 +65,96 @@ const postOptionChoice = (triggerMealId: string, chosenOptionId: string) =>
     .post(`/patients/${patientId}/rebalance/option-choice`)
     .send({ triggerMealId, chosenOptionId });
 
-// Insere um evento de registro e devolve o id (registrado para cleanup).
-const registrar = async (args: {
-  mealId: string;
-  dayTypeId: string;
-  state: 'feito' | 'pulei';
-  chosenMealOptionId: string | null;
-  hora: string;
-}): Promise<string> => {
-  const [ev] = await db
-    .insert(schema.mealEvent)
-    .values({
-      patientId,
-      planId,
-      mealId: args.mealId,
-      dayTypeId: args.dayTypeId,
-      chosenMealOptionId: args.chosenMealOptionId,
-      state: args.state,
-      loggedDate: HOJE,
-      createdAt: new Date(`${HOJE}T${args.hora}`),
-    })
-    .returning({ id: schema.mealEvent.id });
-  eventIdsEfemeros.push(ev.id);
-  return ev.id;
-};
+// Registra HOJE na posição dada, do tipo dado. `dayTypeId`, `planId` e
+// `patientId` do evento saem do grafo — a incoerência que o KI-002 investiga é
+// inexpressável aqui, e é de propósito: o cenário testa a LEITURA, não a escrita.
+const registrarHoje = (
+  dayType: Tipo,
+  position: number,
+  state: 'feito' | 'pulei',
+  time: string,
+) =>
+  cenario.addEvents([{ meal: { dayType, position }, state, daysAgo: 0, time }]);
 
 beforeAll(async () => {
-  const [n] = await db
-    .select({ id: schema.nutritionist.id })
-    .from(schema.nutritionist)
-    .limit(1);
-  const [food] = await db
-    .select({ id: schema.food.id })
-    .from(schema.food)
-    .where(gt(schema.food.kcalPer100g, 200))
-    .limit(1);
-  // Grupo qualquer: o motor só exige `groupId != null` + `isLocked: false` para
-  // o item ser alavanca; não consulta pertinência de grupo (isso é substituição).
-  const [grupo] = await db
-    .select({ id: schema.substitutionGroup.id })
-    .from(schema.substitutionGroup)
-    .limit(1);
-
-  const [pat] = await db
-    .insert(schema.patient)
-    .values({
-      nutritionistId: n.id,
-      name: 'Cenário Colisão (e2e KI-002)',
-      exposure: 'full_kcal',
-    })
-    .returning({ id: schema.patient.id });
-  patientId = pat.id;
-
-  const [pln] = await db
-    .insert(schema.plan)
-    .values({ patientId, name: 'Plano (e2e KI-002)', isActive: true })
-    .returning({ id: schema.plan.id });
-  planId = pln.id;
-
-  const [dtA, dtB] = await db
-    .insert(schema.dayType)
-    .values([
-      { planId, name: 'A (programado)' },
-      { planId, name: 'B (override)' },
-    ])
-    .returning({ id: schema.dayType.id });
-  dtAId = dtA.id;
-  dtBId = dtB.id;
-  dayTypeIds.push(dtAId, dtBId);
-
-  // Positions 1..3 nos DOIS tipos — é a colisão que a suíte nunca montou.
-  const meals = await db
-    .insert(schema.meal)
-    .values([
-      { dayTypeId: dtAId, name: 'A pos1', position: 1 },
-      { dayTypeId: dtAId, name: 'A pos2', position: 2 },
-      { dayTypeId: dtAId, name: 'A pos3', position: 3 },
-      { dayTypeId: dtBId, name: 'B pos1', position: 1 },
-      { dayTypeId: dtBId, name: 'B pos2', position: 2 },
-      { dayTypeId: dtBId, name: 'B pos3', position: 3 },
-    ])
-    .returning({
-      id: schema.meal.id,
-      dayTypeId: schema.meal.dayTypeId,
-      position: schema.meal.position,
-    });
-  mealIds.push(...meals.map((m) => m.id));
-  for (const m of meals) {
-    (m.dayTypeId === dtAId ? mealAPorPos : mealBPorPos).set(m.position, m.id);
-  }
-
-  // Uma opção default por refeição + uma ALTERNATIVA mais pesada na pos 2 do
-  // tipo A. A gramatura da alternativa é calibrada (160g vs 100g) para o desvio
-  // cair na janela em que o motor devolve `rebalanceado`: com alvo de 300g,
-  // tolerância 10% (faixa 270–330) e piso 50%, o excesso de 60g sai da faixa
-  // (>30) e cabe nas 2 alavancas restantes (200g, podem encolher 100g no total).
-  // 300g daria `recusa-orientada`, cujo corpo NÃO depende do consumo — e aí as
-  // comparações abaixo passariam por vacuidade, sem poder de detecção.
-  const opcoes = await db
-    .insert(schema.mealOption)
-    .values([
-      ...meals.map((m) => ({ mealId: m.id, label: 'Padrão', isDefault: true })),
-      {
-        mealId: mealAPorPos.get(2)!,
-        label: 'Alternativa pesada',
-        isDefault: false,
-      },
-    ])
-    .returning({
-      id: schema.mealOption.id,
-      mealId: schema.mealOption.mealId,
-      isDefault: schema.mealOption.isDefault,
-    });
-  optionIds.push(...opcoes.map((o) => o.id));
-  for (const o of opcoes) {
-    if (!o.isDefault) {
-      optAltA2Id = o.id;
-      continue;
-    }
-    for (const [pos, mealId] of mealAPorPos) {
-      if (o.mealId === mealId) optDefaultAPorPos.set(pos, o.id);
-    }
-    for (const [pos, mealId] of mealBPorPos) {
-      if (o.mealId === mealId) optDefaultBPorPos.set(pos, o.id);
-    }
-  }
-
-  await db.insert(schema.mealItem).values([
-    ...opcoes
-      .filter((o) => o.isDefault)
-      .map((o) => ({
-        mealOptionId: o.id,
-        foodId: food.id,
-        quantityGrams: 100,
-        isLocked: false,
-        substitutionGroupId: grupo.id,
-      })),
-    {
-      mealOptionId: optAltA2Id,
-      foodId: food.id,
-      quantityGrams: 160, // ver a calibração no comentário acima
-      isLocked: false,
-      substitutionGroupId: grupo.id,
-    },
-  ]);
-
-  // Tipo A programado em TODO weekday — cenário independente do calendário.
-  await db.insert(schema.daySchedule).values(
-    [0, 1, 2, 3, 4, 5, 6].map((weekday) => ({
-      planId,
-      weekday,
-      dayTypeId: dtAId,
-    })),
-  );
-
-  const [cy] = await db
-    .insert(schema.cycle)
-    .values({
-      patientId,
-      startedOn: isoDaysAgo(3),
-      closedOn: null,
-      expectedDurationDays: 30,
-    })
-    .returning({ id: schema.cycle.id });
-  cycleId = cy.id;
-  await db.insert(schema.cyclePlanVigencia).values({
-    cycleId,
-    planId,
-    validFrom: isoDaysAgo(3),
-    validTo: null,
+  // A gramatura da alternativa é calibrada (160g vs 100g) para o desvio cair na
+  // janela em que o motor devolve `rebalanceado`: com alvo de 300g, tolerância
+  // 10% (faixa 270–330) e piso 50%, o excesso de 60g sai da faixa (>30) e cabe
+  // nas 2 alavancas restantes (200g, podem encolher 100g no total). 300g daria
+  // `recusa-orientada`, cujo corpo NÃO depende do consumo — e aí as comparações
+  // dos testes passariam por vacuidade, sem poder de detecção.
+  const item = (grams: number) => ({
+    food: 'base',
+    grams,
+    // Grupo por NOME CANÔNICO (antes: `substitutionGroup limit(1)` sem
+    // `order by`). O motor só exige `groupId != null` + `locked: false` para o
+    // item ser alavanca.
+    group: 'Amidos e cereais',
   });
+  const posicoes = [1, 2, 3];
+
+  cenario = await buildScenario<Tipo>({
+    label: 'colisao-position (e2e KI-002)',
+    foods: { base: { minKcalPer100g: 200 } },
+    patients: [
+      {
+        name: 'Cenário Colisão (e2e KI-002)',
+        exposure: 'full_kcal',
+        // Pina a RÉGUA no paciente. Antes vinha por herança dos defaults da
+        // nutricionista semeada (10/50) — acoplamento silencioso: mexer no seed
+        // desconfiguraria a calibração acima sem nenhuma pista.
+        bandTolerancePct: 10,
+        floorPct: 50,
+        plans: [
+          {
+            label: 'P',
+            schedule: everyWeekday('A'), // independente do calendário
+            dayTypes: [
+              {
+                label: 'A',
+                name: 'A (programado)',
+                // Positions 1..3 nos DOIS tipos — é a colisão que a suíte nunca
+                // montou antes.
+                meals: posicoes.map((position) => ({
+                  position,
+                  name: `A pos${position}`,
+                  options:
+                    position === 2
+                      ? [
+                          { label: 'Padrão', items: [item(100)] },
+                          { label: 'Alternativa pesada', items: [item(160)] },
+                        ]
+                      : [{ label: 'Padrão', items: [item(100)] }],
+                })),
+              },
+              {
+                label: 'B',
+                name: 'B (override)',
+                meals: posicoes.map((position) => ({
+                  position,
+                  name: `B pos${position}`,
+                  options: [{ label: 'Padrão', items: [item(100)] }],
+                })),
+              },
+            ],
+          },
+        ],
+        cycles: [
+          {
+            label: 'aberto',
+            startedDaysAgo: 3,
+            expectedDurationDays: 30,
+            planWindows: [{ plan: 'P', fromDaysAgo: 3 }],
+          },
+        ],
+      },
+    ],
+  });
+
+  patientId = cenario.ids.patient();
+  cycleId = cenario.ids.cycle('aberto');
+  dtAId = cenario.ids.dayType('A');
+  dtBId = cenario.ids.dayType('B');
 
   const moduleRef = await Test.createTestingModule({
     imports: [PlanModule, RebalanceModule, CicloModule, RelatorioModule],
@@ -246,50 +166,11 @@ beforeAll(async () => {
 // Cada teste monta seus próprios eventos e os remove — a ordem dos testes não
 // pode importar (o motor lê o registro, então evento vazado muda resultado).
 afterEach(async () => {
-  if (eventIdsEfemeros.length === 0) return;
-  await db
-    .delete(schema.mealEventItem)
-    .where(inArray(schema.mealEventItem.mealEventId, eventIdsEfemeros));
-  await db
-    .delete(schema.mealEvent)
-    .where(inArray(schema.mealEvent.id, eventIdsEfemeros));
-  eventIdsEfemeros.length = 0;
+  await cenario.clearEvents();
 });
 
 afterAll(async () => {
-  if (cycleId) {
-    await db
-      .delete(schema.cyclePlanVigencia)
-      .where(eq(schema.cyclePlanVigencia.cycleId, cycleId));
-    await db.delete(schema.cycle).where(eq(schema.cycle.id, cycleId));
-  }
-  if (optionIds.length > 0) {
-    await db
-      .delete(schema.mealItem)
-      .where(inArray(schema.mealItem.mealOptionId, optionIds));
-    await db
-      .delete(schema.mealOption)
-      .where(inArray(schema.mealOption.id, optionIds));
-  }
-  if (mealIds.length > 0) {
-    await db.delete(schema.meal).where(inArray(schema.meal.id, mealIds));
-  }
-  if (planId) {
-    await db
-      .delete(schema.daySchedule)
-      .where(eq(schema.daySchedule.planId, planId));
-  }
-  if (dayTypeIds.length > 0) {
-    await db
-      .delete(schema.dayType)
-      .where(inArray(schema.dayType.id, dayTypeIds));
-  }
-  if (planId) {
-    await db.delete(schema.plan).where(eq(schema.plan.id, planId));
-  }
-  if (patientId) {
-    await db.delete(schema.patient).where(eq(schema.patient.id, patientId));
-  }
+  await cenario?.destroy(); // ordem reversa de FK é do construtor (I-9)
   await app?.close();
 });
 
@@ -297,9 +178,10 @@ afterAll(async () => {
 
 describe('KI-002 pré-condição — o cenário produz rebalanceamento de verdade', () => {
   it('escolher a alternativa pesada da pos 2 rebalanceia (senão o resto não detecta nada)', async () => {
-    const res = await postOptionChoice(mealAPorPos.get(2)!, optAltA2Id).expect(
-      200,
-    );
+    const res = await postOptionChoice(
+      mealA(2).mealId,
+      mealA(2).option(GATILHO_ALT),
+    ).expect(200);
     // Se este dia ficasse DENTRO da faixa, o outcome seria `sem-acao` e o corpo
     // não dependeria do consumo — as comparações abaixo passariam por vacuidade.
     expect(res.body.outcome.kind).toBe('rebalanceado');
@@ -312,23 +194,17 @@ describe('KI-002 pré-condição — o cenário produz rebalanceamento de verdad
 describe('KI-002 Sintoma A — registro sob override é INVISÍVEL ao rebalanceamento', () => {
   it('[BUG] registro na pos 1 do tipo B não muda NADA na prévia do tipo A', async () => {
     const semRegistro = await postOptionChoice(
-      mealAPorPos.get(2)!,
-      optAltA2Id,
+      mealA(2).mealId,
+      mealA(2).option(GATILHO_ALT),
     ).expect(200);
 
     // Um único registro, sob override (mealId e dayTypeId ambos do tipo B) —
     // exatamente o que `POST /registro` grava quando o app está com o picker em B.
-    await registrar({
-      mealId: mealBPorPos.get(1)!,
-      dayTypeId: dtBId,
-      state: 'pulei',
-      chosenMealOptionId: null,
-      hora: '08:00:00',
-    });
+    await registrarHoje('B', 1, 'pulei', '08:00:00');
 
     const comRegistro = await postOptionChoice(
-      mealAPorPos.get(2)!,
-      optAltA2Id,
+      mealA(2).mealId,
+      mealA(2).option(GATILHO_ALT),
     ).expect(200);
 
     // [BUG] Corpo IDÊNTICO: o motor pareia por `mealId` (rebalance.service.ts:285),
@@ -341,21 +217,15 @@ describe('KI-002 Sintoma A — registro sob override é INVISÍVEL ao rebalancea
 
   it('CONTROLE — registro na pos 1 do tipo A (mesmo position!) muda a prévia', async () => {
     const semRegistro = await postOptionChoice(
-      mealAPorPos.get(2)!,
-      optAltA2Id,
+      mealA(2).mealId,
+      mealA(2).option(GATILHO_ALT),
     ).expect(200);
 
-    await registrar({
-      mealId: mealAPorPos.get(1)!, // MESMA position 1, tipo exibido
-      dayTypeId: dtAId,
-      state: 'pulei',
-      chosenMealOptionId: null,
-      hora: '08:00:00',
-    });
+    await registrarHoje('A', 1, 'pulei', '08:00:00');
 
     const comRegistro = await postOptionChoice(
-      mealAPorPos.get(2)!,
-      optAltA2Id,
+      mealA(2).mealId,
+      mealA(2).option(GATILHO_ALT),
     ).expect(200);
 
     // Prova que o teste TEM poder de detecção: o mesmo fato de domínio ("a
@@ -370,8 +240,8 @@ describe('KI-002 Sintoma A — registro sob override é INVISÍVEL ao rebalancea
 describe('KI-005 — prévia de rebalanceamento é inalcançável sob override (404)', () => {
   it('[BUG] gatilho numa refeição do tipo B → 404, com ou sem registro', async () => {
     const res = await postOptionChoice(
-      mealBPorPos.get(2)!,
-      optDefaultBPorPos.get(2)!,
+      mealB(2).mealId,
+      mealB(2).defaultOptionId,
     ).expect(404);
     expect(res.body.message).toBe(
       'refeição do gatilho não está no dia corrente',
@@ -392,11 +262,7 @@ describe('KI-005 — prévia de rebalanceamento é inalcançável sob override (
     expect(mealsExibidas.length).toBeGreaterThan(0);
     // Toda refeição exibida sob override é inalcançável pelo rebalanceamento.
     for (const m of mealsExibidas) {
-      expect(
-        mealBPorPos.get(1) === m.id ||
-          mealBPorPos.get(2) === m.id ||
-          mealBPorPos.get(3) === m.id,
-      ).toBe(true);
+      expect([1, 2, 3].some((p) => mealB(p).mealId === m.id)).toBe(true);
     }
   });
 });
@@ -405,13 +271,7 @@ describe('KI-005 — prévia de rebalanceamento é inalcançável sob override (
 
 describe('KI-002 — /today e o motor discordam sobre o mesmo evento', () => {
   it('[BUG] /today?dayTypeId=A mostra o badge por position; o motor ignora o mesmo evento', async () => {
-    await registrar({
-      mealId: mealBPorPos.get(1)!,
-      dayTypeId: dtBId,
-      state: 'pulei',
-      chosenMealOptionId: null,
-      hora: '08:00:00',
-    });
+    await registrarHoje('B', 1, 'pulei', '08:00:00');
 
     // `/today` COM override pareia por position (009/FR-002) → o badge aparece
     // na pos 1 do tipo A, mesmo o evento sendo do tipo B.
@@ -429,8 +289,8 @@ describe('KI-002 — /today e o motor discordam sobre o mesmo evento', () => {
     // ...e o motor, na MESMA tela, ignora o mesmo evento (asserido acima). A
     // tela diz "pos 1 pulada"; o rebalanceamento diz "pos 1 é alavanca".
     const rebal = await postOptionChoice(
-      mealAPorPos.get(2)!,
-      optAltA2Id,
+      mealA(2).mealId,
+      mealA(2).option(GATILHO_ALT),
     ).expect(200);
     const afetadas = rebal.body.outcome.refeicoesAfetadas as {
       position: number;
@@ -439,13 +299,7 @@ describe('KI-002 — /today e o motor discordam sobre o mesmo evento', () => {
   });
 
   it('/today SEM override ignora o evento do tipo B (FR-013a — o padrão nunca auto-ajusta)', async () => {
-    await registrar({
-      mealId: mealBPorPos.get(1)!,
-      dayTypeId: dtBId,
-      state: 'pulei',
-      chosenMealOptionId: null,
-      hora: '08:00:00',
-    });
+    await registrarHoje('B', 1, 'pulei', '08:00:00');
 
     const res = await request(app.getHttpServer())
       .get(`/patients/${patientId}/today`)
@@ -465,20 +319,8 @@ describe('KI-002 Sintoma B — colisão de position: as duas rotas da nutri cont
     // Dois eventos vigentes no MESMO dia e na MESMA position, em tipos-de-dia
     // diferentes. Alcançável: `registro.service` escopa o histórico por `mealId`,
     // então os dois coexistem sem se anular.
-    await registrar({
-      mealId: mealAPorPos.get(1)!,
-      dayTypeId: dtAId,
-      state: 'feito',
-      chosenMealOptionId: optDefaultAPorPos.get(1)!,
-      hora: '08:00:00',
-    });
-    await registrar({
-      mealId: mealBPorPos.get(1)!,
-      dayTypeId: dtBId,
-      state: 'pulei',
-      chosenMealOptionId: null,
-      hora: '09:00:00',
-    });
+    await registrarHoje('A', 1, 'feito', '08:00:00');
+    await registrarHoje('B', 1, 'pulei', '09:00:00');
 
     const detalhe = await nutriGet(
       `/nutri/patients/${patientId}/cycles/${cycleId}`,
