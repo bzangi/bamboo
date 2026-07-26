@@ -1,6 +1,6 @@
 # Bamboo — SaaS para Nutricionistas
 
-Monorepo pnpm + Turborepo. B2B2C: a nutri paga o SaaS; o paciente usa de graça. Web/desktop pra nutri, app mobile pra paciente. Status: **pré-MVP, RN-first** — **Fases 0–4 implementadas e testadas**: fundação + alça do paciente (`001`), rebalanceamento (`002`), registro feito/troquei/pulei (`003`) e motor lê o registro (`004`). Resto da Fase 3 (ciclo/adesão/relatório/UI da nutri) e da Fase 4 (import por IA/offline/notificações) não iniciado. Em conflito com este header, o snapshot em `docs/estado-atual.md` vence.
+Monorepo pnpm + Turborepo. B2B2C: a nutri paga o SaaS; o paciente usa de graça. Web/desktop pra nutri, app mobile pra paciente. Status: **pré-MVP, RN-first** — **Fases 0–4 implementadas e testadas**: fundação + alça do paciente (`001`), rebalanceamento (`002`), registro feito/troquei/pulei (`003`) e motor lê o registro (`004`). Resto da Fase 3 entregue (ciclo `007`, adesão `006`, relatório `011`, **UI da nutri — leitura `015`**); Fase 4 (import por IA/offline/notificações) não iniciada. Em conflito com este header, o snapshot em `docs/estado-atual.md` vence.
 
 ## Fonte da verdade
 
@@ -262,6 +262,52 @@ Combinação (arroz+batata juntos) · rebalanceamento multi-refeição · overri
 Dado de saúde desde a Fase 0: controle de acesso, criptografia, consentimento. Não é fase, é transversal. Empurrar pro fim vira dívida cara.
 
 <!-- SPECKIT START -->
+
+Feature **015-visao-da-nutri** (a visão da nutri — parte de leitura; **começa o EP-6**):
+**implementada e testada** (2026-07-26). O EP-5 estava concluído e **invisível**: 4 vias
+`/nutri/*` prontas (adesão 006, ciclo 007, relatório 011) e **zero consumidores** — a única
+forma de a nutri ver "a feature que vende" era `curl` com `x-nutri-key`, e o `apps/web` seguia
+no boilerplate do `create-turbo`. Entregue **um** endpoint + **duas telas**.
+· **API** — `GET /nutri/patients` (`apps/api/src/nutri/`, módulo novo ao lado do guard que já
+morava lá): a **porta de entrada**, porque toda rota da nutri é `/nutri/patients/:patientId/...`
+e sem listagem não se chega a um paciente sem já saber o UUID. Devolve `name` + **`cicloAtual`**
+= o ciclo aberto; se não houver, o **fechado mais recente** (D2) — resolvido pela **ordem da
+query** (o 1º registro de cada paciente já é o vencedor) com `closed_on DESC NULLS FIRST`
+**explícito**: depender do default do Postgres é como se perde determinismo (lição do `, id` da
+012 / I-2 da 013). **Minimização LGPD** (FR-004): sem e-mail/telefone/peso/altura — travado por
+teste nas **chaves** da resposta. Nenhuma métrica é calculada aqui.
+· **Web** — `/` (roster) e `/patients/[id]` (adesão média dominante · evolução semana a semana ·
+padrão de registro total e por refeição · comparativo). **Server Components puros, ZERO JS no
+cliente**: é o que garante FR-006 (env sem `NEXT_PUBLIC_`, nenhum `"use client"` no app),
+**verificado ao vivo** com `grep` da chave no HTML servido das 2 telas → **0**.
+**Nenhuma régua nova** (FR-007): `packages/core` **intocado**, nenhum endpoint existente mudou,
+nada persiste. O que a web deriva é **apresentação**, e é o que tem teste
+(`apps/web/lib/format.ts`, 24 testes, **Vitest novo no app**) — porque o DTO do relatório
+**mistura escalas** (adesão `0–100`; cobertura e `taxa*` `0–1`), então são **duas** funções
+(`pct100`/`pct01`) em vez de uma com flag, e `dataCurta`/`contarDias` **não** passam por
+`new Date(iso)`, que é meia-noite **UTC** e renderiza o dia anterior a oeste de Greenwich.
+**Visualização em CSS, sem lib** (D7): a evolução semanal é um **colmo** cuja **largura** por
+semana é o número de dias dela — a semana parcial é mais curta **porque é mais curta**, e a
+semana sem registro aparece **hachurada**, não zerada; o padrão de registro é uma barra
+empilhada. Paleta categórica **validada** (banda de luminosidade, croma, ΔE de daltonismo,
+contraste) nos dois modos; `feito`=verde do produto e `troquei`=azul são as **mesmas semânticas
+do mobile** (a nutri lê as duas telas); "sem registro" é **hachura**, não a 4ª cor de série —
+ausência de dado não compete com dado. **Decisão de produto embutida na cor:** o delta de
+`troquei` é **neutro**, nunca vermelho — trocar é adaptação, não falha (tese central).
+**Fora de escopo por DECISÃO:** abrir/fechar ciclo e trocar plano ativo **pela tela** (são
+**atos** da consulta; os `POST` já existem na API) · seletor de ciclo antigo · adesão na roster
+(custaria N relatórios por render) · `GET /nutri/patients/:id` (a tela do paciente **relê a
+roster** — a regra de "qual ciclo mostrar" fica num lugar só; teto anotado com `ponytail:` no
+código) · auth real (a credencial stub dá o papel "nutri do sistema", então a roster não é
+escopada por nutri responsável — limite v0 já declarado na 006).
+Sem migration. Boilerplate do `create-turbo` apagado (`page.module.css` + 7 svgs); web sobe na
+**3001** (a API é 3000); `API_URL`/`NUTRI_API_KEY` documentados no `.env.example` e declarados
+no `turbo.json`. Resultado: **api 158** (151 + 7) · **core 164** · **db 20** · **mobile 24** ·
+**web 24 (novos)** verdes; `check-types`/lint (0 errors)/Prettier limpos; OpenAPI regenerado
+(14 paths). Verificação visual: as 2 telas renderizadas com cenário de demonstração via
+`buildScenario` (013) e conferidas nos modos claro e escuro; o cenário foi **destruído** ao fim
+(banco de dev volta ao estado anterior). Artefatos: `specs/015-visao-da-nutri/`
+(spec/plan/tasks).
 
 Feature **014-rebalance-ciente-do-override** (a prévia de rebalanceamento passa a enxergar o
 override de tipo-de-dia): **implementada e testada** (2026-07-26). Destravada pela **decisão do

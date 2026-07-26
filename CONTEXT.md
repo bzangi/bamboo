@@ -139,6 +139,11 @@ ativo dentro da janela. Mantidas assim por decisão: [ADR-0002](docs/adr/0002-gr
 **Ciclo** — o intervalo de acompanhamento entre consultas. Objeto de 1ª classe, no máximo 1
 aberto por paciente (garantido por índice parcial). Invisível ao paciente. `cycle`.
 
+**Ciclo atual** — o ciclo que a nutri quer ler ao abrir um paciente: o **aberto**; se não
+houver, o **fechado mais recente**. Não é o mesmo que "ciclo ativo" (esse é só o aberto). Termo
+da via da nutri: `cicloAtual` em `GET /nutri/patients`, resolvido em um lugar só (a API) para a
+web não ter uma segunda opinião. `apps/api/src/nutri/patients.service.ts`.
+
 **Vigência** — a linha do tempo de "qual plano vigia quando" **dentro** de um ciclo. O ciclo
 **observa**, não manda: registra as ativações. `cycle_plan_vigencia`.
 
