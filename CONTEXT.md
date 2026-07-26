@@ -26,6 +26,11 @@ sai da **programação default** (`day_schedule`, por dia da semana), e o pacien
 **Override de tipo-de-dia** — o paciente troca, na sessão, o tipo-de-dia que o app está
 mostrando. Não materializa nada: o dia-calendário não guarda "qual tipo o paciente seguiu".
 O único lugar onde o tipo escolhido persiste é o **snapshot** de um evento de registro.
+O override é **da sessão, mas não só de exibição**: os três caminhos que dependem dele o
+recebem explicitamente — `GET /today?dayTypeId=`, `POST /registro` (`body.dayTypeId`) e, desde a
+014, `POST .../rebalance/option-choice`. Sob override, o dia é avaliado contra a faixa-alvo do
+tipo **exibido** ([ADR-0003](docs/adr/0003-option-choice-aceita-o-override-de-tipo-de-dia.md)).
+A assimetria entre esses três — um aceitava, o outro não — era a causa do KI-005.
 
 **Refeição (slot)** — "Almoço", com `position` no dia. A `position` é o que pareia refeições
 entre tipos-de-dia diferentes. `meal`.

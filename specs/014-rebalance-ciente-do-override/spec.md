@@ -4,7 +4,7 @@
 **Date**: 2026-07-26
 **Origem**: [KI-005](../../docs/known-issues.md) + [KI-002](../../docs/known-issues.md) Sintoma A ·
 reabre [ADR-0001](../../docs/adr/0001-chave-de-pareamento-sob-override.md)
-**Status**: Specify
+**Status**: implementada (2026-07-26)
 
 ## A decisão do dono, que destrava esta feature
 

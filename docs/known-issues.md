@@ -58,26 +58,24 @@ Error: expected 403 "Forbidden", got 404 "Not Found"  (test/adesao.e2e-spec.ts:7
 
 ## KI-002 — Chave de pareamento sob override: 4 convenções, 2 rotas já divergem
 
-**Status:** aberto, **agora com teste de caracterização** · **Área:** `apps/api`
-(registro/rebalance/ciclo/relatório) · **Prioridade:** alta
+**Status:** **parcialmente resolvido** (Sintoma A no caminho do override, feature 014) ·
+**Área:** `apps/api` (registro/rebalance/ciclo/relatório) · **Prioridade:** média (era alta)
 **Aberto em:** 2026-07-25 (revisão de arquitetura + grilling do candidato 01)
-**Revisado em:** 2026-07-26 — o repro publicado aqui estava **errado**, os `file:line`
-sofreram drift pós-012, e a investigação achou um bug **maior e não catalogado** (KI-005).
+**Revisado em:** 2026-07-26 — o repro publicado aqui estava **errado**, os `file:line` sofreram
+drift pós-012, e a investigação achou um bug **maior e não catalogado** (KI-005, já resolvido).
 
-Ver [ADR-0001](adr/0001-chave-de-pareamento-sob-override.md) para a decisão de manter como
-está. Este KI guarda os dois sintomas e o repro.
+Decisões: [ADR-0001](adr/0001-chave-de-pareamento-sob-override.md) (**superseded** — manter
+divergente) → [ADR-0003](adr/0003-option-choice-aceita-o-override-de-tipo-de-dia.md) (a decisão
+tomada) · [ADR-0002](adr/0002-granularidade-divergente-nas-rotas-da-nutri.md) (o Sintoma B).
 
-> **Precondição do ADR-0001 satisfeita (2026-07-26).** O ADR condiciona reabertura a
-> "decisão de produto sobre qual dos dois lados está certo, **e com o teste de colisão escrito
-> antes**". A segunda metade está feita: `apps/api/test/colisao-position.e2e-spec.ts` — 8 casos
-> de **caracterização** (verdes; pinam o comportamento ATUAL, incluindo os bugs) com fixture de
-> 2 tipos-de-dia e colisão de `position`, o eixo a que a suíte era cega. As asserções marcadas
-> `[BUG]` devem ser **invertidas** quando a correção vier.
+> **As duas condições do ADR-0001 foram cumpridas (2026-07-26).** O teste de colisão
+> (`apps/api/test/colisao-position.e2e-spec.ts` — o único lugar da suíte que monta 2
+> tipos-de-dia com `position` colidindo) e a decisão do dono (opção **(a)**).
 >
-> **É oráculo de verdade, verificado por reversão:** trocando o pareamento do
-> `rebalance.service` para `position`, exatamente 2 dos 8 casos ficam vermelhos (o Sintoma A e
-> a divergência na mesma tela); os outros 6 seguem verdes — o que **confirma** que esse
-> conserto NÃO resolve o KI-005.
+> **O teste era oráculo de verdade, verificado por reversão** ANTES da correção: trocando o
+> pareamento do `rebalance.service` para `position`, exatamente 2 dos 8 casos ficavam vermelhos;
+> os outros 6 seguiam verdes — o que **provou** que aquele conserto (opção (b)) não resolveria o
+> KI-005, e foi o que decidiu a rejeição dele.
 
 ### Correção de rumo: a atribuição a FR-013b era enganosa
 
@@ -97,7 +95,24 @@ matemática do motor de rebalanceamento nem o que ele recalcula". Ou seja: prece
 direção para o `/today`, **nenhum requisito que alcance** `POST /rebalance/option-choice`.
 Portanto a escolha da chave segue sendo decisão de produto, exatamente como o ADR diz.
 
-### Sintoma A — gramas erradas no app (bug de comportamento)
+### Sintoma A — gramas erradas no app · **parcialmente resolvido (014)**
+
+> **Recortado em 2026-07-26** por [ADR-0003](adr/0003-option-choice-aceita-o-override-de-tipo-de-dia.md):
+>
+> - ✅ **Resolvido** no caminho do override (gatilho numa refeição do tipo exibido, com
+>   `dayTypeId` no corpo): a refeição registrada sai das alavancas e seu consumo real entra no
+>   total. Pinado em `colisao-position.e2e-spec.ts`, bloco `014/US2`.
+> - ⚠️ **Resíduo aceito** no caminho "registrei sob B → voltei para o tipo padrão A → escolho
+>   opção em A": o evento de B segue invisível ao motor, enquanto `/today?dayTypeId=A` mostra o
+>   badge por **posição** (009/FR-002). A divergência badge-vs-motor sobrevive **ali**. É
+>   coerente com FR-013a da 004 ("o tipo padrão nunca auto-ajusta"), e fechá-la exigiria decidir
+>   se o `/today` do tipo padrão deveria contar evento de outro tipo — o que **contradiz** aquele
+>   FR. Decisão de produto separada. Pinado no bloco `014/A2`.
+>
+> A pergunta original deste KI ("`mealId` ou `position`?") era a **errada**: o defeito não estava
+> na chave, estava em qual dia o motor recebia. Nenhuma troca de chave foi necessária.
+>
+> O texto abaixo fica como registro do diagnóstico original.
 
 `registro.service.ts:119-137` grava como snapshot o `dayTypeId` do **override**; o `mealId`
 vem do payload (`:370`) e é validado só contra o plano (`:158-174`), **nunca contra o
@@ -163,19 +178,20 @@ perdido **não vira `semRegistro`** — desaparece dos totais (descarte silencio
 Os números citados acima são de antes da feature 012. Hoje: `rebalance.service.ts:294` → o
 pareamento está em **`:285-286`**; `plan.service.ts:346-348` → **`:338`**.
 
-### Próximo passo
+### Próximo passo — o que RESTA deste KI
 
-Decisão de **produto** sobre qual chave é a certa. O ADR-0001 lista o trade-off nas duas
-direções; a investigação de 2026-07-26 acrescentou que existem **dois consertos** conformes ao
-mesmo invariante, com efeitos diferentes:
+A decisão de produto foi tomada em 2026-07-26: **opção (a)**, implementada na feature 014
+([ADR-0003](adr/0003-option-choice-aceita-o-override-de-tipo-de-dia.md)). A (b) — parear por
+`position` — foi **rejeitada**: verificado por reversão que ela **não** mata o KI-005, e
+obrigaria a inventar uma regra de desempate para colisão que o motor não tem.
 
-- **(a) `option-choice` passa a aceitar o override** (como `POST /registro` já aceita): o roster
-  vira o do tipo exibido, o `mealId` do evento casa sozinho, e **isto também mata o KI-005**.
-- **(b) manter a resolução por weekday e parear por `position`**: corrige o Sintoma A, muda
-  grama que o paciente já viu, exige regra de desempate para colisão (o relatório resolve com
-  último-ganha arbitrário; o rebalance não tem regra nenhuma) e **não** mata o KI-005.
+Sobra deste KI, os dois com teste que os pina:
 
-Não é escopo da 012, cujo critério de sucesso era "nenhum número muda".
+1. **O resíduo do Sintoma A** (caminho do tipo padrão) — ver o recorte acima. Precisa de decisão
+   sobre FR-013a da 004, não de código.
+2. **O Sintoma B** — o descarte silencioso do relatório sob colisão de `position`. Rota da nutri,
+   caminho diferente; ver [ADR-0002](adr/0002-granularidade-divergente-nas-rotas-da-nutri.md),
+   que separa a granularidade (deliberada) do descarte (defeito).
 
 ---
 
@@ -291,12 +307,23 @@ em `apps/api/test/` resolve.
 
 ---
 
-## KI-005 — A prévia de rebalanceamento está morta sob override de tipo-de-dia (404)
+## KI-005 — ~~A prévia de rebalanceamento está morta sob override~~ **RESOLVIDO**
 
-**Status:** aberto, **com teste de caracterização** · **Área:** `apps/api` + `apps/mobile` ·
-**Prioridade:** alta — atinge o diferencial do produto
+**Status:** ✅ **resolvido** na feature 014 (2026-07-26) · **Área:** `apps/api` + `apps/mobile`
 **Aberto em:** 2026-07-26 (achado colateral da investigação do KI-002; **não** estava no KI-002
-nem no ADR-0001, e nenhum teste cobria)
+nem no ADR-0001, e nenhum teste cobria) · **Fechado em:** 2026-07-26
+
+> **Resolvido pela decisão (a)** — ver
+> [ADR-0003](adr/0003-option-choice-aceita-o-override-de-tipo-de-dia.md). `POST option-choice`
+> passou a aceitar um `dayTypeId` opcional, com a mesma semântica do `POST /registro`: o roster
+> vira o do tipo exibido, o gatilho é encontrado, e o 404 morreu. Os 2 casos que asseriam o 404
+> em `colisao-position.e2e-spec.ts` foram **invertidos** e agora asserem 200 + prévia
+> (bloco `014/US1`).
+>
+> Ficou de graça no mesmo conserto: o **Sintoma A do KI-002** no caminho do override — com o
+> roster certo o `mealId` do evento casa sozinho, sem trocar a chave de pareamento.
+>
+> O texto abaixo fica como registro do que era.
 
 ### Sintoma
 

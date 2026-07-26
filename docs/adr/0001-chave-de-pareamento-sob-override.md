@@ -1,7 +1,22 @@
 # A chave de pareamento sob override fica divergente por rota, deliberadamente
 
-**Status:** accepted · **Data:** 2026-07-25 · **Origem:** revisão de arquitetura + grilling
-do candidato 01 (leitura do registro)
+**Status:** ~~accepted~~ **superseded** por
+[ADR-0003](./0003-option-choice-aceita-o-override-de-tipo-de-dia.md) (2026-07-26) ·
+**Data:** 2026-07-25 · **Origem:** revisão de arquitetura + grilling do candidato 01
+(leitura do registro)
+
+> **Superseded em 2026-07-26.** As duas condições de reabertura que este ADR fixou foram
+> cumpridas — o teste de colisão (`colisao-position.e2e-spec.ts`) e a decisão do dono (opção
+> **(a)**). O ADR-0003 registra a decisão.
+>
+> **Este ADR fez a pergunta errada, e vale registrar por quê.** "`mealId` ou `position`?"
+> pressupunha que o defeito estava na chave. Não estava: estava em **qual dia o motor recebia**.
+> Com o `option-choice` aceitando o override, o roster passa a ser do tipo exibido e o `mealId`
+> do evento **casa sozinho** — nenhuma troca de chave foi necessária.
+>
+> O que continua válido daqui: o module base de leitura preserva `mealId` e nunca agrupa por
+> `position`; e a exigência de escrever o teste **antes** da decisão, que foi o que expôs o
+> repro errado deste próprio documento e revelou o KI-005.
 
 Quando o paciente registra uma refeição sob **override de tipo-de-dia**, o evento grava como
 snapshot o `dayTypeId` do override (`registro.service.ts:119-137`), mas o `mealId` vem do

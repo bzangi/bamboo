@@ -263,6 +263,51 @@ Dado de saúde desde a Fase 0: controle de acesso, criptografia, consentimento. 
 
 <!-- SPECKIT START -->
 
+Feature **014-rebalance-ciente-do-override** (a prévia de rebalanceamento passa a enxergar o
+override de tipo-de-dia): **implementada e testada** (2026-07-26). Destravada pela **decisão do
+dono: opção (a)**, que cumpriu a 2ª condição do **ADR-0001** (a 1ª — teste de colisão escrito
+ANTES — já estava cumprida). **ADR-0003** registra a decisão e **supersede o ADR-0001**.
+**A raiz era assimetria de contrato, não matemática:** `POST /registro` aceitava
+`body.dayTypeId`; `POST .../rebalance/option-choice` **não aceitava tipo-de-dia nenhum** —
+resolvia sempre pelo weekday, montava o roster daquele tipo e rejeitava com **404** um gatilho
+fora dele. E o app manda o `triggerMealId` do cardápio **EXIBIDO**, sem gatear por override.
+**MORREU:** (1) **KI-005** — sob override a prévia era 404 para **qualquer** refeição, com ou
+sem registro: o diferencial do produto estava **inalcançável**; (2) **KI-002 Sintoma A** no
+caminho do override — com o roster certo o `mealId` do evento **casa sozinho**, a refeição
+registrada sai das alavancas e seu consumo real entra no total. **Nenhuma troca de chave de
+pareamento foi necessária** — a pergunta do ADR-0001 ("`mealId` ou `position`?") era a **errada**:
+o defeito estava em **qual dia o motor recebia**. A opção (b) (parear por `position`) foi
+rejeitada **por medição**: verificado por reversão que ela NÃO mata o KI-005, e obrigaria a
+inventar regra de desempate para colisão que o motor não tem.
+Entregue: `OptionChoiceRequest` ganha `dayTypeId?: string` (**aditivo** — cliente antigo não
+quebra); `rebalance.service` bloco 4 resolve o override (validado pertencer ao plano ativo, 404
+com a MESMA mensagem do `/registro`) ou o weekday, e o roster usa o tipo resolvido — copiando a
+**forma** do `registro.service.ts`, não uma variação (três formas diferentes foi a causa raiz);
+`RebalancePreviewSheet` + `HomeScreen` propagam o override, com `dayTypeId` **nas deps do
+`useEffect`** (senão trocar de tipo com a sheet aberta manda o corpo velho).
+**Corolário que isto DECIDE** e que nenhum artefato respondia: sob override o dia é avaliado
+contra a faixa-alvo do tipo **EXIBIDO** (o roster é do tipo resolvido, logo o alvo também).
+**RESÍDUO ACEITO, não escondido** (spec A2): (a) faz o motor seguir o tipo exibido, então no
+caminho "registrei sob B → voltei para o tipo padrão A → escolho em A" o evento de B segue
+invisível ao motor, enquanto `/today?dayTypeId=A` mostra o badge por **posição** (009/FR-002).
+A divergência badge-vs-motor **sobrevive ali** — coerente com FR-013a da 004, mas resíduo.
+Fechá-la exigiria decidir se o `/today` do tipo padrão deveria contar evento de outro tipo, o
+que **contradiz** aquele FR: decisão separada. O caso que a pinava deixou de ser `[BUG]` e virou
+`014/A2`, com o porquê no teste.
+**NÃO mudou, cada um com prova:** caminho SEM override (`rebalance.e2e-spec.ts` verde com
+`git diff` **vazio**, 15 casos calibrados no seed — a prova de FR-003) · `packages/core` com
+`git diff` vazio (a matemática não mudou, só o dia que ela recebe) · pareamento por `mealId` e
+leitura do consumo type-agnostic, ambos intactos (restringir a leitura ao tipo resolvido
+ressuscitaria o bug que a 004 corrigiu) · nada persiste (0 escritas no service) · sem migration.
+TDD: 5 casos vistos vermelhos antes. **Correção do próprio plano durante a execução:** a task
+mandava "documentar o corpo no Swagger espelhando o `/registro`", mas **nenhum dos 6 POSTs da
+API documenta `requestBody`** — não havia padrão a espelhar, e criar um modelo só para este
+endpoint seria inconsistente; foi para a descrição do `@ApiOperation`. OpenAPI regenerado.
+Resultado: **core 164 · db 20 · api 151 (147 + 4) · mobile 24** verdes; lint 0 errors,
+check-types e Prettier limpos. **Pendente e explícito:** smoke manual no simulador (o chip de
+opção sob override abre a prévia em vez de erro) — requer julgamento manual, designado ao Bruno.
+Artefatos: `specs/014-rebalance-ciente-do-override/` (spec/plan/tasks) + `docs/adr/0003-*.md`.
+
 Feature **013-construtor-de-cenario** (construtor de cenário para as suítes e2e —
 candidato 04 da revisão de arquitetura): **implementada e testada** (2026-07-26).
 Infraestrutura de teste, **nenhum endpoint muda, nenhuma expectativa muda**. Gatilho: o
