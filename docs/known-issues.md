@@ -58,11 +58,44 @@ Error: expected 403 "Forbidden", got 404 "Not Found"  (test/adesao.e2e-spec.ts:7
 
 ## KI-002 — Chave de pareamento sob override: 4 convenções, 2 rotas já divergem
 
-**Status:** aberto · **Área:** `apps/api` (registro/rebalance/ciclo/relatório) · **Prioridade:** alta
+**Status:** aberto, **agora com teste de caracterização** · **Área:** `apps/api`
+(registro/rebalance/ciclo/relatório) · **Prioridade:** alta
 **Aberto em:** 2026-07-25 (revisão de arquitetura + grilling do candidato 01)
+**Revisado em:** 2026-07-26 — o repro publicado aqui estava **errado**, os `file:line`
+sofreram drift pós-012, e a investigação achou um bug **maior e não catalogado** (KI-005).
 
 Ver [ADR-0001](adr/0001-chave-de-pareamento-sob-override.md) para a decisão de manter como
 está. Este KI guarda os dois sintomas e o repro.
+
+> **Precondição do ADR-0001 satisfeita (2026-07-26).** O ADR condiciona reabertura a
+> "decisão de produto sobre qual dos dois lados está certo, **e com o teste de colisão escrito
+> antes**". A segunda metade está feita: `apps/api/test/colisao-position.e2e-spec.ts` — 8 casos
+> de **caracterização** (verdes; pinam o comportamento ATUAL, incluindo os bugs) com fixture de
+> 2 tipos-de-dia e colisão de `position`, o eixo a que a suíte era cega. As asserções marcadas
+> `[BUG]` devem ser **invertidas** quando a correção vier.
+>
+> **É oráculo de verdade, verificado por reversão:** trocando o pareamento do
+> `rebalance.service` para `position`, exatamente 2 dos 8 casos ficam vermelhos (o Sintoma A e
+> a divergência na mesma tela); os outros 6 seguem verdes — o que **confirma** que esse
+> conserto NÃO resolve o KI-005.
+
+### Correção de rumo: a atribuição a FR-013b era enganosa
+
+A frase "`/today` faz o certo … FR-013b da 004" (abaixo) sugere que a 004 elegeu `position`
+como chave. **Ela não elegeu.** `grep -c position specs/004-motor-le-registro/spec.md` = **0**:
+a palavra não aparece uma única vez na spec. FR-013b só exige o invariante "contar cada slot
+uma única vez", vive sob a seção _"Trocar tipo-de-dia recalcula pelo consumido"_ e tem como
+único cenário de aceitação "quando o paciente troca de tipo-de-dia". `position` é decisão de
+**plano** (`research.md:63`), atrelada a um parâmetro de uma função no `getToday`, e marcada lá
+como **aproximação v0** válida só quando os tipos têm slots alinhados (`research.md:65`) — a
+própria 004 usa `itemId` e não `position` no nível de item, justificando que "positions colidem
+entre tipos" (`research.md:115`).
+
+O endosso em nível de **spec** existe, mas é na **009** (FR-002: "o pareamento … é **por
+posição** (type-agnostic)") — e a mesma 009 fecha a porta em FR-011: "NÃO deve alterar a
+matemática do motor de rebalanceamento nem o que ele recalcula". Ou seja: precedente de
+direção para o `/today`, **nenhum requisito que alcance** `POST /rebalance/option-choice`.
+Portanto a escolha da chave segue sendo decisão de produto, exatamente como o ADR diz.
 
 ### Sintoma A — gramas erradas no app (bug de comportamento)
 
@@ -90,27 +123,49 @@ Num dia em que duas refeições de tipos-de-dia diferentes ocupam a **mesma `pos
 
 As duas rotas **já divergem hoje**, sem nenhuma mudança de código.
 
-### Por que nenhum teste pega
+### Por que nenhum teste pegava (até 2026-07-26)
 
-A suíte é cega ao eixo: `relatorio.e2e-spec.ts:130-161` mapeia os 7 weekdays para **um**
-`dayTypeId`; `adesao.e2e-spec.ts:284-290` pega só o plano ativo. Não existe cenário com dois
-tipos-de-dia, então a colisão de `position` é inalcançável.
+A suíte era cega ao eixo: `relatorio.e2e-spec.ts:130-161` mapeia os 7 weekdays para **um**
+`dayTypeId`; `adesao.e2e-spec.ts:284-290` pega só o plano ativo; `rebalance.e2e-spec.ts` opera
+só no tipo-de-dia do weekday. Não existia cenário com dois tipos-de-dia, então a colisão de
+`position` era inalcançável. **Agora existe:** `colisao-position.e2e-spec.ts`.
 
-### Repro sugerido (o teste que falta)
+### ⚠️ O repro que estava publicado aqui NÃO demonstrava o Sintoma A
 
-Plano com **2 tipos-de-dia** (A e B) cujas refeições de `position: 2` são distintas;
-`POST /registro` com `body.dayTypeId` do tipo B (override) marcando `feito` na refeição pos 2
-de B; e um `pulei` na refeição pos 2 de A no mesmo `loggedDate`. Então:
+A versão anterior deste KI mandava registrar `feito` na pos 2 de B **e** `pulei` na pos 2 de A
+no mesmo dia. O segundo evento é do tipo exibido, casa por `mealId`, sai das alavancas — e
+**mascara** exatamente o efeito que se queria mostrar. Quem seguisse o roteiro concluiria que
+não há bug.
 
-1. asserir `report.registro.totais` vs `GET /cycles/:id` — divergem
-2. `POST /rebalance/option-choice` com gatilho em outra refeição — asserir se a pos 2
-   aparece nas alavancas (hoje aparece; não deveria)
+**Repro limpo (o que o teste faz):** **um único** registro sob override — `mealId` e `dayTypeId`
+ambos do tipo B — e nada no tipo A. Então `POST /rebalance/option-choice` com gatilho no tipo A,
+duas vezes: antes e depois de inserir o evento. **Os corpos são byte-a-byte idênticos** — o
+registro é invisível ao motor. O controle que dá poder ao teste é o mesmo fato gravado no tipo
+**A** (mesma `position`!): aí o corpo muda.
+
+Para o Sintoma B o repro segue válido: dois eventos vigentes no mesmo dia e mesma `position`,
+em tipos diferentes → `GET /cycles/:id` conta **2**, `.../report` conta **1**, e o estado
+perdido **não vira `semRegistro`** — desaparece dos totais (descarte silencioso em
+`relatorio.loader.ts`, `new Map` com último-ganha).
+
+### Drift de `file:line` (pós-012)
+
+Os números citados acima são de antes da feature 012. Hoje: `rebalance.service.ts:294` → o
+pareamento está em **`:285-286`**; `plan.service.ts:346-348` → **`:338`**.
 
 ### Próximo passo
 
-Decisão de **produto** sobre qual chave é a certa (ADR-0001 lista o trade-off nas duas
-direções), com o teste de colisão escrito antes. Não é escopo da 012, que tem por critério
-de sucesso "nenhum número muda".
+Decisão de **produto** sobre qual chave é a certa. O ADR-0001 lista o trade-off nas duas
+direções; a investigação de 2026-07-26 acrescentou que existem **dois consertos** conformes ao
+mesmo invariante, com efeitos diferentes:
+
+- **(a) `option-choice` passa a aceitar o override** (como `POST /registro` já aceita): o roster
+  vira o do tipo exibido, o `mealId` do evento casa sozinho, e **isto também mata o KI-005**.
+- **(b) manter a resolução por weekday e parear por `position`**: corrige o Sintoma A, muda
+  grama que o paciente já viu, exige regra de desempate para colisão (o relatório resolve com
+  último-ganha arbitrário; o rebalance não tem regra nenhuma) e **não** mata o KI-005.
+
+Não é escopo da 012, cujo critério de sucesso era "nenhum número muda".
 
 ---
 
@@ -174,6 +229,70 @@ Próximo passo real: o **construtor de cenário** (candidato 04 da revisão de a
 2026-07-25) — `criarCenario(spec)` em `packages/db`, que devolve os ids resolvidos e faz o
 `seed.ts` virar um chamador. Enquanto isso não existe, cada suíte segue acoplada ao João da
 Silva.
+
+---
+
+## KI-005 — A prévia de rebalanceamento está morta sob override de tipo-de-dia (404)
+
+**Status:** aberto, **com teste de caracterização** · **Área:** `apps/api` + `apps/mobile` ·
+**Prioridade:** alta — atinge o diferencial do produto
+**Aberto em:** 2026-07-26 (achado colateral da investigação do KI-002; **não** estava no KI-002
+nem no ADR-0001, e nenhum teste cobria)
+
+### Sintoma
+
+Com o picker de tipo-de-dia em override (`/today?dayTypeId=B`), **tocar qualquer chip de opção
+devolve 404** — com ou sem registro, em qualquer refeição:
+
+```
+POST /patients/:id/rebalance/option-choice  { triggerMealId: <meal do tipo B>, ... }
+→ 404 "refeição do gatilho não está no dia corrente"
+```
+
+Ou seja: o rebalanceamento — que é a tese central do produto ("adaptar, não apenas mostrar") —
+é **inalcançável** enquanto o paciente estiver vendo outro tipo-de-dia. É pior que o Sintoma A
+do KI-002: lá o número sai errado, aqui a função não roda.
+
+### Causa
+
+Assimetria de contrato entre os dois endpoints que o app chama da mesma tela:
+
+- **`POST /registro` aceita** `body.dayTypeId` (grava o snapshot do override).
+- **`POST /rebalance/option-choice` NÃO aceita** tipo-de-dia:
+  `OptionChoiceRequest = { triggerMealId, chosenOptionId }`
+  (`packages/types/src/rebalance.ts:8`), controller sem query
+  (`rebalance.controller.ts:46`).
+
+Então o rebalance sempre resolve o tipo pelo weekday (`rebalance.service.ts:136-152`), monta o
+roster com `meal.dayTypeId = sched.dayTypeId` (`:177`) e **rejeita duro** um gatilho fora dele:
+`meals.find((m) => m.id === body.triggerMealId)` → `NotFoundException` (`:243-247`).
+
+E o app alcança esse estado sem esforço: `HomeScreen.tsx` renderiza `meal.options.map(...)`
+**sem consultar `overrideActive`** — só o *desfazer do registro* é gateado (`:507-528`). O
+`triggerMealId` enviado é o `meal.id` do cardápio **exibido**, que sob override é sempre do
+tipo B.
+
+### Por que nenhum teste pegava
+
+`rebalance.e2e-spec.ts` só opera no tipo-de-dia do weekday (e desde a 012/T000 **fixa** a
+programação de hoje para garantir isso — ver KI-004). Nenhuma suíte combinava override com
+`option-choice`.
+
+### Estado
+
+Caracterizado em `apps/api/test/colisao-position.e2e-spec.ts` (bloco `KI-005`). O teste pina o
+404 e o fato de que **toda** refeição exibida sob override é inalcançável.
+
+**Verificado por reversão:** consertar o KI-002 pelo caminho **(b)** (parear por `position`)
+deixa este 404 **intacto** — os casos do KI-005 seguem verdes. Só o caminho **(a)** (aceitar o
+override no `option-choice`) resolve os dois de uma vez.
+
+### Próximo passo
+
+Decidir junto com o KI-002, porque o conserto (a) resolve ambos. As perguntas de produto que
+faltam: sob override, o dia é comparado contra a faixa-alvo de **qual** tipo — o exibido ou o do
+weekday? E o que acontece quando o tipo exibido não tem refeição na `position` registrada?
+Nenhum artefato (004, 009, 011) responde.
 
 ---
 
