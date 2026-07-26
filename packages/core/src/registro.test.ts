@@ -6,6 +6,7 @@ import {
   decidirRegistro,
   derivarOAgora,
   estadoVigente,
+  eventoVigente,
 } from "./registro.js";
 
 /* ============ classificarEstado (FR-002, FR-003, FR-004) ============ */
@@ -150,6 +151,113 @@ describe("estadoVigente", () => {
       { seq: 4, state: null },
     ];
     expect(estadoVigente(eventos)).toBeNull();
+  });
+});
+
+/* ============ eventoVigente (012/FR-004, FR-005, FR-010) ============ */
+
+// A mesma redução de `estadoVigente`, devolvendo a LINHA vencedora — quem precisa
+// dos metadados do vencedor (dayTypeId, chosenMealOptionId, position) não deve
+// re-derivar o máximo por conta própria, que é o que os 5 leitores de `meal_event`
+// da casca fazem hoje, cada um do seu jeito.
+describe("eventoVigente", () => {
+  type Linha = EventoRegistro & { readonly id: string };
+
+  it("lista vazia → null", () => {
+    expect(eventoVigente([])).toBeNull();
+  });
+
+  it("devolve a LINHA de maior seq, não só o estado", () => {
+    const eventos: ReadonlyArray<Linha> = [
+      { id: "a", seq: 1, state: "feito" },
+      { id: "b", seq: 2, state: "pulei" },
+    ];
+    expect(eventoVigente(eventos)).toEqual({
+      id: "b",
+      seq: 2,
+      state: "pulei",
+    });
+  });
+
+  it("robusto a array fora de ordem: a linha de maior seq, não a última do array", () => {
+    const eventos: ReadonlyArray<Linha> = [
+      { id: "c", seq: 3, state: "troquei" },
+      { id: "a", seq: 1, state: "feito" },
+      { id: "b", seq: 2, state: "pulei" },
+    ];
+    expect(eventoVigente(eventos)?.id).toBe("c");
+  });
+
+  it("vencedor tombstone → null (a linha NÃO é devolvida)", () => {
+    const eventos: ReadonlyArray<Linha> = [
+      { id: "a", seq: 1, state: "feito" },
+      { id: "b", seq: 2, state: null },
+    ];
+    expect(eventoVigente(eventos)).toBeNull();
+  });
+
+  it("empate de seq → mantém o PRIMEIRO (`>`, nunca `>=`)", () => {
+    const eventos: ReadonlyArray<Linha> = [
+      { id: "primeiro", seq: 7, state: "feito" },
+      { id: "segundo", seq: 7, state: "pulei" },
+    ];
+    expect(eventoVigente(eventos)?.id).toBe("primeiro");
+  });
+
+  it("o `state` vem da MESMA linha devolvida (nunca de duas reduções distintas)", () => {
+    const eventos: ReadonlyArray<Linha> = [
+      { id: "a", seq: 1, state: "feito" },
+      { id: "b", seq: 5, state: "pulei" },
+      { id: "c", seq: 3, state: "troquei" },
+    ];
+    const vencedor = eventoVigente(eventos);
+    expect(vencedor).not.toBeNull();
+    expect(vencedor?.id).toBe("b");
+    expect(vencedor?.state).toBe("pulei");
+  });
+
+  it("equivalência bit-a-bit com estadoVigente em toda entrada (FR-010)", () => {
+    const casos: ReadonlyArray<ReadonlyArray<EventoRegistro>> = [
+      [],
+      [{ seq: 1, state: "feito" }],
+      [{ seq: 1, state: null }],
+      [
+        { seq: 1, state: "feito" },
+        { seq: 2, state: "pulei" },
+      ],
+      [
+        { seq: 2, state: "pulei" },
+        { seq: 1, state: "feito" },
+      ],
+      [
+        { seq: 1, state: "feito" },
+        { seq: 2, state: null },
+      ],
+      [
+        { seq: 3, state: "troquei" },
+        { seq: 1, state: "feito" },
+        { seq: 2, state: "pulei" },
+      ],
+      [
+        { seq: 7, state: "feito" },
+        { seq: 7, state: "pulei" },
+      ],
+      [
+        { seq: 7, state: null },
+        { seq: 7, state: "feito" },
+      ],
+      [
+        { seq: 1, state: "feito" },
+        { seq: 2, state: "pulei" },
+        { seq: 3, state: "feito" },
+        { seq: 4, state: null },
+      ],
+    ];
+    for (const eventos of casos) {
+      expect(eventoVigente(eventos)?.state ?? null).toBe(
+        estadoVigente(eventos),
+      );
+    }
   });
 });
 

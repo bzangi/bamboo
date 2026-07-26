@@ -91,21 +91,46 @@ export function classificarEstado(input: {
   return ok("troquei");
 }
 
-/* ============ estadoVigente (FR-010, FR-011) ============ */
+/* ============ eventoVigente / estadoVigente (FR-010, FR-011) ============ */
 
 /**
- * Last-wins por `seq` + tombstone. Total (nunca falha), robusto a array fora de
- * ordem. Lista vazia → null. Estado do evento de maior seq; se esse state é null
- * (anulação) → null (não-registrada).
+ * Evento vigente por last-write-wins + tombstone. Pura, total, robusta a array
+ * fora de ordem. Devolve a LINHA vencedora (não só o estado), porque quem precisa
+ * dos metadados do vencedor — tipo-de-dia do snapshot, opção cumprida, position —
+ * não deve re-derivar o máximo por conta própria (012/FR-004).
+ *
+ * null quando: lista vazia OU o vencedor é tombstone (state === null).
+ * O tipo de retorno NARROWS `state`, para que o chamador não precise de cast —
+ * o cast é o atalho que apagaria o descarte do tombstone e faria refeições
+ * desfeitas reaparecerem.
+ *
+ * Desempate: `>` (nunca `>=`) — mantém o PRIMEIRO em empate, preservando o
+ * comportamento de `estadoVigente` bit-a-bit (FR-010).
+ *
+ * O contrato de `seq` é ordem total ESTRITAMENTE crescente. Use índice de query
+ * ordenada — NÃO `Date.getTime()`, que trunca em ms a resolução de µs do Postgres
+ * e transforma correções no mesmo milissegundo em empate arbitrário.
  */
-export function estadoVigente(
-  eventos: ReadonlyArray<EventoRegistro>,
-): EstadoRegistro | null {
+export function eventoVigente<
+  T extends { readonly seq: number; readonly state: EstadoRegistro | null },
+>(eventos: ReadonlyArray<T>): (T & { readonly state: EstadoRegistro }) | null {
   if (eventos.length === 0) return null;
 
   const ultimo = eventos.reduce((maior, e) => (e.seq > maior.seq ? e : maior));
 
-  return ultimo.state;
+  return ultimo.state === null
+    ? null
+    : (ultimo as T & { readonly state: EstadoRegistro });
+}
+
+/**
+ * Last-wins por `seq` + tombstone, só o estado. Mantida como interface própria
+ * porque o caminho de ESCRITA (registro.service) só precisa disto.
+ */
+export function estadoVigente(
+  eventos: ReadonlyArray<EventoRegistro>,
+): EstadoRegistro | null {
+  return eventoVigente(eventos)?.state ?? null;
 }
 
 /* ============ decidirRegistro (FR-012) ============ */
