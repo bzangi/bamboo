@@ -196,14 +196,19 @@ Falha **silenciosa**: sem erro, sem log, sem tipo violado. Reprodução por corr
 
 ### Estado
 
-**Pré-existente e inalterado pela feature 012** — o mesmo número de queries separadas antes
-e depois da unificação (a 012 só move as 4 queries de 2 arquivos para 1 empilhamento de 2
-modules; a janela de exposição é idêntica). Registrado para não ser confundido com regressão
-da 012.
+**Pré-existente e inalterado pela feature 012** (implementada em 2026-07-25) — o mesmo número
+de queries separadas antes e depois: a 012 moveu as 4 queries de 2 arquivos para o
+empilhamento `registro-vigente.loader` (1 query) + `consumo-real.loader` (3 queries), e a
+janela de exposição é idêntica. Registrado para não ser confundido com regressão da 012.
+
+Os `file:line` do sintoma acima são **pré-012**; os arquivos citados não existem mais. Hoje o
+mesmo problema vive em `apps/api/src/registro-vigente.loader.ts` +
+`apps/api/src/consumo-real.loader.ts`.
 
 ### Próximo passo
 
 Envolver a leitura num `db.transaction` (o Postgres dá snapshot consistente dentro da
 transação, mesmo em `READ COMMITTED`, para os `SELECT` de um mesmo statement — aqui são
-statements distintos, então precisa de `REPEATABLE READ` ou de uma query só). Barato depois
-da 012, porque passa a haver **um** lugar para envolver.
+statements distintos, então precisa de `REPEATABLE READ` ou de uma query só). **Ficou barato
+com a 012:** existe **um** ponto de composição (os 2 loaders empilhados, chamados em sequência
+por 5 call sites) em vez de 5 cópias para envolver uma a uma.

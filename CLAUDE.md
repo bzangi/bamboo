@@ -263,6 +263,62 @@ Dado de saúde desde a Fase 0: controle de acesso, criptografia, consentimento. 
 
 <!-- SPECKIT START -->
 
+Feature **012-leitura-do-registro** (deepening: um leitor de `meal_event`): **implementada e
+testada** (2026-07-25; gate único no `tasks.md`, aprovado após grilling de 7 decisões).
+**NÃO é feature de produto — o critério de sucesso é a AUSÊNCIA de mudança**: nenhuma resposta
+HTTP muda em forma, valor ou status. Existiam **5 implementations** de "qual é o registro
+vigente nesta janela", cada uma com sua ordenação, seu desempate e seu escopo de plano
+implícito: `registro-consumo.ts`, `adesao/adesao-consumo.ts`,
+`ciclo.service.registrosDaJanela`, `relatorio.loader.ts` §1-2 e uma query inline no
+`plan.service.ts` (esta **sem `ORDER BY` nenhum**). Viraram **2 modules empilhados** + 1
+função de núcleo:
+· **Núcleo** — `packages/core/src/registro.ts` ganhou **`eventoVigente`**: a mesma redução
+last-write-wins + tombstone de `estadoVigente`, devolvendo a **linha** vencedora, com o tipo
+de retorno **narrowed** (`(T & {state: EstadoRegistro}) | null`) pra nenhum chamador precisar
+de cast — o cast é o atalho que apagaria o descarte do tombstone. `estadoVigente` virou
+`eventoVigente(e)?.state ?? null` (equivalência bit-a-bit travada por teste sobre 10
+entradas). Desempate `>`, nunca `>=`.
+· **Casca (leitura)** — `apps/api/src/registro-vigente.loader.ts`, o **único** leitor de
+`meal_event` no caminho de leitura: 1 query `meal_event ⋈ meal`,
+`ORDER BY (logged_date, created_at, id)`, `seq = índice`, `escopo` de plano **obrigatório e
+sem default** (`{kind:'plano',planId}` | `{kind:'qualquer-plano'}`).
+· **Casca (nutrientes)** — `apps/api/src/consumo-real.loader.ts` **empilha**: RECEBE os
+vigentes, não consulta `meal_event` (consulta `meal_event_item`, que é o snapshot do troquei),
+e **não** devolve agregado do dia (`somaNutrientes` fica no call site).
+**Único ganho de comportamento:** o `, id` no `ORDER BY`. `created_at` é `DEFAULT now()`
+(= `transaction_timestamp()`, tomado **antes** do advisory lock do INSERT), logo empate — e
+até inversão relativa à ordem de inserção — é possível, e os 4 leitores antigos resolviam pelo
+primeiro que o heap devolvesse. **Ganho medido** (logger SQL do Drizzle ligado num servidor
+real, contagem por request, antes vs. depois): `GET /today?dayTypeId=` **2 → 1** leitura;
+`GET .../cycles/:id/report` com comparativo **6 → 4**.
+**Os testes que faltavam vieram ANTES da extração** (pré-requisito não-negociável: a suíte era
+cega aos dois eixos, porque todo fixture usava um plano e um tipo-de-dia) —
+`apps/api/test/escopo-plano.e2e-spec.ts`, self-contained, fixture de **2 planos + 2
+tipos-de-dia**: **T-A** escopo de plano e **T-D** janela do dia (caracterização, passaram
+verdes de primeira) + **T-C** desempate (TDD, escrito e **visto falhar 3×** antes do leitor
+novo). **Achado que salvou o teste:** as asserções óbvias de escopo são CEGAS — `/today` sem
+override filtra `inArray(mealEvent.mealId, mealIds)` e, como `meal → day_type → plan`, uma
+refeição nunca é compartilhada entre planos, então o evento do plano aposentado sai pelo filtro
+de `mealId` **mesmo sem** o de `planId` (idem rebalance, que lê `porMeal.get(m.id)`). Os
+únicos consumidores onde as duas convenções produzem números diferentes são a **adesão**
+(plan-scoped e sem filtro de `mealId`) e o **caminho por `position`** do `/today?dayTypeId=`.
+**Fora de escopo por DECISÃO, não esquecimento:** Q3-B e a fonte do fallback de plano
+(candidato 05 — unificar muda número que a nutri já viu) · `mealId`-vs-`position` sob override
+(**ADR-0001** + KI-002, precisa de decisão de produto com o teste de colisão escrito antes) ·
+snapshot transacional da leitura (KI-003, pré-existente) · determinismo do caminho de
+**escrita** (`registro.service.ts` ordena sem `, id` e segue arbitrário no empate — FR-001 o
+exclui; o service ficou com `git diff` vazio). **Sem migration, sem endpoint novo, zero mudança
+no mobile.** Saldo em `apps/api/src`: **−210 linhas** (465 apagadas nos 2 helpers mortos).
+Resultado: **core 164 (157 + 7) + api 139 (132 + 7) + mobile 24** verdes, `git diff` **vazio**
+nos `*.e2e-spec.ts` pré-existentes (SC-001); `tsc`/lint (0 errors)/Prettier limpos. SC-007 e
+SC-008 verificados por **reversão**: unificar o escopo derruba T-A, tirar o `, id` derruba T-C.
+**Descoberta colateral (KI-004):** a suíte e2e do `apps/api` só passava **de segunda a sexta**
+— `rebalance.e2e-spec.ts` resolvia um alimento por nome e o seed programa sáb/dom para outro
+tipo-de-dia; consertado como T000 antes de tudo (`126 passed + 6 skipped` → 132).
+Artefatos novos: **`CONTEXT.md`** na raiz (glossário de domínio — não existia),
+**`docs/adr/`** (primeiro ADR), KI-002/003/004 em `docs/known-issues.md`,
+`specs/012-leitura-do-registro/` (spec/plan/research D1–D7/tasks).
+
 Feature **011-relatorio-de-ciclo** (relatório de ciclo — a feature que vende, fecha o
 **EP-5**): **implementada e testada, EP-5 concluído** (gates Specify→Plan e Plan→Tasks
 aprovados 2026-07-20, incluindo A1 semanas relativas ao início, A2 ciclo aberto ⇒ relatório

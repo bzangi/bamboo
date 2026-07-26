@@ -18,9 +18,9 @@ comportamento oposto:
 - **TDD clássico** (T-C) — precisa **FALHAR** primeiro (RED observado), porque afirma
   comportamento novo.
 
-**Baseline a preservar**: core **157** · `apps/api` **132** (= 119 e2e em `test/*.e2e-spec.ts`
-+ 13 unit colocados em `src/**/*.unit.test.ts`) · mobile **24**. Nenhuma expectativa existente
-pode ser alterada — **nem comentário** de `*.e2e-spec.ts` (SC-001). Note que
+**Baseline a preservar**: core **157** · `apps/api` **132** (119 e2e em `test/*.e2e-spec.ts`
+mais 13 unit colocados em `src/**/*.unit.test.ts`) · mobile **24**. Nenhuma expectativa
+existente pode ser alterada — **nem comentário** de `*.e2e-spec.ts` (SC-001). Note que
 `rebalance.e2e-spec.ts:171`, `:337` e `today-daytype.e2e-spec.ts:24` citam em comentário o
 helper que vai ser apagado: esses comentários ficam **obsoletos de propósito**.
 
@@ -38,16 +38,22 @@ Commits direto na `main`, um por checkpoint (padrão 006–011).
 
 ## Phase 1: Setup
 
-- [ ] **T001** Registrar o baseline rodando as 3 suítes **antes** de qualquer mudança:
+- [x] **T000** _(não previsto — descoberto ao levantar o baseline)_ Consertar
+      `rebalance.e2e-spec.ts`, que só passava **de segunda a sexta**: `126 passed | 6 skipped`
+      num sábado, porque o `beforeAll` resolvia o alimento de origem por nome e o seed programa
+      sáb/dom para outro tipo-de-dia. A suíte passou a resolver o item por **grupo** e a
+      **fixar** a programação de hoje no `beforeAll`, restaurando no `afterAll` — nenhuma
+      asserção alterada. Sem isso não havia baseline de 132 para preservar. Ver KI-004.
+- [x] **T001** Registrar o baseline rodando as 3 suítes **antes** de qualquer mudança:
       `pnpm --filter @bamboo/core test` (157) · `pnpm --filter api test:e2e` (132, com
       docker+seed) · `pnpm --filter mobile test` (24). Anotar as contagens no commit — é o ponto
       de comparação de SC-001.
 - [x] **T002** [P] `CONTEXT.md` na raiz (**novo**) — glossário de domínio, incl. **registro
-      vigente**, **consumo real** e **escopo de plano** (D6). *Feito.*
+      vigente**, **consumo real** e **escopo de plano** (D6). _Feito._
 - [x] **T003** [P] `docs/adr/0001-chave-de-pareamento-sob-override.md` (**novo diretório**) —
-      decisão D4. *Feito.*
-- [x] **T004** [P] `docs/known-issues.md` — KI-002 e KI-003. *Feito.*
-- [ ] **T005** Apontar `.specify/feature.json` para `specs/012-leitura-do-registro`
+      decisão D4. _Feito._
+- [x] **T004** [P] `docs/known-issues.md` — KI-002 e KI-003. _Feito._
+- [x] **T005** Apontar `.specify/feature.json` para `specs/012-leitura-do-registro`
 
 **Checkpoint**: baseline registrado, decisões documentadas onde uma próxima revisão as acha.
 
@@ -60,7 +66,7 @@ disseram para fazer primeiro.
 
 **Depende de**: T001
 
-- [ ] **T006** Extrair `janela(patientId, cycleId)` de `CicloService.detalhe`
+- [x] **T006** Extrair `janela(patientId, cycleId)` de `CicloService.detalhe`
       (`apps/api/src/ciclo/ciclo.service.ts:262-294`), **sem** carregar `registros`.
       ⚠️ **`janela` DEVE conter os dois guards que `detalhe` tem hoje**: `exigirPaciente`
       (`:266`) e o 404 de "ciclo não encontrado no paciente" (`:282`) —
@@ -68,9 +74,9 @@ disseram para fazer primeiro.
       inexistente vira 500 ao acessar `janela.startedOn` (violaria FR-008). `detalhe` passa a
       compor `{...janela, registros}` **sem repetir** os guards. `CicloDetalheResponse` e o
       contrato HTTP intocados.
-- [ ] **T007** `relatorio.service.ts:87` e `:177` passam a chamar `janela` em vez de `detalhe`.
+- [x] **T007** `relatorio.service.ts:87` e `:177` passam a chamar `janela` em vez de `detalhe`.
       Verificado: `detalhe.registros` **nunca** é lido em `apps/api/src/relatorio/`.
-- [ ] **T008** ⚠️ Rodar a suíte **completa** do `apps/api` (132), não só `ciclo.e2e` (17 casos)
+- [x] **T008** ⚠️ Rodar a suíte **completa** do `apps/api` (132), não só `ciclo.e2e` (17 casos)
       e `relatorio.e2e` (13): `janela`/`detalhe` são compartilhados e a suíte tem flakiness de
       isolamento conhecida entre `registro.e2e` e `rebalance.e2e` (KI-001). Zero expectativa
       alterada — `ciclo.e2e-spec.ts:487-506` já pina o payload de `detalhe`.
@@ -87,7 +93,7 @@ verde" não é evidência de nada.
 
 **Depende de**: T001
 
-- [ ] **T009** **[CARACTERIZAÇÃO — deve passar VERDE de primeira]** T-A, escopo de plano.
+- [x] **T009** **[CARACTERIZAÇÃO — deve passar VERDE de primeira]** T-A, escopo de plano.
       Suíte e2e nova `apps/api/test/escopo-plano.e2e-spec.ts`, **self-contained**.
 
       ⚠️ **O desenho original não discriminava.** `GET /today` sem override filtra
@@ -123,11 +129,12 @@ verde" não é evidência de nada.
       `dayType` → `daySchedule` → `plan` → `patient` → `nutritionist`. ⚠️ Não é opcional: 10
       pontos das suítes existentes fazem `select().from(patient).limit(1)` **sem `where` nem
       `order`**, então um paciente-cenário sobrevivente pode ser sorteado por elas.
-- [ ] **T010** [P] **[CARACTERIZAÇÃO — deve passar VERDE de primeira]** T-D, janela do dia.
+
+- [x] **T010** [P] **[CARACTERIZAÇÃO — deve passar VERDE de primeira]** T-D, janela do dia.
       Na mesma suíte: `meal_event` de **ontem** no paciente + plano ativo → `GET /today` de
       hoje não muda (nenhum ajuste, nenhum `registro`). Converte em invariante a imunidade que
       hoje vem de `eq(loggedDate, localToday())` — **antes** de parametrizar `from/to`.
-- [ ] **T011** **[TDD — escrever e VER FALHAR]** T-C e2e, empate de ordenação. Na mesma suíte:
+- [x] **T011** **[TDD — escrever e VER FALHAR]** T-C e2e, empate de ordenação. Na mesma suíte:
       dois `meal_event` no mesmo `(paciente, refeição, dia)` com `created_at` **idêntico** e
       `state` diferente (inserir com `createdAt` explícito para forçar o empate) → asserir
       **qual** deve ganhar: o de maior `id`, dado `ORDER BY logged_date, created_at, id`; e que
@@ -136,7 +143,7 @@ verde" não é evidência de nada.
       (`plan.service.ts:131-145` sem `ORDER BY` + `seq = getTime()` em `:154`), então o teste
       pode passar por sorte — RED por sorte não é RED. Se passar, ajuste a asserção até que ela
       distinga.
-- [ ] **T012** Rodar a suíte completa: **132 + T-A + T-D verdes**, T-C **vermelho**, nenhuma
+- [x] **T012** Rodar a suíte completa: **132 + T-A + T-D verdes**, T-C **vermelho**, nenhuma
       expectativa antiga tocada.
 
 **Checkpoint**: os dois eixos cegos passam a ter oráculo. Commit:
@@ -150,20 +157,20 @@ verde" não é evidência de nada.
 
 **Depende de**: T012
 
-- [ ] **T013** **[TDD — escrever e VER FALHAR]** Casos novos em
+- [x] **T013** **[TDD — escrever e VER FALHAR]** Casos novos em
       `packages/core/src/registro.test.ts` para `eventoVigente`: lista vazia → `null` ·
       vencedor tombstone → `null` · array fora de ordem → a linha de maior `seq` (não a última
       do array) · **empate de `seq` → mantém o PRIMEIRO** (`>`, nunca `>=`) · a linha devolvida
       é a **mesma** de onde vem o `state` · **equivalência**: para toda entrada,
       `eventoVigente(e)?.state ?? null === estadoVigente(e)` — trava FR-010 bit-a-bit.
-- [ ] **T014** Implementar `eventoVigente` em `packages/core/src/registro.ts` até T013 verde,
+- [x] **T014** Implementar `eventoVigente` em `packages/core/src/registro.ts` até T013 verde,
       com o retorno **narrowed** (`(T & { state: EstadoRegistro }) | null`) para que nenhum
       chamador precise de cast. Re-expressar `estadoVigente` como
       `eventoVigente(eventos)?.state ?? null`.
       ⚠️ **Nada a fazer no barrel**: `packages/core/src/index.ts:11` já é
       `export * from "./registro.js"`. Confirmar com `pnpm --filter @bamboo/core build` + um
       import em `apps/api`.
-- [ ] **T015** Confirmar `registro.service.ts` (`:197`, `:461` — caminho de escrita) compilando
+- [x] **T015** Confirmar `registro.service.ts` (`:197`, `:461` — caminho de escrita) compilando
       e verde **sem alteração**: já usa `seq = índice` (D3). Não "consertar" o `ORDER BY` de
       `:192`/`:449` (sem `, id`) — FR-001 exclui o caminho de escrita.
 
@@ -178,27 +185,27 @@ verde" não é evidência de nada.
 
 **Depende de**: T014
 
-- [ ] **T016** Criar `apps/api/src/registro-vigente.loader.ts` conforme o contrato do
+- [x] **T016** Criar `apps/api/src/registro-vigente.loader.ts` conforme o contrato do
       [plan.md](./plan.md). 1 query `meal_event ⋈ meal` com
       `ORDER BY (logged_date, created_at, id)`; agrupa por `(date, mealId)`; `seq = índice`;
       `eventoVigente`; descarta tombstone.
       ⚠️ **Ordem de saída = primeira aparição** de cada `(date, mealId)` na query ordenada —
       é o que o agrupamento por `Map` produz hoje. **Não** é a ordem do `created_at` do evento
-      *vencedor*: trocar isso muda quem ganha uma colisão de `position` em
+      _vencedor_: trocar isso muda quem ganha uma colisão de `position` em
       `relatorio.loader.ts:225-229` e a ordem do array de `registros` do ciclo, pinada em
       `ciclo.e2e-spec.ts:487-506`. Escrever isso no docblock.
       ⚠️ **Descartar com `if (ev === null) continue`, nunca com cast.** Com o retorno narrowed
       de T014 o `tsc` já garante `state: EstadoRegistro`; um `as EstadoRegistro` apagaria o
       descarte do tombstone e faria refeições desfeitas reaparecerem nos 5 consumidores.
-- [ ] **T017** [P] Migrar `ciclo.service.registrosDaJanela` (`:359-413`) →
+- [x] **T017** [P] Migrar `ciclo.service.registrosDaJanela` (`:359-413`) →
       `carregarRegistroVigente({escopo:{kind:'qualquer-plano'}})`; o `sort` por
       `(date, position)` (`:410-412`) **fica** no ciclo. Apagar a função privada.
-- [ ] **T018** [P] Migrar `relatorio.loader.ts:84-146` →
+- [x] **T018** [P] Migrar `relatorio.loader.ts:84-146` →
       `carregarRegistroVigente({escopo:{kind:'qualquer-plano'}})`. **O resto do loader fica**:
       `enumerarDias`/`weekdayOf` (`:37-55`), `planoVigenteEm` (`:57-68`), fallback + Q3-B
       (`:148-191`), roster (`:193-216`) — D5, candidato 05. ⚠️ O `new Map(...)` de `:225-229`
       depende da ordem de entrada (último-ganha): não mexer.
-- [ ] **T019** Migrar `plan.service.ts:131-160` → **uma** chamada a
+- [x] **T019** Migrar `plan.service.ts:131-160` → **uma** chamada a
       `carregarRegistroVigente({from:hoje,to:hoje,escopo:{kind:'plano',planId}})`.
       ⚠️ **A query nova é type-agnostic** — NÃO aplicar `inArray(mealId, mealIds)` nela. O
       filtro por `mealIds` vira `.filter()` em memória e serve **só** para montar
@@ -207,7 +214,7 @@ verde" não é evidência de nada.
       desapareceria do consumido.
       Apagar a query local e os comentários `:127-128` e `:152-154`, que documentam o
       raciocínio errado (D3).
-- [ ] **T020** Rodar a suíte completa: 132 + T-A/T-D verdes, T-C ainda pode estar vermelho até
+- [x] **T020** Rodar a suíte completa: 132 + T-A/T-D verdes, T-C ainda pode estar vermelho até
       T019 entrar (depois dele deve passar). Zero expectativa alterada.
 
 **Checkpoint**: um leitor, ordem determinística, escopo explícito em 4 call sites. Commit:
@@ -221,7 +228,7 @@ verde" não é evidência de nada.
 
 **Depende de**: T016 (e T019 para a T023)
 
-- [ ] **T021** Criar `apps/api/src/consumo-real.loader.ts` a partir de `adesao-consumo.ts`
+- [x] **T021** Criar `apps/api/src/consumo-real.loader.ts` a partir de `adesao-consumo.ts`
       (que já é o superconjunto): `carregarConsumoReal(db, vigentes)` — **recebe** os vigentes,
       **não** consulta `meal_event` (`meal_event_item` é legítimo — é o snapshot). Preserva sem
       alteração: fallback D9 da opção cumprida, o switch `pulei`/`feito`/`troquei`, e as 3
@@ -230,14 +237,14 @@ verde" não é evidência de nada.
       "quem tem itens" reintroduz double-count: a pulada precisa entrar como
       `isRegistered: true` com 0 kcal (`rebalance.service.ts:294-305`).
       ⚠️ **`dayTypeId` NÃO entra em `RefeicaoConsumida`** — vem dos vigentes.
-- [ ] **T022** Migrar `adesao.service.ts:148` → `carregarRegistroVigente({from,to,escopo:
-      {kind:'plano',planId}})` + `carregarConsumoReal`. O `somaNutrientes` de `:204-205` já está
+- [x] **T022** Migrar `adesao.service.ts:148` → `carregarRegistroVigente({from,to,escopo:
+{kind:'plano',planId}})` + `carregarConsumoReal`. O `somaNutrientes` de `:204-205` já está
       no call site — mantém.
       ⚠️ **O Q3-B de `:183-190` muda de FONTE, não de regra.** Hoje o `dayTypeId` vem de
       `ConsumoRefeicaoAdesao` (`adesao-consumo.ts:24`); passa a vir de
       `RegistroVigente.dayTypeId`, pareado por `(date, mealId)`. A decisão Q3-B em si é intocada
       (D5) — não mexer no `new Set(registradas.map(r => r.dayTypeId))`, só na origem do dado.
-- [ ] **T023** Migrar `plan.service.ts:329` → **reusa os mesmos vigentes de T019** (segunda
+- [x] **T023** Migrar `plan.service.ts:329` → **reusa os mesmos vigentes de T019** (segunda
       leitura eliminada — SC-005) + `carregarConsumoReal` + `somaNutrientes` no call site.
       `localToday()` sai do loader para o call site (uma leitura de relógio por request).
       ⚠️ **Preservar o early-return de `:333`** na forma `if (vigentes.length === 0) return {}`,
@@ -245,7 +252,7 @@ verde" não é evidência de nada.
       `today.mapper.ts:203-205` escolher o ramo por `position` e **apagar todos os badges do
       dia** (FR-013). Ver o trecho campo-a-campo no plan.md.
       **Depende de**: T019, T021.
-- [ ] **T024** Migrar `rebalance.service.ts:266` → `carregarRegistroVigente` +
+- [x] **T024** Migrar `rebalance.service.ts:266` → `carregarRegistroVigente` +
       `carregarConsumoReal`. ⚠️ **Sem `somaNutrientes`** — o rebalance destrutura só `porMeal`
       e o total vem do núcleo via `diaComEscolha`; uma variável de agregado aqui é código morto
       que o `no-unused-vars` barra no done-gate. ⚠️ **Importar `localToday` de
@@ -253,12 +260,12 @@ verde" não é evidência de nada.
       `new Date().toISOString()` desloca a janela na virada do dia.
       ⚠️ **`:294` continua pareando por `mealId`** (ADR-0001). O consumo real agora devolve
       `position` no mesmo objeto: não "consistentificar".
-- [ ] **T025** **Apagar** `apps/api/src/registro-consumo.ts` (240) e
+- [x] **T025** **Apagar** `apps/api/src/registro-consumo.ts` (240) e
       `apps/api/src/adesao/adesao-consumo.ts` (225). Confirmar 0 imports órfãos.
       ⚠️ Os comentários de `rebalance.e2e-spec.ts:171`, `:337` e `today-daytype.e2e-spec.ts:24`
       que citam o helper apagado **ficam como estão** — T026 exige `git diff` vazio nos
       `*.e2e-spec.ts` existentes.
-- [ ] **T026** Rodar a suíte completa: 132 + T-A/T-D/T-C **todos verdes**, zero expectativa
+- [x] **T026** Rodar a suíte completa: 132 + T-A/T-D/T-C **todos verdes**, zero expectativa
       alterada. E agora os greps de SC-002/SC-003 fazem sentido (antes de T025 eram
       insatisfazíveis, porque os dois arquivos ainda existiam).
 
@@ -271,7 +278,7 @@ verde" não é evidência de nada.
 
 **Depende de**: T026
 
-- [ ] **T027** Verificar os critérios de sucesso, um por um, com comando:
+- [x] **T027** Verificar os critérios de sucesso, um por um, com comando:
       **SC-001** `git diff` nos `*.e2e-spec.ts` existentes vazio + as 3 contagens ·
       **SC-002** `grep -rn 'schema\.mealEvent\b' apps/api/src` (com `\b`, senão casa
       `mealEventItem`) · **SC-003** `grep -rn 'estadoVigente(' apps/api/src` (a **chamada**; o
@@ -282,9 +289,9 @@ verde" não é evidência de nada.
       `select ... from "meal_event"` de um request · **SC-007/SC-008** reverter localmente
       (trocar o escopo para `qualquer-plano`; tirar o `, id` do `ORDER BY`) e confirmar que
       T-A e T-C ficam **vermelhos** · **SC-009** `git diff --stat`.
-- [ ] **T028** Done-gate do `CLAUDE.md`: `pnpm lint` + `pnpm format` na raiz +
+- [x] **T028** Done-gate do `CLAUDE.md`: `pnpm lint` + `pnpm format` na raiz +
       `pnpm check-types`. Nenhuma task fecha com lint ou formatação quebrados.
-- [ ] **T029** Atualizar `docs/estado-atual.md` e o bloco SPECKIT do `CLAUDE.md`: 012
+- [x] **T029** Atualizar `docs/estado-atual.md` e o bloco SPECKIT do `CLAUDE.md`: 012
       implementada, o que mudou de forma e o que **não** mudou de comportamento, os artefatos
       novos (`CONTEXT.md`, ADR-0001, KI-002/003), e o que ficou para o candidato 05 (Q3-B +
       fonte do fallback).
@@ -334,4 +341,4 @@ execução — cada uma é um escorregão natural no calor da migração.
 14. **Não** trocar a fonte do nome do roster por `RegistroVigente.nome` — ele não tem
     consumidor, e trocar mudaria as refeições esperadas do relatório.
 15. **Não** renomear `MealRow.estadoVigente` (`today.mapper.ts:73`) para "limpar o grep" —
-      SC-003 já é escrito em cima da chamada, não do campo.
+    SC-003 já é escrito em cima da chamada, não do campo.

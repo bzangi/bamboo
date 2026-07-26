@@ -67,23 +67,28 @@ INSERT; nada é mutado. `meal_event`.
 vencedor, a refeição volta a ser **não-registrada**.
 
 **Registro vigente** — o estado que vale para um `(paciente, refeição, dia)`: o do evento
-de maior ordem, com tombstone anulando. É **derivado**, nunca armazenado.
-Núcleo: `estadoVigente` em `packages/core/src/registro.ts:101`.
-Casca: hoje **5 implementations** — `plan/plan.service.ts:131-160`, `registro-consumo.ts`,
-`adesao/adesao-consumo.ts`, `relatorio/relatorio.loader.ts:84-146`,
-`ciclo/ciclo.service.ts:359-413`. A feature 012 colapsa em um leitor só.
+de maior ordem, com tombstone anulando. É **derivado**, nunca armazenado. A ordem é total e
+explícita — `(logged_date, created_at, id)`; o `id` é o desempate, porque `created_at` pode
+empatar (é o `transaction_timestamp()`, tomado antes do lock do INSERT).
+Núcleo: `eventoVigente` (devolve a **linha** vencedora) e `estadoVigente` (só o estado,
+expressa em cima dela) em `packages/core/src/registro.ts`.
+Casca: **um leitor só** — `apps/api/src/registro-vigente.loader.ts`, o único lugar do
+caminho de leitura que toca `meal_event`. O caminho de **escrita**
+(`registro/registro.service.ts`) é separado de propósito e segue com ordem própria.
 
 **Consumo real** — o que o paciente **efetivamente** comeu, com nutrientes: `pulei` não
-contribui nada (mas **continua presente** no resultado, com zero itens), `feito` conta os
-itens da opção cumprida, `troquei` conta o **snapshot** gravado em `meal_event_item`.
-Hoje em `apps/api/src/registro-consumo.ts` + `adesao/adesao-consumo.ts`.
+contribui nada (mas **continua presente** no resultado, com zero itens — filtrar reintroduz
+double-count), `feito` conta os itens da opção cumprida, `troquei` conta o **snapshot**
+gravado em `meal_event_item`. Em `apps/api/src/consumo-real.loader.ts`, que **empilha** sobre
+o registro vigente: recebe os vigentes e nunca consulta `meal_event`.
 
 **Escopo de plano** — de qual plano os eventos contam ao ler uma janela. Duas convenções
 legítimas e **divergentes** no produto: o caminho do paciente (`/today`, rebalanceamento) e
 a adesão contam só do plano em questão; o relatório e o ciclo contam de qualquer plano.
-Hoje a escolha é **implícita**, hardcoded por leitor (`registro-consumo.ts:78` e
-`adesao-consumo.ts:72` filtram; `relatorio.loader.ts:95-101` e `ciclo.service.ts:374-379`
-não). É exatamente a divergência silenciosa que a 012 torna parâmetro obrigatório.
+A escolha é **explícita e obrigatória**: `EscopoPlano` (`{kind:'plano',planId}` |
+`{kind:'qualquer-plano'}`) em `registro-vigente.loader.ts`, sem default — cada call site
+declara qual quer, e o `tsc` cobra a declaração. Antes da 012 era implícita, hardcoded por
+leitor, e nenhum teste cobria o eixo.
 
 **Adequação** — o que transforma um `feito` em `troquei`: opção não-default, substituição ou
 combinação. **Derivada no servidor** — o cliente nunca envia `troquei`.
@@ -108,7 +113,7 @@ orientação** em vez de barrar.
 **Gatilho** — o ato que dispara o rebalanceamento (escolher uma opção, trocar o tipo-de-dia).
 
 **Recusa orientada** — o motor não conseguiu e devolve uma frase de porquê, não um erro.
-Assinatura do produto: *nunca barra*.
+Assinatura do produto: _nunca barra_.
 
 ## Acompanhamento (só a nutri)
 

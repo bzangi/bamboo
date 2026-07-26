@@ -57,7 +57,7 @@ leitura. Cada consumidor novo hoje custa uma cópia.
 ### Fora (explicitamente)
 
 - **Q3-B / tipo-de-dia alvo** e a fonte do plano no fallback (`ativo hoje` vs `vigente no
-  dia`). São duas implementations divergentes hoje; unificá-las muda número que a nutri já
+dia`). São duas implementations divergentes hoje; unificá-las muda número que a nutri já
   viu. Fica para o candidato 05 da revisão.
 - **`mealId` vs `position`** como chave de pareamento sob override — ver
   [ADR-0001](../../docs/adr/0001-chave-de-pareamento-sob-override.md) e KI-002.
@@ -94,7 +94,7 @@ expectativa.
   aquela refeição do resultado.
 - Quando dois eventos da mesma `(dia, refeição)` têm `created_at` idêntico, o sistema deve
   escolher um vencedor **determinístico** (o de maior `id`, dado `ORDER BY logged_date,
-  created_at, id`), e o estado e os metadados devem vir do **mesmo** evento.
+created_at, id`), e o estado e os metadados devem vir do **mesmo** evento.
 
 ### User Story 2 — O escopo de plano deixa de ser silencioso (Priority: P1)
 

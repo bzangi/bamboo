@@ -79,18 +79,18 @@ bit-a-bit idêntico (FR-010), e segue servindo os 2 sites do caminho de escrita.
 
 ```ts
 export type EscopoPlano =
-  | { readonly kind: 'plano'; readonly planId: string }
-  | { readonly kind: 'qualquer-plano' };
+  | { readonly kind: "plano"; readonly planId: string }
+  | { readonly kind: "qualquer-plano" };
 
 export type RegistroVigente = {
   readonly eventoId: string;
-  readonly date: string;              // logged_date (YYYY-MM-DD)
+  readonly date: string; // logged_date (YYYY-MM-DD)
   readonly mealId: string;
-  readonly position: number;          // meal.position DO EVENTO
-  readonly nome: string;              // meal.name DO EVENTO — ver aviso abaixo
-  readonly dayTypeId: string;         // snapshot do evento vigente (fonte do Q3-B)
+  readonly position: number; // meal.position DO EVENTO
+  readonly nome: string; // meal.name DO EVENTO — ver aviso abaixo
+  readonly dayTypeId: string; // snapshot do evento vigente (fonte do Q3-B)
   readonly planId: string;
-  readonly state: EstadoRegistro;     // nunca null — tombstone já descartado
+  readonly state: EstadoRegistro; // nunca null — tombstone já descartado
   readonly chosenMealOptionId: string | null;
 };
 
@@ -114,7 +114,7 @@ export function carregarRegistroVigente(
     readonly patientId: string;
     readonly from: string;
     readonly to: string;
-    readonly escopo: EscopoPlano;     // obrigatório, sem default (D2)
+    readonly escopo: EscopoPlano; // obrigatório, sem default (D2)
   },
 ): Promise<ReadonlyArray<RegistroVigente>>;
 ```
@@ -126,13 +126,13 @@ export function carregarRegistroVigente(
 ### Casca — `apps/api/src/consumo-real.loader.ts`
 
 ```ts
-import type { ItemNutricional } from '@bamboo/core';   // packages/core/src/nutrition.ts:49
+import type { ItemNutricional } from "@bamboo/core"; // packages/core/src/nutrition.ts:49
 
 export type RefeicaoConsumida = {
   readonly mealId: string;
   readonly position: number;
   readonly state: EstadoRegistro;
-  readonly itens: ReadonlyArray<ItemNutricional>;      // [] em `pulei` — presente, vazio
+  readonly itens: ReadonlyArray<ItemNutricional>; // [] em `pulei` — presente, vazio
 };
 
 /**
@@ -144,7 +144,12 @@ export type RefeicaoConsumida = {
 export function carregarConsumoReal(
   db: Db,
   vigentes: ReadonlyArray<RegistroVigente>,
-): Promise<ReadonlyMap<string /* date */, ReadonlyMap<string /* mealId */, RefeicaoConsumida>>>;
+): Promise<
+  ReadonlyMap<
+    string /* date */,
+    ReadonlyMap<string /* mealId */, RefeicaoConsumida>
+  >
+>;
 ```
 
 > **`dayTypeId` não entra em `RefeicaoConsumida`.** A adesão precisa dele para o Q3-B
@@ -163,14 +168,14 @@ Ela DEVE conter os dois guards que `detalhe` hoje tem: `exigirPaciente` (`:266`)
 
 ## Migração por consumidor
 
-| # | Consumidor | Hoje | Depois |
-|---|---|---|---|
-| 1 | `plan.service.ts:131-160` | query própria de `meal_event` (`inArray(mealId, mealIds)`, **sem `ORDER BY`**) + redução própria em `:159` | `carregarRegistroVigente({from:hoje,to:hoje,escopo:{kind:'plano',planId}})` — **type-agnostic, sem filtro de `mealId` na query**; o filtro por `mealIds` vira `.filter()` em memória só para montar `estadoPorMeal` |
-| 2 | `plan.service.ts:329` | `carregarConsumoDoDia` (2ª leitura de `meal_event`) | reusa os **mesmos** vigentes de (1) + `carregarConsumoReal` + `somaNutrientes` no call site |
-| 3 | `rebalance.service.ts:266` | `carregarConsumoDoDia`, destrutura só `porMeal` | `carregarRegistroVigente` + `carregarConsumoReal`; **sem** `somaNutrientes` (não usa agregado); precisa importar `localToday` de `../local-date` |
-| 4 | `adesao.service.ts:148` | `carregarConsumoPorPeriodo` | `carregarRegistroVigente({from,to,escopo:{kind:'plano',planId}})` + `carregarConsumoReal`; `dayTypeId` do Q3-B passa a vir dos vigentes |
-| 5 | `relatorio.loader.ts:84-146` | query própria + redução | `carregarRegistroVigente({escopo:{kind:'qualquer-plano'}})`; o resto do loader (Q3-B, roster) **fica** |
-| 6 | `ciclo.service.ts:359-413` | `registrosDaJanela` privada | `carregarRegistroVigente({escopo:{kind:'qualquer-plano'}})`; o `sort` por `(date, position)` (`:410-412`) fica no ciclo |
+| #   | Consumidor                   | Hoje                                                                                                       | Depois                                                                                                                                                                                                              |
+| --- | ---------------------------- | ---------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | `plan.service.ts:131-160`    | query própria de `meal_event` (`inArray(mealId, mealIds)`, **sem `ORDER BY`**) + redução própria em `:159` | `carregarRegistroVigente({from:hoje,to:hoje,escopo:{kind:'plano',planId}})` — **type-agnostic, sem filtro de `mealId` na query**; o filtro por `mealIds` vira `.filter()` em memória só para montar `estadoPorMeal` |
+| 2   | `plan.service.ts:329`        | `carregarConsumoDoDia` (2ª leitura de `meal_event`)                                                        | reusa os **mesmos** vigentes de (1) + `carregarConsumoReal` + `somaNutrientes` no call site                                                                                                                         |
+| 3   | `rebalance.service.ts:266`   | `carregarConsumoDoDia`, destrutura só `porMeal`                                                            | `carregarRegistroVigente` + `carregarConsumoReal`; **sem** `somaNutrientes` (não usa agregado); precisa importar `localToday` de `../local-date`                                                                    |
+| 4   | `adesao.service.ts:148`      | `carregarConsumoPorPeriodo`                                                                                | `carregarRegistroVigente({from,to,escopo:{kind:'plano',planId}})` + `carregarConsumoReal`; `dayTypeId` do Q3-B passa a vir dos vigentes                                                                             |
+| 5   | `relatorio.loader.ts:84-146` | query própria + redução                                                                                    | `carregarRegistroVigente({escopo:{kind:'qualquer-plano'}})`; o resto do loader (Q3-B, roster) **fica**                                                                                                              |
+| 6   | `ciclo.service.ts:359-413`   | `registrosDaJanela` privada                                                                                | `carregarRegistroVigente({escopo:{kind:'qualquer-plano'}})`; o `sort` por `(date, position)` (`:410-412`) fica no ciclo                                                                                             |
 
 **Ganho de (1)+(2):** hoje o `/today?dayTypeId=` faz duas leituras de `meal_event` com
 predicados sobrepostos; depois faz uma (SC-005). E o único site sem `ORDER BY` deixa de
@@ -183,11 +188,18 @@ call sites desestruturam direto. O novo devolve `Map<date, Map<mealId, …>>` **
 Cada call site precisa indexar por data:
 
 ```ts
-const vigentes = await carregarRegistroVigente(db, { patientId, from: hoje, to: hoje, escopo });
-if (vigentes.length === 0) return {};          // ← PRESERVA plan.service.ts:333 (FR-013)
+const vigentes = await carregarRegistroVigente(db, {
+  patientId,
+  from: hoje,
+  to: hoje,
+  escopo,
+});
+if (vigentes.length === 0) return {}; // ← PRESERVA plan.service.ts:333 (FR-013)
 const porDia = await carregarConsumoReal(db, vigentes);
-const doDia = porDia.get(hoje) ?? new Map();   // seguro SÓ depois do early-return acima
-const consumido = somaNutrientes([...doDia.values()].flatMap((r) => [...r.itens]));
+const doDia = porDia.get(hoje) ?? new Map(); // seguro SÓ depois do early-return acima
+const consumido = somaNutrientes(
+  [...doDia.values()].flatMap((r) => [...r.itens]),
+);
 ```
 
 **A ordem importa.** O early-return tem de vir do `vigentes.length === 0`, **antes** do
@@ -202,11 +214,11 @@ exata.
 **Test-first** (Princípio IV). Ordem: os testes que faltam **antes** de qualquer extração —
 foi o pré-requisito não-negociável de 2 dos 3 críticos (research.md).
 
-| Teste | Tipo | Deve passar HOJE? | Prova |
-|---|---|---|---|
-| **T-A** escopo de plano | e2e | **sim** — caracterização | as duas convenções, pinadas (SC-007) |
-| **T-D** janela do dia | e2e | **sim** — caracterização | evento de ontem não influencia hoje |
-| **T-C** empate de `seq` | unit + e2e | **não** — comportamento novo | determinismo (SC-008); A3 da spec |
+| Teste                   | Tipo       | Deve passar HOJE?            | Prova                                |
+| ----------------------- | ---------- | ---------------------------- | ------------------------------------ |
+| **T-A** escopo de plano | e2e        | **sim** — caracterização     | as duas convenções, pinadas (SC-007) |
+| **T-D** janela do dia   | e2e        | **sim** — caracterização     | evento de ontem não influencia hoje  |
+| **T-C** empate de `seq` | unit + e2e | **não** — comportamento novo | determinismo (SC-008); A3 da spec    |
 
 T-A e T-D são rede de segurança: escritos contra o código atual, precisam passar antes e
 depois. T-C é o único que muda comportamento, e o comportamento antigo é arbitrário, logo não
@@ -230,8 +242,7 @@ governam a ordem das tasks:
 
 ## Fora de escopo
 
-Ver [spec.md](./spec.md#fora-explicitamente). Resumo: Q3-B e fonte do fallback (candidato
-05) · `mealId`-vs-`position` (ADR-0001, KI-002) · `MAX_DIAS` e 400-vs-422 · grid de refeições
+Ver [spec.md](./spec.md#fora-explicitamente). Resumo: Q3-B e fonte do fallback (candidato 05) · `mealId`-vs-`position` (ADR-0001, KI-002) · `MAX_DIAS` e 400-vs-422 · grid de refeições
 esperadas · snapshot transacional (KI-003) · determinismo do caminho de escrita · renomear
 `MealRow.estadoVigente` · qualquer coisa no mobile.
 
