@@ -3,7 +3,7 @@
 **Feature Branch**: `013-construtor-de-cenario` (planejada e executada na `main`, padrão 006–012)
 **Date**: 2026-07-26
 **Origem**: candidato 04 da revisão de arquitetura de 2026-07-25 · [KI-004](../../docs/known-issues.md)
-**Status**: Specify
+**Status**: implementada (2026-07-26)
 
 ## Por que existe
 

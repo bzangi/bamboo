@@ -149,3 +149,14 @@ peças prontas: adesão + padrão de registro + evolução semanal + comparativo
 
 **O agora** — a refeição do momento na home: a primeira não-registrada por `position`. O
 paciente não caça, não navega. `derivarOAgora` em `packages/core/src/registro.ts`.
+
+**Cenário de teste** — um estado de banco **declarado** (paciente, planos, tipos-de-dia,
+refeições, opções, itens, ciclos, eventos) que uma suíte materializa e desfaz. Não é conceito
+de produto: é o vocabulário com que os testes falam do domínio sem reimplementá-lo. Antes as
+suítes montavam à mão e reescreviam a ordem de FK a cada arquivo novo; o construtor
+(`buildScenario`, em `packages/db/src/testing/`) detém essa ordem, a data-calendário local e a
+resolução determinística dos pré-requisitos. Uma refeição é endereçada por
+`{dayType, position}`, e daí o plano, o paciente e o tipo-de-dia do registro são **derivados** —
+o par incoerente `mealId`/`dayTypeId` do [[known-issues]] KI-002 é inexpressável num cenário.
+Distinto de **seed**: o seed é o mundo curado de demonstração; o cenário é efêmero e pertence a
+um teste.

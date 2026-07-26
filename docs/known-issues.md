@@ -211,9 +211,52 @@ Ressalva: é **mutação de estado compartilhado**, o padrão que a revisão de 
 `fileParallelism: false` + restore no `afterAll`; se o processo morrer no meio, a programação
 de hoje fica em `treino` até o próximo `seed`.
 
-### A classe do problema (não mitigada)
+### A classe do problema — **agora com module** (feature 013, 2026-07-26)
 
-Este é um sintoma de algo maior — a suíte depende de detalhes do fixture de produção:
+Existe `buildScenario` em `packages/db/src/testing/scenario.ts` (subpath
+`@bamboo/db/testing`): o cenário é **declarado**, e o construtor detém a ordem de inserção, a
+ordem reversa de FK do teardown, a data-calendário local (`localDate` — antes eram 5 cópias
+byte-idênticas de `isoDaysAgo`) e a resolução determinística de nutricionista/food/grupo.
+`everyWeekday('A')` torna o cenário independente do calendário **por construção**, que é
+exatamente o que faltava aqui.
+
+Migradas como prova: `colisao-position` (506 → 348 linhas) e `escopo-plano` (558 → 355),
+**−361 linhas**, zero `insert(`/`delete(`/`getDay()` nas duas. A equivalência foi provada por
+**reversão**, não presumida: os oráculos do KI-002 e os SC-007/SC-008 da 012 derrubam
+exatamente os mesmos casos antes e depois.
+
+**O que NÃO migra, e por quê** — três grupos com prognósticos diferentes, nomeados para
+ninguém tentar o errado:
+
+- **`relatorio.e2e` (460 de fixture) — migração dirigida, não oportunista.** É self-contained e
+  o construtor corrige de graça dois defeitos reais dela (ver abaixo). Mas os denominadores
+  `4/8` e `14/34` (`:785-787`) derivam dos 2 foods **arbitrários** que o Postgres devolveu, e a
+  resolução determinística **muda** esses números — re-derivar é indistinguível de regressão.
+  Quando for: fixar o food por nome explícito no spec.
+- **`adesao.e2e` / `ciclo.e2e` — parcial por natureza, ~10 a 20 linhas cada.** O `beforeAll` de
+  315 linhas da adesão é um **leitor** do plano semeado (alimenta `adesaoDoDia` para não
+  hardcodar expectativa) — não é montagem. Os ciclos da `ciclo.e2e` são o comportamento **sob
+  teste**. Não perseguir cobertura aqui.
+- **`today`, `today-options`, `today-daytype`, `combine`, `substitutions`, `rebalance`,
+  `registro`, `app` (8 suítes) — o construtor não as ajuda, hoje nem depois.** Elas fazem
+  **zero** insert de plano: **resolvem** o seed. A dor delas é um leitor (paciente 12×, plano
+  ativo 13×, weekday→tipo 9×) — outro module, outro seam, outra interface (**resolver**, não
+  construir). Juntar os dois faria um module raso com duas semânticas e mataria a invariante
+  "`destroy()` só apaga o que o cenário possui".
+
+**Dois defeitos latentes achados no levantamento**, ainda vivos porque a suíte deles não migrou:
+
+1. `relatorio.e2e-spec.ts:457-461` deleta `mealEvent` **sem** apagar `mealEventItem` antes — a
+   FK não tem cascade. Passa **por sorte**: a suíte não cria nenhum `meal_event_item`. Um teste
+   de `troquei` com snapshot ali quebraria o teardown.
+2. `relatorio.e2e-spec.ts:103-106` faz `from(food).limit(2)` **sem `where`** — pode devolver
+   alimento de 0 kcal e degenerar o alvo silenciosamente.
+
+Ambos ficam impossíveis por construção sob o construtor (invariante I-2 + ordem de `destroy()`).
+
+### O que sobra da classe do problema
+
+O construtor cobre quem **monta**; quem **resolve** o seed segue acoplado:
 
 - **10 pontos** resolvem o paciente com `select().from(patient).limit(1)` **sem `where` nem
   `order by`**: `today.e2e:20`, `today-options:18`, `today-daytype:54`,
@@ -221,14 +264,20 @@ Este é um sintoma de algo maior — a suíte depende de detalhes do fixture de 
   `adesao:280`.
 - **8 pontos** reimplementam a resolução do tipo-de-dia por weekday — a mesma regra que o
   service sob teste implementa.
-- Números do seed hardcoded em asserção: `rebalance.e2e-spec.ts:791` tem
+- Números do seed hardcoded em asserção: `rebalance.e2e-spec.ts:839` tem
   `const pisos = [20, 50, 42.5]`, que são 50% de 40 g / 100 g / 85 g do seed. Mudar uma grama
   no seed quebra o teste, sem nenhuma referência entre os arquivos.
+- E um não-determinismo **no próprio seed**: o último `UPDATE` (`seed.ts:655-666`) trava UM item
+  via `LIMIT 1` **sem `ORDER BY`** — pode ser o ovo do treino ou do descanso. `combine`,
+  `substitutions` e `today-daytype` dependem desse único item travado.
 
-Próximo passo real: o **construtor de cenário** (candidato 04 da revisão de arquitetura de
-2026-07-25) — `criarCenario(spec)` em `packages/db`, que devolve os ids resolvidos e faz o
-`seed.ts` virar um chamador. Enquanto isso não existe, cada suíte segue acoplada ao João da
-Silva.
+**Próximo passo, para quem for mexer nessas 8 suítes:** o seam que falta é um **leitor** do
+seed — não o construtor. Interface diferente (resolver, não construir), e o construtor
+deliberadamente não a absorve. O `seed.ts` também não migrou: a exigência era que ele
+**pudesse** ser chamador, e isso está provado pelo seam `executor` + um teste de rollback, sem
+tocar o arquivo. Também fora daquele seam, e igualmente duplicado: bootstrap do Nest (17×),
+`NUTRI_API_KEY` (5×), `nutriGet` (4×), `app?.close()`/`pool.end()` (18×) — um `bootstrapE2e()`
+em `apps/api/test/` resolve.
 
 ---
 

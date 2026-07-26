@@ -263,6 +263,59 @@ Dado de saúde desde a Fase 0: controle de acesso, criptografia, consentimento. 
 
 <!-- SPECKIT START -->
 
+Feature **013-construtor-de-cenario** (construtor de cenário para as suítes e2e —
+candidato 04 da revisão de arquitetura): **implementada e testada** (2026-07-26).
+Infraestrutura de teste, **nenhum endpoint muda, nenhuma expectativa muda**. Gatilho: o
+**KI-004** — a suíte e2e só passava **de segunda a sexta** e ninguém sabia, porque as suítes
+se apoiavam em detalhes do fixture de produção, inclusive o calendário. Medido no
+levantamento: **330** linhas de fixture em `escopo-plano`, **234** em `colisao-position`,
+**460** em `relatorio`; `isoDaysAgo` duplicado **byte-a-byte em 5 arquivos**; **6** assinaturas
+diferentes de inserir `meal_event`; a ordem reversa de FK reescrita a cada suíte nova. Teste
+caro não é escrito — foi o que aconteceu com o eixo de dois tipos-de-dia.
+Entregue **`packages/db/src/testing/scenario.ts`** no subpath **`@bamboo/db/testing`**
+(deliberadamente FORA do barril `src/index.ts`, para não virar dependência alcançável do
+runtime da API): 3 funções (`buildScenario`, `localDate`, `everyWeekday`) + handle de 4 membros
+(`ids`, `addEvents`, `clearEvents`, `destroy`) compram 11 tabelas, ordem de FK nos dois
+sentidos, atomicidade e resolução determinística de pré-requisitos. `packages/db` ganhou
+`vitest.config.ts` + script `test` (não tinha) e passou a excluir `*.test.ts` do build.
+**Desenho por design-it-twice:** 3 interfaces desenhadas em paralelo — declarativo, builder
+fluente, presets nomeados — julgadas por profundidade, localidade e risco. Venceu o
+**declarativo** por motivo empírico: `escopo-plano` já tinha extraído à mão um
+`criarTipoDia({planId, nome, positions, foodId, gramas})` e o `seed.ts` tem
+`insertMeal`/`insertOption`/`insertItem` — a árvore imperativa do **mesmo valor**. O
+discriminante real foi o **endereçamento**: `{dayType, position}` faz `planId`, `dayTypeId` e
+`patientId` do evento serem **DERIVADOS** do grafo, então o par incoerente que o KI-002
+investiga é **inexpressável**. Presets perderam por crescerem por chamador (definição de
+_shallow_) e por esconderem calibração _load-bearing_ (`1.6×` codifica tolerância 10% + piso
+50%; fora da janela os testes de comparação de corpo passam por **vacuidade**).
+**Invariantes I-1..I-9 são parte da INTERFACE**, no topo do arquivo — antes viviam em
+comentário replicado por suíte. As duas que vieram do design-it-twice e eu não tinha: **I-1**
+resolver pré-requisitos **antes** do primeiro insert (spec irresolvível lança sem escrever
+nada ⇒ nenhum paciente órfão para os 12 `from(patient).limit(1)` **sem `where`** sortearem) e
+**I-2** resolução determinística (`ORDER BY` explícito, food nunca com 0 kcal, apelidos
+distintos ⇒ foods distintos). **I-4** lança em vez de devolver `Result` — desvio deliberado:
+`Result` é disciplina do núcleo puro; num construtor de fixture obrigaria um `if (!r.ok) throw`
+por linha de `beforeAll` e deixaria a interface mais RASA.
+**Migradas como prova:** `colisao-position` (506→348) e `escopo-plano` (558→355) — **−361
+linhas**, zero `insert(`/`delete(`/`getDay()` nas duas. **Equivalência provada por REVERSÃO, em
+duas etapas nesta ordem:** (1) migração com um shim que mantinha os `it` **byte-idênticos** e
+ainda asseria que o `dayTypeId`/opção passados à mão eram exatamente os derivados do grafo —
+reversão confirmando os mesmos casos vermelhos; (2) só então o shim (48 linhas) saiu. Os
+oráculos do KI-002 e os SC-007/SC-008 da 012 derrubam **exatamente os mesmos casos** antes e
+depois. **YAGNI (FR-011):** saíram do desenho vencedor os campos sem chamador hoje
+(`MealSpec.time`, `heightCm/weightKg`, `CycleSpec.time`, `EventSpec.items`,
+`ScenarioSpec.nutritionist`).
+**NÃO migram, por decisão:** `relatorio.e2e` (a resolução determinística **muda** os
+denominadores nutricionais dela — re-derivar é indistinguível de regressão),
+`adesao.e2e`/`ciclo.e2e` (o `beforeAll` de 315 linhas da adesão é **leitor** do plano semeado,
+não montagem; os ciclos da `ciclo.e2e` são o comportamento **sob teste**) e as **8 suítes que
+resolvem o seed** em vez de montar — o seam que falta ali é um **leitor**, interface diferente,
+e absorvê-lo aqui deixaria este module raso. O **`seed.ts` não foi tocado**: a exigência era
+que ele _pudesse_ ser chamador, provado pelo seam `executor` + um teste de rollback.
+Resultado: **core 164 · db 20 (novos) · api 147 · mobile 24** verdes; `git diff` vazio nos 11
+e2e não migrados; lint 0 errors, `check-types` e Prettier limpos. Artefatos:
+`specs/013-construtor-de-cenario/` (spec/plan/tasks).
+
 Feature **012-leitura-do-registro** (deepening: um leitor de `meal_event`): **implementada e
 testada** (2026-07-25; gate único no `tasks.md`, aprovado após grilling de 7 decisões).
 **NÃO é feature de produto — o critério de sucesso é a AUSÊNCIA de mudança**: nenhuma resposta
