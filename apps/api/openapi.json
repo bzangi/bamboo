@@ -601,6 +601,35 @@
           "Relatório de ciclo (só nutri)"
         ]
       }
+    },
+    "/nutri/patients": {
+      "get": {
+        "description": "Nome + ciclo atual (o aberto; se não houver, o fechado mais recente; senão null). Ordem por nome, desempate por id. Nenhuma métrica é calculada aqui — adesão e relatório vivem nas rotas do paciente. Limite v0: a credencial stub dá o papel \"nutri do sistema\", então a listagem não é escopada por nutri responsável (entra com a auth real).",
+        "operationId": "PatientsController_listar",
+        "parameters": [
+          {
+            "name": "x-nutri-key",
+            "in": "header",
+            "description": "credencial stub da nutri (env NUTRI_API_KEY; fail-closed)",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "lista de pacientes + ciclo atual"
+          },
+          "403": {
+            "description": "x-nutri-key ausente/errada"
+          }
+        },
+        "summary": "Listar pacientes com o ciclo atual de cada um",
+        "tags": [
+          "Pacientes (só nutri)"
+        ]
+      }
     }
   },
   "info": {

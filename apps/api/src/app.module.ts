@@ -10,6 +10,7 @@ import { RegistroModule } from './registro/registro.module';
 import { AdesaoModule } from './adesao/adesao.module';
 import { CicloModule } from './ciclo/ciclo.module';
 import { RelatorioModule } from './relatorio/relatorio.module';
+import { NutriModule } from './nutri/nutri.module';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { RelatorioModule } from './relatorio/relatorio.module';
     AdesaoModule,
     CicloModule,
     RelatorioModule,
+    NutriModule,
   ],
   controllers: [AppController],
   providers: [AppService],
