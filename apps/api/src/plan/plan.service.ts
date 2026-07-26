@@ -1,8 +1,7 @@
 import { Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
-import { and, asc, eq, inArray, schema } from '@bamboo/db';
+import { and, asc, eq, schema } from '@bamboo/db';
 import {
   PARAMETROS_SISTEMA,
-  estadoVigente,
   previewTrocaTipoDia,
   resolverParametros,
   type EstadoRegistro,
@@ -13,6 +12,7 @@ import type { TodayResponse } from '@bamboo/types';
 import { DB, type Db } from '../db/db.module';
 import { localToday } from '../local-date';
 import { carregarConsumoDoDia } from '../registro-consumo';
+import { carregarRegistroVigente } from '../registro-vigente.loader';
 import { toTodayResponse, type MealRow, type OptionRow } from './today.mapper';
 
 // Casca imperativa: faz I/O (Drizzle), orquestra o mapper puro, converte
@@ -121,43 +121,25 @@ export class PlanService {
       `dia resolvido: dayType=${resolved.dayTypeId} (${resolved.dayTypeName}), ${meals.length} refeição(ões)`,
     );
 
-    // Fase 3: estado vigente do registro de cada refeição HOJE. Carrega TODOS os
-    // eventos do dia (paciente, plano, logged_date de hoje, mealId IN ids) numa
-    // query e reduz por refeição com estadoVigente (last-wins/tombstone) do core
-    // — mesmo padrão agregado de measureRows→measuresByFood; o core é robusto à
-    // ordem (usa `seq`), então não precisa de DISTINCT ON nem ORDER BY.
+    // Fase 3: estado vigente do registro de cada refeição HOJE, via o leitor
+    // único de meal_event (012). A consulta é TYPE-AGNOSTIC de propósito: não
+    // filtra por mealId. Restringir a query aos ids do tipo-de-dia exibido
+    // mataria `registroPorPosition`/`registeredPositions` (US3), onde a refeição
+    // comida no tipo ANTIGO tem de continuar visível — o bug que a 004 corrigiu.
+    // O recorte por mealId é só para montar `estadoPorMeal`, em memória.
     const loggedDate = localToday();
-    const mealIds = meals.map((m) => m.id);
-    const eventRows = await this.db
-      .select({
-        mealId: schema.mealEvent.mealId,
-        state: schema.mealEvent.state,
-        createdAt: schema.mealEvent.createdAt,
-      })
-      .from(schema.mealEvent)
-      .where(
-        and(
-          eq(schema.mealEvent.patientId, patientId),
-          eq(schema.mealEvent.planId, pln.id),
-          eq(schema.mealEvent.loggedDate, loggedDate),
-          inArray(schema.mealEvent.mealId, mealIds),
-        ),
-      );
-    const eventsByMeal = new Map<
-      string,
-      { seq: number; state: EstadoRegistro | null }[]
-    >();
-    for (const ev of eventRows) {
-      const list = eventsByMeal.get(ev.mealId) ?? [];
-      // seq = ordem total por created_at (microssegundo); o advisory lock no
-      // INSERT garante estritamente crescente por (paciente, refeição, dia).
-      list.push({ seq: ev.createdAt.getTime(), state: ev.state });
-      eventsByMeal.set(ev.mealId, list);
-    }
-    const estadoPorMeal = new Map<string, EstadoRegistro | null>();
-    for (const m of meals) {
-      estadoPorMeal.set(m.id, estadoVigente(eventsByMeal.get(m.id) ?? []));
-    }
+    const vigentesHoje = await carregarRegistroVigente(this.db, {
+      patientId,
+      from: loggedDate,
+      to: loggedDate,
+      escopo: { kind: 'plano', planId: pln.id },
+    });
+    const mealIds = new Set(meals.map((m) => m.id));
+    const estadoPorMeal = new Map<string, EstadoRegistro>(
+      vigentesHoje
+        .filter((v) => mealIds.has(v.mealId))
+        .map((v) => [v.mealId, v.state] as const),
+    );
 
     // Medidas caseiras de todos os alimentos (1 query; agrupa em memória) — pra
     // exibir o planejado em unidade/fatia (o mapper escolhe a preferida).

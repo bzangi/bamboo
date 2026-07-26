@@ -10,13 +10,10 @@
 // cycle_plan_vigencia, não só o plano ativo hoje) — mais correto pro padrão
 // de registro sem tocar a régua de adesão em si (que segue vindo, intocada,
 // de AdesaoService.serie()).
-import {
-  estadoVigente,
-  type EstadoRegistro,
-  type EventoRegistro,
-} from '@bamboo/core';
-import { and, asc, eq, gte, inArray, lte, schema } from '@bamboo/db';
+import { type EstadoRegistro } from '@bamboo/core';
+import { asc, inArray, schema } from '@bamboo/db';
 import type { Db } from '../db/db.module';
+import { carregarRegistroVigente } from '../registro-vigente.loader';
 
 export interface RefeicaoEsperada {
   readonly position: number;
@@ -80,69 +77,29 @@ export async function carregarRegistroDaJanela(
   const { patientId, from, to, vigencias, hoje } = args;
   const dias = enumerarDias(from, to);
 
-  // 1. Registros do paciente na janela (plan-agnostic — como ciclo.service).
-  const eventos = await db
-    .select({
-      mealId: schema.mealEvent.mealId,
-      dayTypeId: schema.mealEvent.dayTypeId,
-      position: schema.meal.position,
-      state: schema.mealEvent.state,
-      loggedDate: schema.mealEvent.loggedDate,
-      createdAt: schema.mealEvent.createdAt,
-    })
-    .from(schema.mealEvent)
-    .innerJoin(schema.meal, eq(schema.mealEvent.mealId, schema.meal.id))
-    .where(
-      and(
-        eq(schema.mealEvent.patientId, patientId),
-        gte(schema.mealEvent.loggedDate, from),
-        lte(schema.mealEvent.loggedDate, to),
-      ),
-    )
-    .orderBy(asc(schema.mealEvent.createdAt));
-
-  type Bruto = (typeof eventos)[number];
-  const porDia = new Map<string, Bruto[]>();
-  for (const e of eventos) {
-    const lista = porDia.get(e.loggedDate) ?? [];
-    lista.push(e);
-    porDia.set(e.loggedDate, lista);
-  }
-
-  // 2. Por dia: estado vigente por (dia, mealId) — anulado não aparece (D9).
+  // 1-2. Registro vigente do paciente na janela — plan-agnostic (012/D2:
+  //      `qualquer-plano`, mesma convenção da via do ciclo), anulado não aparece
+  //      (D9). Agrupa por dia PRESERVANDO a ordem de primeira aparição de cada
+  //      (dia, refeição): é ela que o último-ganha do passo 5 consome numa
+  //      colisão de position, e trocá-la mudaria o vencedor.
+  const vigentes = await carregarRegistroVigente(db, {
+    patientId,
+    from,
+    to,
+    escopo: { kind: 'qualquer-plano' },
+  });
   const vigentesPorDia = new Map<
     string,
     { position: number; dayTypeId: string; state: EstadoRegistro }[]
   >();
-  for (const [date, brutos] of porDia.entries()) {
-    const porMeal = new Map<string, Bruto[]>();
-    for (const e of brutos) {
-      const lista = porMeal.get(e.mealId) ?? [];
-      lista.push(e);
-      porMeal.set(e.mealId, lista);
-    }
-    const vigentes: {
-      position: number;
-      dayTypeId: string;
-      state: EstadoRegistro;
-    }[] = [];
-    for (const lista of porMeal.values()) {
-      const eventosCore: EventoRegistro[] = lista.map((e) => ({
-        seq: e.createdAt.getTime(),
-        state: e.state,
-      }));
-      const state = estadoVigente(eventosCore);
-      if (state === null) continue;
-      const ultimo = lista.reduce((maior, e) =>
-        e.createdAt.getTime() > maior.createdAt.getTime() ? e : maior,
-      );
-      vigentes.push({
-        position: ultimo.position,
-        dayTypeId: ultimo.dayTypeId,
-        state,
-      });
-    }
-    vigentesPorDia.set(date, vigentes);
+  for (const v of vigentes) {
+    const lista = vigentesPorDia.get(v.date) ?? [];
+    lista.push({
+      position: v.position,
+      dayTypeId: v.dayTypeId,
+      state: v.state,
+    });
+    vigentesPorDia.set(v.date, lista);
   }
 
   // 3. Tipo-de-dia alvo por dia (Q3-B): snapshot uniforme; senão fallback

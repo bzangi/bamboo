@@ -15,14 +15,12 @@ import {
   atribuirCiclo,
   decidirAbertura,
   decidirFechamento,
-  estadoVigente,
   type CicloJanela,
-  type EstadoRegistro,
-  type EventoRegistro,
 } from '@bamboo/core';
-import { and, asc, eq, gte, inArray, isNull, lte, schema } from '@bamboo/db';
+import { and, asc, eq, inArray, isNull, schema } from '@bamboo/db';
 import { DB, type Db } from '../db/db.module';
 import { localToday } from '../local-date';
+import { carregarRegistroVigente } from '../registro-vigente.loader';
 import {
   toAberturaResponse,
   toCicloDto,
@@ -367,61 +365,29 @@ export class CicloService {
   }
 
   // Registros do período (FR-010/D6): estado vigente por (data, refeição) —
-  // anulados não aparecem. Type/plan-agnostic: tudo do paciente nas datas.
+  // anulados não aparecem. Type/plan-agnostic (012/D2: `qualquer-plano`): tudo o
+  // que o paciente registrou nas datas, inclusive sob um plano já aposentado —
+  // a nutri quer o retrato da janela, não o do plano vigente hoje.
+  // O `sort` por (data, position) é DESTA rota, não do loader (ADR-0001).
   private async registrosDaJanela(
     patientId: string,
     from: string,
     to: string,
   ): Promise<RegistroDoPeriodoDto[]> {
-    const eventos = await this.db
-      .select({
-        mealId: schema.mealEvent.mealId,
-        position: schema.meal.position,
-        state: schema.mealEvent.state,
-        loggedDate: schema.mealEvent.loggedDate,
-        createdAt: schema.mealEvent.createdAt,
-      })
-      .from(schema.mealEvent)
-      .innerJoin(schema.meal, eq(schema.mealEvent.mealId, schema.meal.id))
-      .where(
-        and(
-          eq(schema.mealEvent.patientId, patientId),
-          gte(schema.mealEvent.loggedDate, from),
-          lte(schema.mealEvent.loggedDate, to),
-        ),
-      )
-      .orderBy(asc(schema.mealEvent.createdAt));
-
-    type Bruto = (typeof eventos)[number];
-    const porDiaMeal = new Map<string, Bruto[]>();
-    for (const e of eventos) {
-      const key = `${e.loggedDate}|${e.mealId}`;
-      const lista = porDiaMeal.get(key) ?? [];
-      lista.push(e);
-      porDiaMeal.set(key, lista);
-    }
-
-    const registros: RegistroDoPeriodoDto[] = [];
-    for (const lista of porDiaMeal.values()) {
-      const eventosCore: EventoRegistro[] = lista.map((e) => ({
-        seq: e.createdAt.getTime(),
-        state: e.state,
-      }));
-      const state: EstadoRegistro | null = estadoVigente(eventosCore);
-      if (state === null) continue;
-      const ultimo = lista.reduce((maior, e) =>
-        e.createdAt.getTime() > maior.createdAt.getTime() ? e : maior,
-      );
-      registros.push({
-        date: ultimo.loggedDate,
-        mealId: ultimo.mealId,
-        position: ultimo.position,
-        state,
-      });
-    }
-    return registros.sort(
-      (a, b) => a.date.localeCompare(b.date) || a.position - b.position,
-    );
+    const vigentes = await carregarRegistroVigente(this.db, {
+      patientId,
+      from,
+      to,
+      escopo: { kind: 'qualquer-plano' },
+    });
+    return vigentes
+      .map((v) => ({
+        date: v.date,
+        mealId: v.mealId,
+        position: v.position,
+        state: v.state,
+      }))
+      .sort((a, b) => a.date.localeCompare(b.date) || a.position - b.position);
   }
 
   private async cicloAtivoDe(patientId: string): Promise<CicloJanela | null> {
