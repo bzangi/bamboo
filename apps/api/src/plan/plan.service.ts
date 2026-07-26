@@ -4,15 +4,19 @@ import {
   PARAMETROS_SISTEMA,
   previewTrocaTipoDia,
   resolverParametros,
+  somaNutrientes,
   type EstadoRegistro,
   type ItemDia,
   type RefeicaoDia,
 } from '@bamboo/core';
 import type { TodayResponse } from '@bamboo/types';
+import { carregarConsumoReal } from '../consumo-real.loader';
 import { DB, type Db } from '../db/db.module';
 import { localToday } from '../local-date';
-import { carregarConsumoDoDia } from '../registro-consumo';
-import { carregarRegistroVigente } from '../registro-vigente.loader';
+import {
+  carregarRegistroVigente,
+  type RegistroVigente,
+} from '../registro-vigente.loader';
 import { toTodayResponse, type MealRow, type OptionRow } from './today.mapper';
 
 // Casca imperativa: faz I/O (Drizzle), orquestra o mapper puro, converte
@@ -242,7 +246,7 @@ export class PlanService {
     //    registro pareado por POSIÇÃO (o badge da refeição comida segue pro novo
     //    tipo). Ambos derivam do MESMO consumo do dia (uma leitura).
     const troca = dayTypeId
-      ? await this.calcularTrocaTipoDia(patientId, pln.id, pat, mealRows)
+      ? await this.calcularTrocaTipoDia(pat, mealRows, vigentesHoje, loggedDate)
       : undefined;
     if (troca?.ajuste) {
       this.logger.debug(
@@ -272,14 +276,17 @@ export class PlanService {
   // barra": qualquer desfecho ≠ rebalanceado devolve undefined (mostra planejado;
   // /today não tem superfície de recusa). Decisões D5/D7, contracts/http-motor.md.
   private async calcularTrocaTipoDia(
-    patientId: string,
-    planId: string,
     pat: {
       readonly bandTolerancePct: number | null;
       readonly floorPct: number | null;
       readonly nutritionistId: string;
     },
     mealRows: readonly MealRow[],
+    // (012) O registro vigente de HOJE já foi lido uma vez em `getToday` — vem
+    // por parâmetro, não relido. Elimina a 2ª leitura de `meal_event` do
+    // `/today?dayTypeId=` (predicados sobrepostos com a 1ª).
+    vigentesHoje: ReadonlyArray<RegistroVigente>,
+    loggedDate: string,
   ): Promise<{
     readonly ajuste?: ReadonlyMap<string, number>;
     readonly registroPorPosition?: ReadonlyMap<number, EstadoRegistro>;
@@ -306,28 +313,29 @@ export class PlanService {
       },
     });
 
-    // 2. Consumo real do dia (helper de casca, type-agnostic por paciente+plano+
-    //    localToday). Sem consumo → nada a ajustar (mostra o planejado).
-    const consumoDia = await carregarConsumoDoDia(this.db, {
-      patientId,
-      planId,
-    });
-    if (consumoDia.porMeal.size === 0) return {};
+    // 2. Consumo real do dia, empilhado sobre o registro vigente já lido.
+    //    Sem registro → nada a ajustar (mostra o planejado). O early-return tem
+    //    de sair de `vigentesHoje.length === 0`, NUNCA de um mapa vazio passado
+    //    adiante: `registroPorPosition` presente-e-vazio faria o mapper escolher
+    //    o ramo por position e apagar TODOS os badges do dia.
+    if (vigentesHoje.length === 0) return {};
+    const consumoPorDia = await carregarConsumoReal(this.db, vigentesHoje);
+    const doDia = consumoPorDia.get(loggedDate);
+    const registradas = doDia ? [...doDia.values()] : [];
+    const consumido = somaNutrientes(registradas.flatMap((r) => [...r.itens]));
 
     // (009/US1) Estado de registro por POSIÇÃO (type-agnostic): o badge da
     //    refeição comida segue pro slot de mesma posição no novo tipo. Derivado
     //    sempre que há consumo — independente de o motor produzir ajuste.
     const registroPorPosition = new Map<number, EstadoRegistro>(
-      [...consumoDia.porMeal.values()].map((c) => [c.position, c.state]),
+      registradas.map((c) => [c.position, c.state]),
     );
 
     // 3. Slots JÁ registrados hoje, por position (type-agnostic). Pareia os slots
     //    entre tipos-de-dia: a refeição já comida entra via `consumido`; sua
     //    posição correspondente no NOVO tipo SAI das restantes (evita double-count
     //    — FR-013b).
-    const registeredPositions = new Set(
-      [...consumoDia.porMeal.values()].map((c) => c.position),
-    );
+    const registeredPositions = new Set(registradas.map((c) => c.position));
 
     // 4. Cardápio do NOVO tipo (= mealRows já carregados): opção default de cada
     //    refeição. `refeicoesDefaultNovoTipo` = alvo (todas); `restantes` = só os
@@ -372,7 +380,7 @@ export class PlanService {
     //    planejado). O registro pareado por posição vai junto nos dois casos —
     //    o badge da refeição comida aparece mesmo quando não houve recálculo.
     const r = previewTrocaTipoDia({
-      consumido: consumoDia.consumido,
+      consumido,
       refeicoesRestantesNovoTipo,
       refeicoesDefaultNovoTipo,
       parametros,

@@ -433,10 +433,10 @@ describe('T-A — escopo de plano: quem filtra por planId e quem não (012/FR-00
       ).map((d) => [d.date, d] as const),
     );
 
-    // Discriminante: `adesao-consumo.ts` filtra por `planId` do plano ATIVO e
-    // NÃO filtra por `mealId` — é o único consumidor onde as duas convenções de
-    // escopo produzem números diferentes. Trocar para "qualquer plano" tornaria
-    // este dia com-dado.
+    // Discriminante: a adesão é plan-scoped (plano ATIVO) e NÃO filtra por
+    // `mealId` — é o único consumidor onde as duas convenções de escopo produzem
+    // números diferentes. Trocar para "qualquer plano" tornaria este dia
+    // com-dado.
     expect(dias.get(DIA_SO_P1)).toEqual({
       date: DIA_SO_P1,
       status: 'sem-dado',

@@ -18,8 +18,13 @@ import {
 } from '@bamboo/core';
 import { and, asc, eq, schema } from '@bamboo/db';
 import type { OptionChoiceRequest, OptionChoiceResponse } from '@bamboo/types';
+import {
+  carregarConsumoReal,
+  type RefeicaoConsumida,
+} from '../consumo-real.loader';
 import { DB, type Db } from '../db/db.module';
-import { carregarConsumoDoDia } from '../registro-consumo';
+import { localToday } from '../local-date';
+import { carregarRegistroVigente } from '../registro-vigente.loader';
 import {
   toOptionChoiceResponse,
   type FoodRef,
@@ -259,14 +264,26 @@ export class RebalanceService {
       })),
     }));
 
-    // 8b. Consumo real do dia (helper de casca, type-agnostic por paciente+plano+
-    // localToday): refeições registradas hoje (feito/troquei/pulei). Usado para
-    // (a) excluir as registradas das alavancas (isRegistered:true → o motor não as
-    // ajusta — FR-001/002) e (b) alimentar o totalAtual com o CONSUMO REAL (FR-005).
-    const { porMeal } = await carregarConsumoDoDia(this.db, {
+    // 8b. Consumo real do dia (registro vigente + consumo empilhado, 012),
+    // type-agnostic por paciente+plano+`localToday`: refeições registradas hoje
+    // (feito/troquei/pulei). Usado para (a) excluir as registradas das alavancas
+    // (isRegistered:true → o motor não as ajusta — FR-001/002) e (b) alimentar o
+    // totalAtual com o CONSUMO REAL (FR-005). Sem agregado aqui: o total sai do
+    // núcleo, via `diaComEscolha`.
+    // `localToday` (não `new Date().toISOString()`): a data-calendário LOCAL é a
+    // mesma fonte do `logged_date`; UTC deslocaria a janela na virada do dia.
+    const hoje = localToday();
+    const vigentesHoje = await carregarRegistroVigente(this.db, {
       patientId,
-      planId: pln.id,
+      from: hoje,
+      to: hoje,
+      escopo: { kind: 'plano', planId: pln.id },
     });
+    const consumoPorDia = await carregarConsumoReal(this.db, vigentesHoje);
+    // Pareamento por `mealId` — NÃO por position (ADR-0001/KI-002). O consumo
+    // agora traz `position` no mesmo objeto; não "consistentificar" aqui.
+    const porMeal =
+      consumoPorDia.get(hoje) ?? new Map<string, RefeicaoConsumida>();
     this.logger.debug(
       `consumo do dia: ${porMeal.size} refeição(ões) registrada(s) sai(em) das alavancas`,
     );

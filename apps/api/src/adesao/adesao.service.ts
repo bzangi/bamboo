@@ -24,7 +24,8 @@ import {
 import { and, asc, eq, inArray, schema } from '@bamboo/db';
 import { DB, type Db } from '../db/db.module';
 import { localToday } from '../local-date';
-import { carregarConsumoPorPeriodo } from './adesao-consumo';
+import { carregarConsumoReal } from '../consumo-real.loader';
+import { carregarRegistroVigente } from '../registro-vigente.loader';
 import {
   diaComDado,
   diaSemDado,
@@ -145,12 +146,23 @@ export class AdesaoService {
       });
     }
 
-    const consumoPorDia = await carregarConsumoPorPeriodo(this.db, {
+    // Registro vigente da janela + consumo real empilhado (012). Escopo
+    // PLAN-SCOPED: a régua corrente é o plano ativo na consulta, então registro
+    // de plano aposentado não entra na adesão (é a convenção oposta à do
+    // ciclo/relatório — divergência deliberada, D2).
+    const vigentes = await carregarRegistroVigente(this.db, {
       patientId,
-      planId: plan.id,
       from,
       to,
+      escopo: { kind: 'plano', planId: plan.id },
     });
+    const consumoPorDia = await carregarConsumoReal(this.db, vigentes);
+    // Snapshot do tipo-de-dia por (data, refeição) — insumo do Q3-B abaixo. Vem
+    // dos VIGENTES, não do consumo: uma fonte só para o snapshot.
+    const vigentesPorDia = new Map<string, typeof vigentes>();
+    for (const v of vigentes) {
+      vigentesPorDia.set(v.date, [...(vigentesPorDia.get(v.date) ?? []), v]);
+    }
 
     // Programação default (fallback do tipo do alvo — Q3-B).
     const schedule = await this.db
@@ -174,14 +186,18 @@ export class AdesaoService {
         continue;
       }
       const consumo = consumoPorDia.get(date);
-      if (!consumo || consumo.porMeal.size === 0) {
+      if (!consumo || consumo.size === 0) {
         days.push(diaSemDado(date)); // cobertura zero = sem dado (Q2-B)
         continue;
       }
-      const registradas = [...consumo.porMeal.values()];
+      const registradas = [...consumo.values()];
 
       // Tipo-de-dia do alvo: snapshot uniforme dos registros; senão fallback.
-      const tipos = new Set(registradas.map((r) => r.dayTypeId));
+      // A REGRA é intocada (D5) — só a FONTE do dayTypeId mudou de lugar, do
+      // consumo para os vigentes, pareados por (data, refeição).
+      const tipos = new Set(
+        (vigentesPorDia.get(date) ?? []).map((v) => v.dayTypeId),
+      );
       const tipoAlvo =
         tipos.size === 1 ? [...tipos][0] : tipoPorWeekday.get(weekdayOf(date));
       if (!tipoAlvo) {
