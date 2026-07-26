@@ -114,7 +114,17 @@ Note o contraste: `/today` faz o certo (`plan.service.ts:346-348` monta
 `registeredPositions` **por `position`**, type-agnostic, FR-013b da 004). Só o
 `rebalance.service` ficou com `mealId`.
 
-### Sintoma B — duas rotas da nutri contam diferente (divergência de contrato)
+### Sintoma B — duas rotas da nutri contam diferente
+
+> **Recortado em 2026-07-26 por [ADR-0002](adr/0002-granularidade-divergente-nas-rotas-da-nutri.md).**
+> A diferença de **granularidade** entre as duas rotas é **deliberada e legítima** — são
+> perguntas diferentes, e o DTO do relatório é estruturalmente incapaz de expressar duas
+> refeições na mesma `position` (só tem `position`/`nome`; o do ciclo tem `mealId`). O que **é
+> defeito** e continua aberto aqui é o **descarte silencioso**: sob colisão, o
+> `new Map([position, state])` do `relatorio.loader.ts` resolve por último-ganha arbitrário e o
+> estado perdido **não vira `semRegistro`** — desaparece dos totais. Dois fatos entram, um sai,
+> sem rastro.
+
 
 Num dia em que duas refeições de tipos-de-dia diferentes ocupam a **mesma `position`**:
 

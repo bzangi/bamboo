@@ -125,10 +125,11 @@ com flags por macro. **Instrumento clínico da nutri; o paciente nunca vê.**
 nunca dilui a média.
 
 **Tipo-de-dia alvo** — contra qual tipo-de-dia a adesão de um dia é medida: o snapshot dos
-registros se todos concordam; senão o `day_schedule` do weekday. Hoje a regra tem **duas
-implementations** com fontes de plano diferentes (`adesao.service.ts` usa o plano ativo hoje;
-`relatorio.loader.ts` usa o vigente naquele dia) — divergência conhecida, ver o candidato 05
-da revisão de arquitetura.
+registros se todos concordam; senão o `day_schedule` do weekday. A regra tem **duas
+implementations**, com fontes de plano diferentes no fallback (`adesao.service.ts` usa o plano
+**ativo hoje** — a "régua corrente" da 006; `relatorio.loader.ts` usa o **vigente naquele
+dia**, via vigências). Elas só divergem num dia sem registro uniforme **e** com troca de plano
+ativo dentro da janela. Mantidas assim por decisão: [ADR-0002](docs/adr/0002-granularidade-divergente-nas-rotas-da-nutri.md).
 
 **Ciclo** — o intervalo de acompanhamento entre consultas. Objeto de 1ª classe, no máximo 1
 aberto por paciente (garantido por índice parcial). Invisível ao paciente. `cycle`.
