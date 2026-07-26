@@ -40,7 +40,8 @@ const NUTRI_KEY = 'test-nutri-key';
 process.env.NUTRI_API_KEY = NUTRI_KEY;
 
 const HOJE = localDate(0);
-const ONTEM = localDate(1);
+// "ontem" não precisa mais de constante: os eventos declaram `daysAgo` e o
+// construtor resolve a data-calendário local.
 const DIA_SO_P1 = localDate(5); // registro só no plano APOSENTADO
 const DIA_SO_P2 = localDate(4); // registro só no plano VIGENTE (controle)
 
