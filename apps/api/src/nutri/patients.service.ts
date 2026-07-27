@@ -5,10 +5,19 @@
 // escolha é feita pela ORDEM da query (o primeiro registro de cada paciente já é
 // o vencedor) — ordenação explícita, nunca a ordem que o heap devolver: é a
 // mesma lição do `, id` da 012 e do I-2 da 013.
-import { Inject, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  Inject,
+  Injectable,
+  InternalServerErrorException,
+  UnprocessableEntityException,
+} from '@nestjs/common';
 import type { NutriPatientDto, NutriPatientsResponse } from '@bamboo/types';
 import { asc, desc, eq, schema, sql } from '@bamboo/db';
 import { DB, type Db } from '../db/db.module';
+
+/** Limite de `name`. Não é regra de negócio, é sanidade de borda. */
+const NOME_MAX = 120;
 
 /** Linha do join: um paciente × (0..n) ciclos. */
 interface RosterRow {
@@ -82,5 +91,55 @@ export class PatientsService {
       );
 
     return { patients: toRoster(rows) };
+  }
+
+  /**
+   * Cadastra um paciente (016). Escreve UMA tabela: nem plano, nem ciclo, nem
+   * programação — quem inventa grafo no cadastro cria plano fantasma.
+   *
+   * Coleta mínima (LGPD): só `name`. E-mail, telefone, peso e altura existem no
+   * schema e continuam nulos porque nada os consome hoje.
+   */
+  async criar(nameRaw: unknown): Promise<NutriPatientDto> {
+    // Validação ESTRUTURAL na borda (padrão da casca: o repo não tem
+    // class-validator/ValidationPipe — ver ciclo.controller.ts).
+    const name = typeof nameRaw === 'string' ? nameRaw.trim() : '';
+    if (name.length === 0 || name.length > NOME_MAX) {
+      throw new BadRequestException(
+        `name é obrigatório: texto de 1 a ${NOME_MAX} caracteres`,
+      );
+    }
+
+    // `limit(2)` distingue os três casos numa query só. NÃO usar `limit(1)`:
+    // pendurar dado de saúde na nutricionista errada é pior que falhar.
+    const [nutri, segunda] = await this.db
+      .select({ id: schema.nutritionist.id })
+      .from(schema.nutritionist)
+      .orderBy(asc(schema.nutritionist.createdAt), asc(schema.nutritionist.id))
+      .limit(2);
+
+    if (!nutri) {
+      throw new UnprocessableEntityException(
+        'nenhuma nutricionista cadastrada: rode o seed (pnpm --filter @bamboo/db exec node --env-file=../../.env --import tsx scripts/seed.ts)',
+      );
+    }
+    if (segunda) {
+      throw new UnprocessableEntityException(
+        'mais de uma nutricionista cadastrada: a credencial stub não distingue qual é a responsável pelo paciente — isso entra com a auth real',
+      );
+    }
+
+    const [row] = await this.db
+      .insert(schema.patient)
+      .values({ nutritionistId: nutri.id, name })
+      .returning({ id: schema.patient.id, name: schema.patient.name });
+
+    if (!row) {
+      throw new InternalServerErrorException('insert não devolveu o paciente');
+    }
+
+    // Mesma forma do item da listagem (D3): o cliente insere na lista sem uma
+    // segunda chamada, e não nasce um segundo formato para "paciente".
+    return { id: row.id, name: row.name, cicloAtual: null };
   }
 }

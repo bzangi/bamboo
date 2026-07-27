@@ -629,6 +629,51 @@
         "tags": [
           "Pacientes (só nutri)"
         ]
+      },
+      "post": {
+        "description": "Cria o paciente vinculado à nutricionista responsável e devolve-o na MESMA forma do item da listagem (cicloAtual null), para o cliente não precisar de uma segunda chamada. Coleta mínima: só o nome (LGPD) — e-mail, telefone, peso e altura não são coletados porque nada os consome. Escreve apenas `patient`: sem plano, sem ciclo, sem programação. Plano entra por outra via (import de PDF, Fase 4).",
+        "operationId": "PatientsController_criar",
+        "parameters": [
+          {
+            "name": "x-nutri-key",
+            "in": "header",
+            "description": "credencial stub da nutri (env NUTRI_API_KEY; fail-closed)",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "example": {
+                  "name": "Ana Ribeiro"
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "paciente criado"
+          },
+          "400": {
+            "description": "name ausente, vazio, não-string ou acima de 120 caracteres"
+          },
+          "403": {
+            "description": "x-nutri-key ausente/errada"
+          },
+          "422": {
+            "description": "nenhuma nutricionista cadastrada, ou mais de uma (a credencial stub não distingue a responsável)"
+          }
+        },
+        "summary": "Cadastrar um paciente",
+        "tags": [
+          "Pacientes (só nutri)"
+        ]
       }
     }
   },
