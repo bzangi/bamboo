@@ -40,6 +40,7 @@ export function SeletorDeAlimento({
   grupo,
   novo,
   obrigatorio,
+  onEscolher,
 }: {
   name: string;
   inicial?: { id: string; nome: string };
@@ -48,6 +49,8 @@ export function SeletorDeAlimento({
   grupo?: string;
   novo?: boolean;
   obrigatorio?: boolean;
+  /** Avisa a linha se já há alimento — é o que libera o "+" dela. */
+  onEscolher?: (temAlimento: boolean) => void;
 }) {
   const [escolha, setEscolha] = useState<Escolha>(inicial ?? null);
   const [termo, setTermo] = useState("");
@@ -154,6 +157,7 @@ export function SeletorDeAlimento({
                     aria-selected={f.id === escolha?.id}
                     onClick={() => {
                       setEscolha({ id: f.id, nome: f.name });
+                      onEscolher?.(true);
                       setAberto(false);
                       setTermo("");
                     }}

@@ -246,6 +246,10 @@ export function Quantidade({
  * linha em branco que espera ser preenchida (não há o que descartar nela), e um
  * "+" por linha não diria onde a próxima vai nascer.
  *
+ * E o "+" fica DESABILITADO enquanto a linha atual está vazia: sem isso dá para
+ * empilhar cinco linhas em branco, que o salvar descarta em silêncio — a nutri
+ * preenche a terceira, salva, e não entende por que as outras não viraram nada.
+ *
  * Não é a mesma lixeirinha do nó GRAVADO: lá ela marca para excluir no salvar;
  * aqui não há o que marcar, a linha ainda não existe em lugar nenhum — por isso
  * o ícone é o de desfazer, não o de apagar.
@@ -253,23 +257,36 @@ export function Quantidade({
 export function BotoesDaLinha({
   o_que,
   ultima,
+  podeAdicionar,
   onAdicionar,
   onDescartar,
   className,
 }: {
   o_que: string;
   ultima: boolean;
+  /** A linha atual já tem conteúdo? Vazia, não há o que continuar. */
+  podeAdicionar: boolean;
   onAdicionar: () => void;
   onDescartar: () => void;
   className?: string;
 }) {
   return (
-    <div className={cn("flex shrink-0 items-center gap-1", className)}>
+    <div
+      className={cn("flex shrink-0 items-center gap-1", className)}
+      // No wrapper e não no botão: `disabled` desliga os eventos de ponteiro, e
+      // com eles o tooltip que explica por que o botão está apagado.
+      title={
+        ultima && !podeAdicionar
+          ? `Preencha este ${o_que} para adicionar outro`
+          : undefined
+      }
+    >
       {ultima ? (
         <button
           type="button"
           onClick={onAdicionar}
-          title={`Adicionar outro ${o_que}`}
+          disabled={!podeAdicionar}
+          title={podeAdicionar ? `Adicionar outro ${o_que}` : undefined}
           aria-label={`Adicionar outro ${o_que}`}
           className={cn(
             buttonVariants({ variant: "outline", size: "icone" }),

@@ -27,15 +27,35 @@ import { SeletorDeAlimento } from "./seletor";
  * (para o `name`) é a posição — se a chave fosse o índice, remover a linha do
  * meio reaproveitaria um número já usado e o React manteria o estado da linha
  * errada.
+ *
+ * `preenchidas` é o que impede empilhar linhas em branco: a linha entra no
+ * conjunto quando o campo que a define ganha conteúdo (o alimento escolhido, o
+ * nome digitado), e só então o "+" acende. O salvar já ignora linha vazia — mas
+ * ignorar em silêncio é o que faz a nutri achar que salvou o que não salvou.
  */
 function useLinhas() {
   const [chaves, setChaves] = useState<ReadonlyArray<number>>([0]);
+  const [preenchidas, setPreenchidas] = useState<ReadonlySet<number>>(
+    new Set(),
+  );
   const proxima = useRef(1);
+  const ultima = chaves[chaves.length - 1];
+
   return {
     chaves,
+    podeAdicionar: ultima !== undefined && preenchidas.has(ultima),
     adicionar: () => setChaves((c) => [...c, proxima.current++]),
     descartar: (chave: number) =>
       setChaves((c) => (c.length <= 1 ? c : c.filter((k) => k !== chave))),
+    /** A linha `chave` tem conteúdo? Chamado pelo campo que a define. */
+    marcar: (chave: number, temConteudo: boolean) =>
+      setPreenchidas((p) => {
+        if (p.has(chave) === temConteudo) return p;
+        const novo = new Set(p);
+        if (temConteudo) novo.add(chave);
+        else novo.delete(chave);
+        return novo;
+      }),
   };
 }
 
@@ -50,7 +70,7 @@ export function NovosItens({
   grupos: ReadonlyArray<GrupoDto>;
   onde: string;
 }) {
-  const { chaves, adicionar, descartar } = useLinhas();
+  const { chaves, podeAdicionar, adicionar, descartar, marcar } = useLinhas();
   return (
     <>
       {chaves.map((chave, i) => {
@@ -66,6 +86,7 @@ export function NovosItens({
                 name={`${k}.foodId`}
                 rotulo={`Novo alimento em ${onde}`}
                 novo
+                onEscolher={(temAlimento) => marcar(chave, temAlimento)}
               />
             </div>
             <Quantidade prefixo={k} />
@@ -80,6 +101,7 @@ export function NovosItens({
             <BotoesDaLinha
               o_que="alimento"
               ultima={i === chaves.length - 1}
+              podeAdicionar={podeAdicionar}
               onAdicionar={adicionar}
               onDescartar={() => descartar(chave)}
             />
@@ -101,7 +123,7 @@ export function NovasOpcoes({
   nomeDaRefeicao: string;
   grupos: ReadonlyArray<GrupoDto>;
 }) {
-  const { chaves, adicionar, descartar } = useLinhas();
+  const { chaves, podeAdicionar, adicionar, descartar, marcar } = useLinhas();
   return (
     <div className="flex flex-col gap-2">
       {chaves.map((chave, i) => (
@@ -111,8 +133,10 @@ export function NovasOpcoes({
           nomeDaRefeicao={nomeDaRefeicao}
           grupos={grupos}
           ultima={i === chaves.length - 1}
+          podeAdicionar={podeAdicionar}
           onAdicionar={adicionar}
           onDescartar={() => descartar(chave)}
+          onNomear={(temNome) => marcar(chave, temNome)}
         />
       ))}
     </div>
@@ -124,15 +148,19 @@ function LinhaNovaOpcao({
   nomeDaRefeicao,
   grupos,
   ultima,
+  podeAdicionar,
   onAdicionar,
   onDescartar,
+  onNomear,
 }: {
   prefixo: string;
   nomeDaRefeicao: string;
   grupos: ReadonlyArray<GrupoDto>;
   ultima: boolean;
+  podeAdicionar: boolean;
   onAdicionar: () => void;
   onDescartar: () => void;
+  onNomear: (temNome: boolean) => void;
 }) {
   const [aberto, setAberto] = useState(false);
   return (
@@ -148,6 +176,7 @@ function LinhaNovaOpcao({
           className="h-8 w-56 text-sm"
           autoComplete="off"
           placeholder="Nova opção: arroz e carne"
+          onChange={(e) => onNomear(e.target.value.trim().length > 0)}
         />
         {/* Os alimentos da opção nova nascem no MESMO salvar que ela — daí eles
             morarem dentro desta linha, e não numa segunda etapa. */}
@@ -162,6 +191,7 @@ function LinhaNovaOpcao({
         <BotoesDaLinha
           o_que="opção"
           ultima={ultima}
+          podeAdicionar={podeAdicionar}
           onAdicionar={onAdicionar}
           onDescartar={onDescartar}
           className="ml-auto"
@@ -188,7 +218,7 @@ export function NovasRefeicoes({
   /** Sugestão de posição: a próxima livre no tipo-de-dia exibido. */
   primeiraPosicao: number;
 }) {
-  const { chaves, adicionar, descartar } = useLinhas();
+  const { chaves, podeAdicionar, adicionar, descartar, marcar } = useLinhas();
   return (
     <>
       {chaves.map((chave, i) => {
@@ -218,6 +248,9 @@ export function NovasRefeicoes({
                 className="w-52"
                 autoComplete="off"
                 placeholder="Almoço"
+                onChange={(e) =>
+                  marcar(chave, e.target.value.trim().length > 0)
+                }
               />
             </div>
             <div className="flex w-32 flex-col gap-1.5">
@@ -227,6 +260,7 @@ export function NovasRefeicoes({
             <BotoesDaLinha
               o_que="refeição"
               ultima={i === chaves.length - 1}
+              podeAdicionar={podeAdicionar}
               onAdicionar={adicionar}
               onDescartar={() => descartar(chave)}
             />
@@ -240,7 +274,7 @@ export function NovasRefeicoes({
 /* ═══════════ tipo-de-dia ═══════════ */
 
 export function NovosTiposDeDia() {
-  const { chaves, adicionar, descartar } = useLinhas();
+  const { chaves, podeAdicionar, adicionar, descartar, marcar } = useLinhas();
   return (
     <>
       {chaves.map((chave, i) => (
@@ -256,11 +290,13 @@ export function NovosTiposDeDia() {
               className="w-56"
               autoComplete="off"
               placeholder="Treino"
+              onChange={(e) => marcar(chave, e.target.value.trim().length > 0)}
             />
           </div>
           <BotoesDaLinha
             o_que="tipo-de-dia"
             ultima={i === chaves.length - 1}
+            podeAdicionar={podeAdicionar}
             onAdicionar={adicionar}
             onDescartar={() => descartar(chave)}
           />
