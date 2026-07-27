@@ -20,7 +20,13 @@ export interface PlanoItemDto {
   readonly id: string;
   readonly foodId: string;
   readonly foodName: string;
+  /** Vale `0` quando `adLibitum` — ver a flag abaixo. */
   readonly quantityGrams: number;
+  /** Item SEM quantidade prescrita (018): salada, verduras. `quantityGrams` é
+   *  `0` nesses itens, e é esta flag que distingue "0 porque à vontade" de
+   *  "0 porque bug" — sem ela o editor não consegue nem exibir nem criar o que
+   *  o plano real prescreve em 12 das 30 opções. */
+  readonly adLibitum: boolean;
   /** Travado = não troca. Mutuamente exclusivo com `substitutionGroupId`. */
   readonly isLocked: boolean;
   readonly substitutionGroupId: string | null;

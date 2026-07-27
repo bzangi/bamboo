@@ -60,6 +60,7 @@ export interface ItemRow {
   readonly foodId: string;
   readonly foodName: string;
   readonly quantityGrams: number;
+  readonly adLibitum: boolean;
   readonly isLocked: boolean;
   readonly substitutionGroupId: string | null;
   readonly substitutionGroupName: string | null;
@@ -99,6 +100,7 @@ export function montarPlano(dados: {
     foodId: r.foodId,
     foodName: r.foodName,
     quantityGrams: r.quantityGrams,
+    adLibitum: r.adLibitum,
     isLocked: r.isLocked,
     substitutionGroupId: r.substitutionGroupId,
     substitutionGroupName: r.substitutionGroupName,
@@ -241,6 +243,7 @@ export async function carregarPlano(
       foodId: schema.mealItem.foodId,
       foodName: schema.food.name,
       quantityGrams: schema.mealItem.quantityGrams,
+      adLibitum: schema.mealItem.adLibitum,
       isLocked: schema.mealItem.isLocked,
       substitutionGroupId: schema.mealItem.substitutionGroupId,
       substitutionGroupName: schema.substitutionGroup.name,

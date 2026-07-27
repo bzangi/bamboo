@@ -478,6 +478,53 @@ describe('item', () => {
     await post(p, { foodId }).expect(400);
   });
 
+  it('à vontade (018): cria com 0 g e a flag, sem exigir gramas', async () => {
+    const { optionId } = await refeicaoComOpcao(6);
+    const res = await post(`/nutri/options/${optionId}/items`, {
+      foodId: cenario.ids.food('base'),
+      adLibitum: true,
+    }).expect(201);
+
+    // A quantidade não é NEGOCIADA por quem chama: à vontade é 0 por definição,
+    // e a flag é o que distingue esse 0 do 0 que seria bug.
+    expect(res.body).toMatchObject({ adLibitum: true, quantityGrams: 0 });
+  });
+
+  it('à vontade IGNORA a gramatura que venha junto, em vez de gravar as duas', async () => {
+    const { optionId } = await refeicaoComOpcao(7);
+    const res = await post(`/nutri/options/${optionId}/items`, {
+      foodId: cenario.ids.food('base'),
+      quantityGrams: 300,
+      adLibitum: true,
+    }).expect(201);
+    expect(res.body).toMatchObject({ adLibitum: true, quantityGrams: 0 });
+  });
+
+  it('patch liga e desliga à vontade — desligar SEM gramas é 400', async () => {
+    const { optionId } = await refeicaoComOpcao(8);
+    const item = (
+      await post(`/nutri/options/${optionId}/items`, {
+        foodId: cenario.ids.food('base'),
+        quantityGrams: 90,
+      })
+    ).body as { id: string };
+
+    const ligou = await patch(`/nutri/items/${item.id}`, {
+      adLibitum: true,
+    }).expect(200);
+    expect(ligou.body).toMatchObject({ adLibitum: true, quantityGrams: 0 });
+
+    // Sair de "à vontade" sem dizer quanto deixaria o item com 0 g E sem a flag
+    // que explica o 0 — o estado exato que a 018 existe para impedir.
+    await patch(`/nutri/items/${item.id}`, { adLibitum: false }).expect(400);
+
+    const voltou = await patch(`/nutri/items/${item.id}`, {
+      adLibitum: false,
+      quantityGrams: 75,
+    }).expect(200);
+    expect(voltou.body).toMatchObject({ adLibitum: false, quantityGrams: 75 });
+  });
+
   it('404 em alimento inexistente', async () => {
     const { optionId } = await refeicaoComOpcao(13);
     await post(`/nutri/options/${optionId}/items`, {

@@ -1,17 +1,23 @@
 // Acesso à via /nutri da API. **Só roda no servidor** (Server Components e Server
 // Actions): a credencial da nutri nunca pode chegar ao navegador (FR-006).
 //
-// A garantia não é um comentário: o app não tem NENHUM componente client, e a
-// chave é lida de `process.env.NUTRI_API_KEY` — sem prefixo `NEXT_PUBLIC_`, ela
-// simplesmente não existe no bundle do browser. Se um dia alguém importar isto de
+// A garantia não é um comentário: a chave é lida de `process.env.NUTRI_API_KEY`
+// — sem prefixo `NEXT_PUBLIC_`, ela simplesmente não existe no bundle do
+// browser. Existem DUAS ilhas client no app, as duas no editor de plano
+// (`plans/[planId]/revisao.tsx`, o modal de revisão antes de salvar, e
+// `repetir.tsx`, o "+" que clona uma linha em branco). Nenhuma importa este
+// arquivo, recebe segredo por prop ou faz fetch: o que atravessa para o
+// cliente é HTML. Se um dia alguém importar isto de
 // um componente client, `process.env` vem vazio e o fetch falha fechado, com a
 // mensagem de configuração abaixo. Fail-closed como o guard do lado da API.
 //
 // Como CONFERIR (a 017 aprendeu isto na mão): procure a DIRETIVA, não a
 // substring — vários arquivos citam a expressão em comentário, então um
-// `grep -rl "use client"` devolve 4 falsos positivos. O teste certo é
+// `grep -rl "use client"` devolve falsos positivos. O teste certo é
 //     grep -rlE '^\s*["'"'"']use client["'"'"']' apps/web/{app,components,lib}
-// que hoje devolve zero.
+// e a resposta esperada são DOIS arquivos, `revisao.tsx` e `repetir.tsx`. Três
+// é regressão — vale a mesma pergunta de sempre: essa tela precisa mesmo de
+// JavaScript?
 //
 // Reusa o `requestJson`/`requestVoid` do @bamboo/api-client (D6): eles separam
 // "não conectou" de "a API respondeu erro", que é exatamente a distinção que a
@@ -139,6 +145,34 @@ export const updatePlan = (planId: string, name: string): Promise<PlanoDto> =>
 
 export const deletePlan = (planId: string): Promise<void> =>
   apagar(`/nutri/plans/${id(planId)}`, "deletePlan");
+
+/* ═══════════ ciclo de acompanhamento (007) ═══════════
+ *
+ * Abrir e fechar são ATOS da consulta, não edição de cadastro — por isso são
+ * `POST` sem corpo de recurso, e não PATCH.
+ *
+ * `closeCycle` é por PACIENTE, sem `cycleId`: o banco garante no máximo um ciclo
+ * aberto por paciente (índice único parcial `cycle_one_active_per_patient`), então
+ * "qual fechar" não é uma pergunta que a tela possa errar. */
+
+export const openCycle = (
+  patientId: string,
+  expectedDurationDays: number,
+): Promise<unknown> =>
+  escrever("POST", `/nutri/patients/${id(patientId)}/cycles`, "openCycle", {
+    expectedDurationDays,
+  });
+
+/** Sem ciclo aberto a API responde no-op orientado, nunca erro destrutivo.
+ *  Corpo vazio porque o ato não tem parâmetro — o `{}` é só para o `content-type`
+ *  bater com o que o Nest espera. */
+export const closeCycle = (patientId: string): Promise<unknown> =>
+  escrever(
+    "POST",
+    `/nutri/patients/${id(patientId)}/cycles/close`,
+    "closeCycle",
+    {},
+  );
 
 /** Ativar plano continua sendo o ato observado pelo ciclo (007) — não é PATCH. */
 export const activatePlan = (

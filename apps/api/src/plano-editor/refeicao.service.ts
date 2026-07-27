@@ -65,6 +65,8 @@ export interface OpcaoBody {
 export interface ItemBody {
   readonly foodId?: unknown;
   readonly quantityGrams?: unknown;
+  /** Item à vontade (018): sem quantidade prescrita. */
+  readonly adLibitum?: unknown;
   readonly isLocked?: unknown;
   readonly substitutionGroupId?: unknown;
 }
@@ -267,11 +269,14 @@ export class RefeicaoService {
   async criarItem(optionId: string, body: ItemBody): Promise<PlanoItemDto> {
     const { planId } = await this.exigirOpcao(optionId);
     const foodId = texto(body?.foodId, 'foodId', 64);
-    const quantityGrams = numeroPositivo(
-      body?.quantityGrams,
-      'quantityGrams',
-      5000,
-    );
+    // À vontade não NEGOCIA a quantidade: ela é 0 por definição (018), e a
+    // gramatura que viesse junto seria uma segunda verdade sobre o mesmo item.
+    const adLibitum = presente(body, 'adLibitum')
+      ? booleano(body.adLibitum, 'adLibitum')
+      : false;
+    const quantityGrams = adLibitum
+      ? 0
+      : numeroPositivo(body?.quantityGrams, 'quantityGrams', 5000);
     const { isLocked, substitutionGroupId } = this.flexibilidade(body);
 
     await this.exigirAlimento(foodId);
@@ -285,6 +290,7 @@ export class RefeicaoService {
         mealOptionId: optionId,
         foodId,
         quantityGrams,
+        adLibitum,
         isLocked,
         substitutionGroupId,
       })
@@ -313,16 +319,35 @@ export class RefeicaoService {
     };
     const { isLocked, substitutionGroupId } = this.flexibilidade(alvo);
 
-    const patch: Record<string, unknown> = { isLocked, substitutionGroupId };
+    const adLibitum = presente(body, 'adLibitum')
+      ? booleano(body.adLibitum, 'adLibitum')
+      : atual.adLibitum;
+
+    const patch: Record<string, unknown> = {
+      isLocked,
+      substitutionGroupId,
+      adLibitum,
+    };
     if (presente(body, 'foodId')) {
       await this.exigirAlimento(foodId);
       patch.foodId = foodId;
     }
-    if (presente(body, 'quantityGrams')) {
+    if (adLibitum) {
+      // Virou à vontade: a gramatura anterior sai, tenha o corpo mandado uma ou
+      // não. Item à vontade com 300 g gravados contribuiria para o alvo.
+      patch.quantityGrams = 0;
+    } else if (presente(body, 'quantityGrams')) {
       patch.quantityGrams = numeroPositivo(
         body.quantityGrams,
         'quantityGrams',
         5000,
+      );
+    } else if (atual.adLibitum) {
+      // Deixou de ser à vontade e não disse quanto: o item ficaria com 0 g sem
+      // a flag que explica o 0 — exatamente o estado que a 018 existe para não
+      // deixar acontecer.
+      throw new BadRequestException(
+        'ao tirar adLibitum é preciso mandar quantityGrams',
       );
     }
     if (substitutionGroupId !== null) {
@@ -499,12 +524,14 @@ export class RefeicaoService {
   private async exigirItem(itemId: string): Promise<{
     planId: string;
     foodId: string;
+    adLibitum: boolean;
     isLocked: boolean;
     substitutionGroupId: string | null;
   }> {
     const [i] = await this.db
       .select({
         foodId: schema.mealItem.foodId,
+        adLibitum: schema.mealItem.adLibitum,
         isLocked: schema.mealItem.isLocked,
         substitutionGroupId: schema.mealItem.substitutionGroupId,
       })

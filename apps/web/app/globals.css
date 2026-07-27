@@ -1,69 +1,93 @@
 @import "tailwindcss";
 
-/* Tokens da visão da nutri (Feature 015) + Tailwind/shadcn por cima (017).
+/* ─────────────────────────────────────────────────────────────────────────────
+ * Bamboo — sistema visual "sumi & take" (墨と竹: tinta e bambu).
  *
- * A paleta categórica (feito / troquei / pulei) foi VALIDADA nos dois modos:
- * banda de luminosidade, piso de croma, separação para daltonismo (ΔE) e
- * contraste contra a superfície. "Sem registro" NÃO é uma quarta série — é
- * ausência de dado, então é neutro + hachurado + rótulo visível, nunca uma cor
- * competindo com as três reais.
+ * Direção: papel washi quente + tinta quente + areia, na linha da referência
+ * (misotone.m-hand.co.jp: --color-grayscale-300 #f3f0e9, --color-grayscale-900
+ * #201f1d, --color-primary-500 #b7af96, Zen Kaku Gothic New, line-height 1.8),
+ * com a MATERIALIDADE do iOS 26/Tahoe: cantos contínuos generosos, superfícies
+ * em camadas e sombra difusa e quente em vez de cinza.
  *
- * feito/adesão = o verde do produto (o mesmo #2e7d32 do app do paciente) e
- * troquei = azul: as duas semânticas já existem no mobile, e a nutri lê as duas
- * telas. Consistência entre apps, não decoração.
+ * O que NÃO mudou: os NOMES dos tokens. `--feito`/`--troquei`/`--pulei` seguem
+ * sendo a régua categórica, e o `@theme inline` continua sendo a ponte — então o
+ * troco claro/escuro segue sem uma única classe `dark:`.
  *
- * 017: os tokens do shadcn são MAPEADOS nestas variáveis (bloco @theme abaixo) em
- * vez de trazerem a paleta neutra padrão dele. Assim o design system novo herda a
- * cor que já foi validada, e a migração não regride a visualização de dados (R3).
- */
+ * O que mudou e por quê: a trinca foi RE-VALIDADA, não repintada no olho. Os
+ * valores abaixo passam por contraste AA contra a superfície nos dois modos E
+ * separam MELHOR que a paleta anterior sob daltonismo — o par verde/âmbar, que é
+ * o pior caso (protanopia), sai de ΔE 14.7 para 18.9 no claro e 21.6 no escuro.
+ * "Sem registro" continua não sendo a quarta série: neutro + hachura + rótulo.
+ * ────────────────────────────────────────────────────────────────────────────*/
 :root {
   color-scheme: light;
 
-  --paper: #f7f7f4;
-  --surface: #ffffff;
-  --ink: #14231a;
-  --ink-2: #4a5450;
-  --ink-3: #78807c;
-  --line: #dcdcd4;
+  /* superfícies: papel, folha, e o recuo (linha de tabela, campo, trilho) */
+  --paper: #f2efe6;
+  --surface: #fbfaf6;
+  --muted: #eae6da;
 
-  --feito: #2e7d32;
-  --troquei: #1565c0;
-  --pulei: #b45309;
-  --sem-registro: #c9c9c0;
+  /* tinta (sumi) — quente, nunca cinza neutro */
+  --ink: #1e1d1a;
+  --ink-2: #63604f;
+  --ink-3: #7c7768;
+  --line: #ded8c9;
 
-  --bom: #2e7d32;
-  --ruim: #b45309;
+  /* areia (o traço estrutural: colmo, nó, régua) — nunca texto no claro */
+  --sand: #b7af96;
 
-  --radius: 4px;
+  /* a régua categórica */
+  --feito: #3a6b3d;
+  --troquei: #1f6cb0;
+  --pulei: #9e5017;
+  --sem-registro: #c5bfad;
 
+  --bom: #3a6b3d;
+  --ruim: #9e5017;
+
+  /* Cantos: escala contínua no espírito do Tahoe. O 4px da 015 era de folheto
+   * impresso; a tela da nutri é um instrumento macio, não um panfleto. */
+  --radius: 8px;
+  --radius-lg: 18px;
+
+  /* Sombra quente: a luz do papel, não uma caixa cinza flutuando. */
+  --shadow-1: 0 1px 2px rgb(60 52 34 / 0.05);
+  --shadow-2:
+    0 1px 2px rgb(60 52 34 / 0.05), 0 8px 24px -12px rgb(60 52 34 / 0.18);
+
+  --display:
+    var(--font-zen), var(--font-geist-sans), ui-sans-serif, system-ui,
+    sans-serif;
   --sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
   --mono: var(--font-geist-mono), ui-monospace, "SF Mono", monospace;
-
-  /* Superfície levemente recuada para linhas de tabela e campos — o único token
-   * de cor que a 017 acrescenta, porque a 015 não tinha tabela nem formulário. */
-  --muted: #eeeee8;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
     color-scheme: dark;
 
-    --paper: #12140f;
-    --surface: #1a1d17;
-    --ink: #e8e8e0;
-    --ink-2: #a8b0aa;
-    --ink-3: #7c847e;
-    --line: #2c3129;
+    /* noite no bambuzal: carvão com fundo verde, não preto azulado */
+    --paper: #14150f;
+    --surface: #1c1e17;
+    --muted: #262920;
 
-    --feito: #43a047;
-    --troquei: #4285cd;
-    --pulei: #c97f22;
-    --sem-registro: #5a5a52;
+    --ink: #eae7dc;
+    --ink-2: #a5a08e;
+    --ink-3: #7d7869;
+    --line: #333629;
 
-    --bom: #43a047;
-    --ruim: #c97f22;
+    --sand: #8f8974;
 
-    --muted: #22261e;
+    --feito: #5fae6b;
+    --troquei: #5fa3dd;
+    --pulei: #dd8a3a;
+    --sem-registro: #55584c;
+
+    --bom: #5fae6b;
+    --ruim: #dd8a3a;
+
+    --shadow-1: 0 1px 2px rgb(0 0 0 / 0.4);
+    --shadow-2: 0 1px 2px rgb(0 0 0 / 0.4), 0 8px 24px -12px rgb(0 0 0 / 0.6);
   }
 }
 
@@ -78,11 +102,12 @@
   --color-muted: var(--muted);
   --color-muted-foreground: var(--ink-2);
   --color-subtle: var(--ink-3);
+  --color-sand: var(--sand);
   --color-border: var(--line);
   --color-input: var(--line);
   --color-ring: var(--feito);
   --color-primary: var(--feito);
-  --color-primary-foreground: #ffffff;
+  --color-primary-foreground: #fbfaf6;
   --color-destructive: var(--pulei);
   --color-feito: var(--feito);
   --color-troquei: var(--troquei);
@@ -90,44 +115,112 @@
   --color-sem-registro: var(--sem-registro);
 
   --radius-sm: var(--radius);
-  --radius-md: calc(var(--radius) * 2);
+  --radius-md: var(--radius-lg);
 
+  --shadow-sheet: var(--shadow-2);
+
+  --font-display: var(--display);
   --font-sans: var(--sans);
   --font-mono: var(--mono);
 }
 
-* {
-  box-sizing: border-box;
-  padding: 0;
-  margin: 0;
-}
+/* TUDO daqui para baixo vive em `@layer base` — e isto NÃO é preferência de
+ * organização, é correção de um bug.
+ *
+ * Regra fora de qualquer camada VENCE toda regra dentro de uma camada, seja qual
+ * for a especificidade. As utilities do Tailwind vivem em `@layer utilities`.
+ * O `* { margin: 0; padding: 0 }` que o `create-next-app` deixou aqui estava
+ * fora de camada — ou seja, ANULAVA `px-5`, `py-8`, `mx-auto`, `mt-1.5` e todo o
+ * resto do espaçamento das telas, que iam para o HTML e não pintavam. O `a {
+ * color: inherit; text-decoration: none }` fazia o mesmo com `hover:underline`.
+ *
+ * O `*` some de vez: o preflight do Tailwind já faz `box-sizing`, `margin: 0` e
+ * `padding: 0` em tudo, dentro de `@layer base`, onde uma utility pode vencê-lo. */
+@layer base {
+  html,
+  body {
+    max-width: 100vw;
+    overflow-x: hidden;
+  }
 
-html,
-body {
-  max-width: 100vw;
-  overflow-x: hidden;
-}
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--sans);
+    /* Da referência: entrelinha larga e um respiro entre letras. É o que faz a
+     * página respirar antes de qualquer decoração. */
+    line-height: 1.7;
+    letter-spacing: 0.01em;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
 
-body {
-  background: var(--paper);
-  color: var(--ink);
-  font-family: var(--sans);
-  -webkit-font-smoothing: antialiased;
-}
+  /* Grão do washi: a única textura da página. Fica no ::before do body para não
+   * entrar em nenhum stacking context de conteúdo, e some no `reduce` porque numa
+   * tela sensível a movimento a granulação é ruído. */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    opacity: 0.4;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3'/%3E%3CfeColorMatrix values='0 0 0 0 0.35 0 0 0 0 0.31 0 0 0 0 0.2 0 0 0 .055 0'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
 
-a {
-  color: inherit;
-  text-decoration: none;
-}
+  body > * {
+    position: relative;
+    z-index: 1;
+  }
 
-:focus-visible {
-  outline: 2px solid var(--feito);
-  outline-offset: 3px;
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  /* O marcador nativo do `<details>` é um triângulo de sistema no meio de um
+   * design system. Escondido nos dois motores; quem anuncia o estado é o rótulo. */
+  summary {
+    list-style: none;
+    cursor: pointer;
+  }
+
+  summary::-webkit-details-marker {
+    display: none;
+  }
+
+  /* As setinhas do `input[type=number]`: ruído de sistema num campo que é
+   * DIGITADO. Ninguém chega a 65 g clicando de 1 em 1, e elas roubam metade da
+   * largura útil do campo. A rolagem e as setas do teclado continuam valendo. */
+  input[type="number"] {
+    appearance: textfield;
+    -moz-appearance: textfield;
+  }
+
+  input[type="number"]::-webkit-outer-spin-button,
+  input[type="number"]::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    appearance: none;
+    margin: 0;
+  }
+
+  ::selection {
+    background: color-mix(in srgb, var(--feito) 22%, transparent);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--feito);
+    outline-offset: 3px;
+    border-radius: 3px;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
   * {
     transition: none !important;
     animation: none !important;
+  }
+  body::before {
+    display: none;
   }
 }
