@@ -146,6 +146,79 @@
   vertical-align: 0.05em;
 }
 
+/* ───────── cadastro (016) ───────── */
+
+.novo {
+  margin-top: 2rem;
+  max-width: 30rem;
+}
+
+.novoResumo {
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+  cursor: pointer;
+  padding: 0.25rem 0;
+  width: fit-content;
+}
+
+.novoResumo:hover {
+  color: var(--feito);
+}
+
+.novoForm {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.75rem;
+  margin-top: 1rem;
+  padding-left: 1rem;
+  border-left: 2px solid var(--line);
+}
+
+.novoLabel {
+  font-family: var(--mono);
+  font-size: 0.6875rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  flex: 100%;
+}
+
+.novoInput {
+  flex: 1 1 14rem;
+  font-family: var(--sans);
+  font-size: 1rem;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 0.625rem 0.75rem;
+}
+
+.novoInput:focus-visible {
+  border-color: var(--feito);
+}
+
+.novoBtn {
+  font-family: var(--sans);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--paper);
+  background: var(--feito);
+  border: 1px solid var(--feito);
+  border-radius: var(--radius);
+  padding: 0.625rem 1.25rem;
+  cursor: pointer;
+}
+
+.novoBtn:hover {
+  background: var(--ink);
+  border-color: var(--ink);
+}
+
 /* ───────── herói: a adesão ───────── */
 
 .hero {

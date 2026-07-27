@@ -11,7 +11,11 @@
 // Reusa o `requestJson` do @bamboo/api-client (D6): ele separa "não conectou" de
 // "a API respondeu erro", que é exatamente a distinção que a tela precisa dizer.
 import { ApiError, requestJson } from "@bamboo/api-client";
-import type { CycleReportResponse, NutriPatientsResponse } from "@bamboo/types";
+import type {
+  CycleReportResponse,
+  NutriPatientDto,
+  NutriPatientsResponse,
+} from "@bamboo/types";
 
 export const API_URL = process.env.API_URL ?? "http://localhost:3000";
 
@@ -40,6 +44,16 @@ const get = <T>(path: string, label: string): Promise<T> =>
 /** A roster. Também é a fonte de nome + ciclo atual da tela do paciente (D1). */
 export const listPatients = (): Promise<NutriPatientsResponse> =>
   get<NutriPatientsResponse>("/nutri/patients", "listPatients");
+
+/** Cadastro de paciente (016). Devolve o paciente já na forma do item da lista. */
+export const createPatient = (name: string): Promise<NutriPatientDto> =>
+  requestJson<NutriPatientDto>(`${API_URL}/nutri/patients`, {
+    label: "createPatient",
+    method: "POST",
+    headers: { ...nutriHeaders(), "content-type": "application/json" },
+    body: JSON.stringify({ name }),
+    cache: "no-store",
+  });
 
 /** O relatório de ciclo da 011, consumido sem alteração. */
 export const getCycleReport = (
