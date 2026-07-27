@@ -16,7 +16,7 @@ import {
   type ItemDia,
   type RefeicaoDia,
 } from '@bamboo/core';
-import { and, asc, eq, schema } from '@bamboo/db';
+import { and, asc, eq, inArray, schema } from '@bamboo/db';
 import type { OptionChoiceRequest, OptionChoiceResponse } from '@bamboo/types';
 import {
   carregarConsumoReal,
@@ -81,6 +81,36 @@ export class RebalanceService {
       throw new BadRequestException(
         'triggerMealId e chosenOptionId devem ser UUIDs',
       );
+    }
+    // (020) Validação estrutural do overlay da edição em lote. A forma espelha
+    // `RegistroRequest.consumo.items` de propósito (D2): o que a prévia avalia
+    // é o que o registro vai gravar. Ausente ⇒ comportamento de sempre.
+    if (body.items !== undefined) {
+      // O isArray roda num alias `unknown`: narrowing direto em `body.items`
+      // degradaria ReadonlyArray para `any[]` no resto da função.
+      const raw: unknown = body.items;
+      if (!Array.isArray(raw) || raw.length === 0) {
+        throw new BadRequestException('items deve ser uma lista não vazia');
+      }
+      for (const it of body.items) {
+        if (
+          !UUID_RE.test(it?.itemId ?? '') ||
+          !UUID_RE.test(it?.foodId ?? '')
+        ) {
+          throw new BadRequestException(
+            'items[].itemId e items[].foodId devem ser UUIDs',
+          );
+        }
+        if (
+          typeof it.quantityGrams !== 'number' ||
+          !Number.isFinite(it.quantityGrams) ||
+          it.quantityGrams <= 0
+        ) {
+          throw new BadRequestException(
+            'items[].quantityGrams deve ser um número > 0',
+          );
+        }
+      }
     }
 
     // 1. Paciente (exposure + config nível 1).
@@ -280,6 +310,68 @@ export class RebalanceService {
         'opção escolhida não pertence à refeição do gatilho',
       );
 
+    // 7b. (020) Overlay da edição em lote: pertencimento à opção escolhida
+    // (404), item travado/sem grupo não é editável (422) e macros dos foods
+    // editados (404 se algum não existir). Agrupado por itemId — múltiplas
+    // entradas do mesmo item somam (combinação, como no snapshot do troquei).
+    const overlayPorItem = new Map<
+      string,
+      { readonly foodId: string; readonly gramas: number }[]
+    >();
+    const macrosOverlay = new Map<string, FoodMacros>();
+    if (body.items && body.items.length > 0) {
+      const itensDaOpcao = new Map(chosenOption.items.map((it) => [it.id, it]));
+      for (const e of body.items) {
+        const alvo = itensDaOpcao.get(e.itemId);
+        if (!alvo) {
+          throw new NotFoundException(
+            'item do overlay não pertence à opção escolhida',
+          );
+        }
+        if (alvo.isLocked || alvo.groupId == null) {
+          throw new UnprocessableEntityException(
+            'item travado (ou sem grupo de substituição) não é editável',
+          );
+        }
+        const entradas = overlayPorItem.get(e.itemId) ?? [];
+        entradas.push({ foodId: e.foodId, gramas: e.quantityGrams });
+        overlayPorItem.set(e.itemId, entradas);
+      }
+      // ponytail: o grupo de substituição do food do overlay NÃO é re-validado
+      // aqui — a prévia é efêmera e o POST /registro é o enforcement
+      // (consumo-fora-do-grupo → 422); o app só produz troca dentro do grupo,
+      // com gramas calculadas pelo servidor. Validar na prévia se surgir
+      // cliente que monte overlay à mão.
+      const foodIds = [...new Set(body.items.map((e) => e.foodId))];
+      const foods = await this.db
+        .select({
+          id: schema.food.id,
+          kcalPer100g: schema.food.kcalPer100g,
+          carbPer100g: schema.food.carbPer100g,
+          proteinPer100g: schema.food.proteinPer100g,
+          fatPer100g: schema.food.fatPer100g,
+        })
+        .from(schema.food)
+        .where(inArray(schema.food.id, foodIds));
+      for (const f of foods) {
+        macrosOverlay.set(f.id, {
+          carbPer100g: f.carbPer100g,
+          proteinPer100g: f.proteinPer100g,
+          fatPer100g: f.fatPer100g,
+          kcalPer100g: f.kcalPer100g,
+        });
+      }
+      if (foodIds.some((id) => !macrosOverlay.has(id))) {
+        throw new NotFoundException('alimento do overlay não encontrado');
+      }
+    }
+    const macrosDoOverlay = (foodId: string): FoodMacros => {
+      const m = macrosOverlay.get(foodId);
+      // Inalcançável: presença validada acima. Lançar > cast silencioso.
+      if (!m) throw new NotFoundException('alimento do overlay não encontrado');
+      return m;
+    };
+
     const defaultDe = (m: LoadedMeal): LoadedOption =>
       m.options.find((o) => o.isDefault) ?? m.options[0];
 
@@ -317,17 +409,39 @@ export class RebalanceService {
 
     const diaComEscolha: RefeicaoDia[] = meals.map((m) => {
       // gatilho → opção escolhida (não registrada, é alavanca-fixada pela escolha).
+      // (020) Item com overlay contribui com o food/gramas EDITADOS, com ids
+      // sintéticos `ed-` (mesmo padrão dos `reg-` das registradas): o gatilho
+      // inteiro já sai das alavancas por `position`, então só os macros+gramas
+      // entram no totalAtual — e o que o paciente escolheu comer nunca é
+      // reescalado nem aparece na resposta.
       if (m.id === triggerMeal.id) {
-        const itens: ItemDia[] = chosenOption.items.map((it) => ({
-          itemId: it.id,
-          macros: it.macros,
-          gramas: it.quantityGrams,
-          gramasPlanejado: it.quantityGrams,
-          isLocked: it.isLocked,
-          adLibitum: it.adLibitum,
-          groupId: it.groupId,
-          medidas: it.medidas,
-        }));
+        const itens: ItemDia[] = chosenOption.items.flatMap((it) => {
+          const overlay = overlayPorItem.get(it.id);
+          if (!overlay) {
+            return [
+              {
+                itemId: it.id,
+                macros: it.macros,
+                gramas: it.quantityGrams,
+                gramasPlanejado: it.quantityGrams,
+                isLocked: it.isLocked,
+                adLibitum: it.adLibitum,
+                groupId: it.groupId,
+                medidas: it.medidas,
+              },
+            ];
+          }
+          return overlay.map((e, idx) => ({
+            itemId: `ed-${it.id}-${idx}`,
+            macros: macrosDoOverlay(e.foodId),
+            gramas: e.gramas,
+            gramasPlanejado: e.gramas,
+            isLocked: true,
+            adLibitum: false,
+            groupId: null,
+            medidas: [],
+          }));
+        });
         return { position: m.position, isRegistered: false, itens };
       }
 

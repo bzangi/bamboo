@@ -19,6 +19,20 @@ export interface OptionChoiceRequest {
    * (KI-005). Opcional de propósito: cliente antigo não quebra.
    */
   readonly dayTypeId?: string;
+  /**
+   * Overlay da edição em lote (020, opcional): a composição EDITADA da
+   * refeição-gatilho, na MESMA forma do `consumo.items` do `POST /registro` —
+   * o que a prévia avalia é exatamente o que o registro vai gravar. Item da
+   * opção escolhida com entradas aqui contribui com o food/gramas do overlay;
+   * item sem entrada contribui como planejado. Múltiplas entradas do mesmo
+   * `itemId` somam (combinação). Ausente ⇒ comportamento byte-a-byte o de
+   * sempre — cliente antigo não quebra (padrão do `dayTypeId` da 014).
+   */
+  readonly items?: ReadonlyArray<{
+    readonly itemId: string;
+    readonly foodId: string;
+    readonly quantityGrams: number;
+  }>;
 }
 
 export interface ItemAjustadoDto {
