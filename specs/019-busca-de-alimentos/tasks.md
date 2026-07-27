@@ -30,8 +30,25 @@
       estado vazio distinto de "grupo sem alternativas".
 - [x] **T008** `substitution.service`: alternativas com `ORDER BY name, id` (D7).
 
-## Phase 4: Fechamento
+## Phase 4: Fechamento (parcial 1)
 
 - [x] **T009** Verificação: core · api · mobile · db · web verdes; lint · Prettier · `check-types`;
       OpenAPI regenerado.
 - [x] **T010** Docs: bloco no `CLAUDE.md` + `docs/estado-atual.md`.
+
+## Phase 5: Página na lista do paciente (pedido do dono depois da entrega acima)
+
+O `offset` de `/nutri/foods` não tinha consumidor e a lista que o paciente vê não tinha página
+nenhuma — o grupo inteiro descia numa resposta só.
+
+- [x] **T011** `apps/api/src/query-param.ts`: `inteiroDeQuery` compartilhado (a regra tolerante que
+      o catálogo já tinha, agora em um lugar só).
+- [x] **T012** `substitution.service`: `q`/`limit`/`offset` opcionais, aplicados DEPOIS do cálculo
+      (D9). Sem os três, resposta idêntica.
+- [x] **T013** `substitution.controller`: os 3 `@Query` + Swagger.
+- [x] **T014** `api-client.getSubstitutions(baseUrl, id, query?)` + 4 testes da montagem da URL.
+- [x] **T015** `SubstitutionSheet`: `FlatList` com `onEndReached`, busca com debounce de 250 ms,
+      guarda de geração contra página atrasada, falha de página não derruba a tela.
+- [x] **T016** **[TDD]** e2e: páginas se emendam · `offset` no fim → `[]` · `q` + página · sem
+      parâmetro = grupo inteiro. Provado por reversão (tirar o `slice` derruba 3 casos).
+- [x] **T017** Verificação + docs.

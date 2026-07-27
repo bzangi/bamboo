@@ -6,17 +6,29 @@ import {
   UnprocessableEntityException,
 } from '@nestjs/common';
 import { match } from 'ts-pattern';
-import { substituir, type HouseholdMeasure } from '@bamboo/core';
+import { buscarFuzzy, substituir, type HouseholdMeasure } from '@bamboo/core';
 import { and, asc, eq, ne, schema } from '@bamboo/db';
 import type {
   SubstitutionAlternativeDto,
   SubstitutionsResponse,
 } from '@bamboo/types';
 import { DB, type Db } from '../db/db.module';
+import { inteiroDeQuery } from '../query-param';
 import {
   toAlternativeDto,
   toSubstitutionsResponse,
 } from './substitution.mapper';
+
+/**
+ * Busca + página das alternativas. Os três são OPCIONAIS e a ausência dos três
+ * devolve exatamente o que o endpoint sempre devolveu (o grupo inteiro) — o
+ * cliente antigo não vê diferença.
+ */
+export interface PaginaSubstituicoes {
+  readonly q?: unknown;
+  readonly limit?: unknown;
+  readonly offset?: unknown;
+}
 
 // Casca imperativa: I/O (Drizzle), orquestra o núcleo puro (substituir), e
 // converte erro de domínio -> HttpException na borda via ts-pattern (.exhaustive).
@@ -26,7 +38,10 @@ export class SubstitutionService {
 
   constructor(@Inject(DB) private readonly db: Db) {}
 
-  async getSubstitutions(mealItemId: string): Promise<SubstitutionsResponse> {
+  async getSubstitutions(
+    mealItemId: string,
+    pagina: PaginaSubstituicoes = {},
+  ): Promise<SubstitutionsResponse> {
     this.logger.log(`getSubstitutions item=${mealItemId}`);
     // 1. meal_item + food atual + exposure do dono (010: gate da nutrição da
     // alternativa — meal_item -> meal_option -> meal -> day_type -> plan -> patient).
@@ -168,7 +183,7 @@ export class SubstitutionService {
           quantityGrams: item.quantityGrams,
           adLibitum: true,
         },
-        alternatives,
+        alternatives: fatiar(alternatives, pagina),
       });
     }
 
@@ -237,7 +252,37 @@ export class SubstitutionService {
         quantityGrams: item.quantityGrams,
         adLibitum: false,
       },
-      alternatives,
+      alternatives: fatiar(alternatives, pagina),
     });
   }
+}
+
+/**
+ * Aplica busca (fuzzy, régua do núcleo) e página sobre as alternativas JÁ
+ * calculadas.
+ *
+ * Calcular tudo e fatiar depois é DE PROPÓSITO: `substituir` exclui o alvo com
+ * nutriente-base zero, então fatiar antes faria uma página voltar curta — e o app,
+ * que detecta o fim da lista por "página menor que o `limit`", pararia de rolar no
+ * meio do grupo. O custo é a matemática de ~70 alvos, que é nada; o que a página
+ * economiza é render, rede e a leitura do usuário.
+ *
+ * Sem `limit`, sem `offset` e sem `q` a saída é idêntica à de sempre.
+ */
+function fatiar(
+  alternatives: readonly SubstitutionAlternativeDto[],
+  { q, limit, offset }: PaginaSubstituicoes,
+): readonly SubstitutionAlternativeDto[] {
+  const casaram = buscarFuzzy(
+    alternatives,
+    typeof q === 'string' ? q : '',
+    (a) => a.name,
+  );
+
+  const inicio = inteiroDeQuery(offset, 0, 0);
+  // `undefined` em `slice` = até o fim: é assim que "sem limit" devolve tudo.
+  const fim =
+    limit === undefined ? undefined : inicio + inteiroDeQuery(limit, 20, 1);
+
+  return casaram.slice(inicio, fim);
 }

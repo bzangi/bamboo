@@ -289,14 +289,28 @@ SQL — a ordenação é por relevância, que o Postgres não conhece, então `O
 errada. `limit`/`offset` fora de forma caem no default em vez de 400 (é o que o `limit` já fazia; um
 `?offset=abc` que derruba a tela seria pior). `%` e `_` seguem literais — o teste da 017 continua
 válido sem alteração.
-· **App** — o campo filtra **o que já está em mão**: `/meal-items/:id/substitutions` devolve todas
-as alternativas elegíveis do grupo, então buscar não é ida à rede e um endpoint por tecla seria pior
-em toda métrica. Aparece a partir de **8 alternativas** (abaixo disso é ruído numa tela pequena) e o
-termo é **zerado ao abrir** — o sheet não desmonta entre trocas. "Nenhum alimento com X" é mensagem
-**distinta** de "sem alternativas neste grupo": lista filtrada vazia e grupo vazio não são o mesmo
-estado. `@bamboo/core` virou dependência do `apps/mobile` (o que a constituição sempre previu);
-provado com `expo export --platform ios` de verdade — 601 módulos, `normalizarBusca` e a tabela de
-acentos aparecem no bytecode Hermes.
+· **App** — campo a partir de **8 alternativas** (abaixo disso é ruído numa tela pequena), ou sempre
+que houver termo digitado — senão o paciente não conseguiria apagar a busca que esvaziou a lista. O
+termo é **zerado ao abrir**, e **durante o render** (padrão "You Might Not Need an Effect"), não num
+`useEffect`: em efeito, a primeira consulta dispararia com o termo da troca anterior antes de o
+reset chegar. "Nenhum alimento com X" é mensagem **distinta** de "sem alternativas neste grupo":
+lista filtrada vazia e grupo vazio não são o mesmo estado. `@bamboo/core` virou dependência do
+`apps/mobile` (o que a constituição sempre previu); provado com `expo export --platform ios` de
+verdade — `normalizarBusca` e a tabela de acentos aparecem no bytecode Hermes.
+· **Página na lista do paciente** (2ª leva, pedido do dono: "lazy loading de 10~20, o resto conforme
+a rolagem") — `GET /meal-items/:id/substitutions` ganhou `q`/`limit`/`offset` **opcionais**, e **sem
+os três a resposta é byte-a-byte a de hoje**: nenhum teste nem cliente existente mudou. **Sem campo
+`total`** — o fim é "página menor que o `limit`"; uma requisição extra quando o grupo é múltiplo
+exato de 20 é mais barata que um campo em toda resposta. Busca e página são aplicadas **DEPOIS** do
+cálculo das alternativas, de propósito: `substituir` exclui o alvo de nutriente-base zero, então
+fatiar antes faria uma página voltar curta e a rolagem **pararia no meio do grupo**. Com página, a
+busca **teve de virar do servidor** (a 1ª leva filtrava em memória, o que só valia enquanto a
+resposta trazia o grupo inteiro): filtrar o que já baixou dá resultado errado quando o alimento está
+na página que não veio — custo, 250 ms de debounce. No app, `ScrollView` → **`FlatList`** com
+`onEndReached`, **guarda de geração** por `useRef` (página atrasada de um termo antigo é descartada)
+e falha de página que **não derruba** o que já está na tela — só para de crescer.
+`inteiroDeQuery` saiu do `catalogo.service` para `apps/api/src/query-param.ts`: dois endpoints
+paginados, uma regra de parse (tolerante — `?offset=abc` cai no default, não 400).
 · **Colateral** — a query de alternativas do `substitution.service` **não tinha `ORDER BY`**: com
 desempate estável isso viraria "relevância e depois arbitrário". Ganhou `(name, id)`.
 **Fora de escopo por DECISÃO:** tolerância a **erro de digitação** ("arros" → "arroz") — pede
@@ -305,12 +319,15 @@ passo é `pg_trgm` quando houver reclamação · buscar **fora do grupo** no lad
 dentro do grupo por definição — é o que preserva o nutriente-base) · paginação por **cursor**
 (`offset` sobre ~600 linhas é o custo de nada) · ordenar por histórico de trocas (ninguém guarda
 esse dado ainda).
+**Fora de escopo por DECISÃO** (além dos acima): consumir a paginação de `/nutri/foods` **na web** —
+a tela do editor é da 017, em curso; o parâmetro está pronto e documentado para quando ela trocar o
+`<select>` de 600 opções.
 Sem migration, sem endpoint novo, forma da resposta inalterada. Resultado: **core 181** (166 + 15) ·
-**api 296** (291 + 5) · **db 20** · **web 29** verdes; mobile verde (a contagem está se movendo:
-a 017 avança em paralelo na mesma árvore); lint 0 errors, Prettier e
-`check-types` limpos; OpenAPI regenerado (31 paths). O prêmio de contiguidade foi provado
-**por reversão** (zerá-lo derruba o teste que o isola). Artefatos: `specs/019-busca-de-alimentos/`
-(spec/plan/tasks).
+**api 302** (291 + 11) · **api-client 8** (4 + 4) · **db 20** verdes; mobile e web verdes (a
+contagem está se movendo: a 017 avança em paralelo na mesma árvore); lint 0 errors, Prettier e
+`check-types` limpos; OpenAPI regenerado (31 paths). Duas provas **por reversão**: zerar o prêmio de
+contiguidade derruba o teste que o isola; tirar o `slice` da página derruba 3 dos casos novos.
+Artefatos: `specs/019-busca-de-alimentos/` (spec/plan/tasks).
 
 Feature **018-item-a-vontade** (item sem quantidade prescrita): **implementada e testada**
 (2026-07-27). Aprovada pelo dono ao ler o GAP-1 da transcrição do plano real. O plano do paciente 0

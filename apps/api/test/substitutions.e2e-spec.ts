@@ -279,6 +279,71 @@ describe('GET /meal-items/:id/substitutions (US2)', () => {
       .expect(400);
   });
 
+  // 019 — busca e página. Aninhado no describe pai pelo mesmo motivo do bloco da
+  // 010 abaixo: o afterAll dele fecha o pool.
+  describe('019 busca e página (q/limit/offset)', () => {
+    type Alt = { readonly foodId: string; readonly name: string };
+
+    const pedir = async (qs = ''): Promise<Alt[]> => {
+      const res = await request(app.getHttpServer())
+        .get(`/meal-items/${flexItemId}/substitutions${qs}`)
+        .expect(200);
+      return res.body.alternatives as Alt[];
+    };
+
+    it('sem parâmetro nenhum, a resposta é a de sempre (grupo inteiro)', async () => {
+      const todas = await pedir();
+      // Pré-condição do bloco: o grupo do seed precisa ter com o que paginar.
+      expect(
+        todas.length,
+        'o grupo do item semeado precisa de ≥3 alternativas para este bloco',
+      ).toBeGreaterThanOrEqual(3);
+    });
+
+    it('as páginas se emendam e cobrem a lista inteira, sem repetir nem pular', async () => {
+      const todas = await pedir();
+      const p1 = await pedir('?limit=2&offset=0');
+      const p2 = await pedir('?limit=2&offset=2');
+
+      expect(p1.length).toBe(2);
+      expect([...p1, ...p2].map((a) => a.foodId)).toEqual(
+        todas.slice(0, p1.length + p2.length).map((a) => a.foodId),
+      );
+    });
+
+    it('offset além do fim devolve lista vazia — é como o app sabe que acabou', async () => {
+      const todas = await pedir();
+      expect(await pedir(`?limit=5&offset=${todas.length}`)).toEqual([]);
+    });
+
+    it('q filtra por nome, e a página vale sobre o resultado da busca', async () => {
+      const todas = await pedir();
+      // Um trecho do nome de uma alternativa que existe: a busca tem de achá-la.
+      const alvo = todas[0];
+      const termo = alvo.name.slice(0, 4);
+
+      const casaram = await pedir(`?q=${encodeURIComponent(termo)}`);
+      expect(casaram.map((a) => a.foodId)).toContain(alvo.foodId);
+      expect(casaram.length).toBeLessThanOrEqual(todas.length);
+
+      const primeira = await pedir(`?q=${encodeURIComponent(termo)}&limit=1`);
+      expect(primeira.length).toBe(1);
+      expect(primeira[0].foodId).toBe(casaram[0].foodId);
+    });
+
+    it('q que não casa com nada devolve lista vazia, e não erro', async () => {
+      expect(await pedir('?q=zzzznaoexistezzzz')).toEqual([]);
+    });
+
+    it('limit/offset fora de forma não derrubam a lista', async () => {
+      const todas = await pedir();
+      expect((await pedir('?offset=abc')).map((a) => a.foodId)).toEqual(
+        todas.map((a) => a.foodId),
+      );
+      expect((await pedir('?limit=0')).length).toBeGreaterThan(0);
+    });
+  });
+
   // US1-010: nutrição da porção equivalente, sob o mesmo gate de exposição do
   // /today. ANINHADO no describe pai (não top-level): o afterAll dele chama
   // pool.end(), então um segundo describe top-level neste arquivo quebraria o
