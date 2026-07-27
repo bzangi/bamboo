@@ -300,10 +300,22 @@ ausência de dado não compete com dado. **Decisão de produto embutida na cor:*
 roster** — a regra de "qual ciclo mostrar" fica num lugar só; teto anotado com `ponytail:` no
 código) · auth real (a credencial stub dá o papel "nutri do sistema", então a roster não é
 escopada por nutri responsável — limite v0 já declarado na 006).
+**Bug encontrado DEPOIS de dar por concluído — a tela de falha dava 500** (corrigido no mesmo
+dia): a página do paciente passava a instância de `Error` como **prop de componente**
+(`<Falha e={e}/>`), e a serialização do **React Flight** explode nisso com
+`TypeError: chunk.reason.enqueueModel is not a function` — digest, zero stack de aplicação, 500
+**no caminho que existe para não haver 500**. O roster nunca quebrou porque lá o erro já virava
+**string** antes do JSX: era a única diferença entre as duas páginas. Fix: `Falha` recebe
+`titulo`/`detalhe` (o tipo barra a reincidência) e `explicarFalha` roda no chamador. Provado por
+**reversão** (500 → 200 com essa mudança só). Segundo erro no mesmo caminho: a mensagem mandava
+rodar `pnpm --filter api dev` citando a porta **3000**, mas esse script sobe na **3333** — seguir
+a instrução não resolvia. Lição registrada: a verificação da 015 cobriu o caminho feliz e os
+estados vazios **com a API sempre no ar**; o ramo de falha só ganhou teste
+(`apps/web/lib/nutri.test.ts`, 5 casos) depois de quebrar na mão do dono.
 Sem migration. Boilerplate do `create-turbo` apagado (`page.module.css` + 7 svgs); web sobe na
-**3001** (a API é 3000); `API_URL`/`NUTRI_API_KEY` documentados no `.env.example` e declarados
-no `turbo.json`. Resultado: **api 158** (151 + 7) · **core 164** · **db 20** · **mobile 24** ·
-**web 24 (novos)** verdes; `check-types`/lint (0 errors)/Prettier limpos; OpenAPI regenerado
+**3001**; `API_URL`/`NUTRI_API_KEY` documentados no `.env.example` (apontando **3333**, a porta
+do `api dev`) e declarados no `turbo.json`. Resultado: **api 158** (151 + 7) · **core 164** · **db 20** · **mobile 24** ·
+**web 29 (novos — 24 de apresentação + 5 do ramo de falha)** verdes; `check-types`/lint (0 errors)/Prettier limpos; OpenAPI regenerado
 (14 paths). Verificação visual: as 2 telas renderizadas com cenário de demonstração via
 `buildScenario` (013) e conferidas nos modos claro e escuro; o cenário foi **destruído** ao fim
 (banco de dev volta ao estado anterior). Artefatos: `specs/015-visao-da-nutri/`
