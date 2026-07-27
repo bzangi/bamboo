@@ -48,6 +48,11 @@ aponta. `meal_item`.
 **Grupo de substituição** — o conjunto de alimentos intercambiáveis (sistema exchange).
 `substitution_group`.
 
+**À vontade** (`meal_item.ad_libitum`) — item que a nutri prescreve **sem quantidade**: "salada,
+verduras e vegetais são SEMPRE à vontade". Não é "zero grama" — é ausência de prescrição. Não entra
+no alvo do dia, nunca é alavanca de rebalanceamento e a troca dentro do grupo é 1:1 (sem gramatura
+calculada). `quantity_grams` fica 0, e a flag é o que distingue isso de um 0 por bug.
+
 **Nutriente-base** (`equivalence_basis`) — o nutriente que a troca **preserva** dentro do
 grupo: carbo por carbo, proteína por proteína. É o que faz a conta de substituição existir.
 

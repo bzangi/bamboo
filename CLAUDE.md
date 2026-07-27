@@ -263,6 +263,42 @@ Dado de saúde desde a Fase 0: controle de acesso, criptografia, consentimento. 
 
 <!-- SPECKIT START -->
 
+Feature **018-item-a-vontade** (item sem quantidade prescrita): **implementada e testada**
+(2026-07-27). Aprovada pelo dono ao ler o GAP-1 da transcrição do plano real. O plano do paciente 0
+prescreve **alface e brócolis sem quantidade em 12 das 30 opções** ("salada, verduras e vegetais são
+SEMPRE à vontade", repetido em toda página), e os 5 vegetais que ela oferece como troca também. Isso
+não era expressável: `meal_item.quantity_grams` é `NOT NULL`, e a única saída seria **inventar
+gramatura que a nutri não escreveu**.
+· **Schema** — migration `0005`: `meal_item.ad_libitum boolean not null default false`.
+`quantity_grams` **continua NOT NULL** e vale `0` nesses itens. Tornar a coluna nullable obrigaria
+todo leitor (nutrição, motor, adesão, consumo real, snapshot do troquei, mappers) a tratar `null`;
+com `0` o comportamento certo — contribuir zero para o alvo — cai de graça, e **a flag é o que
+distingue "0 porque à vontade" de "0 porque bug"**. Bônus: a validação `gramas > 0` do editor (017)
+segue válida para item normal.
+· **Núcleo** — `ItemDia.adLibitum` **obrigatório** (disciplina do `isRegistered` da 004: opcional
+deixa o adaptador esquecer, e esquecer aqui significa **reescalar salada**) e a cláusula entrou em
+**`ehAlavanca`**, que já é a definição única de "item flexível" — filtrar na casca criaria a segunda
+definição. RED visto antes: a prévia trazia `[ant, salada, seg]` em vez de `[ant, seg]`.
+· **Casca** — `adLibitum` aditivo em `MealItemDto` e `SubstitutionAlternativeDto`/`CurrentItemDto`
+(padrão do `rebalanceado` da 009). Substituição de origem à vontade **não passa pelo núcleo**: não
+existe conta a fazer (salada por salada é 1:1), e `substituir` com 0 g devolveria `ok({gramas: 0})`
+que a tela mostraria como "0 g de tomate". O `/today` também **deixou de emitir nutrição** nesses
+itens — "0 kcal" numa salada é a tela mentindo com número certo.
+· **App** — `formatQuantidadeItem` curto-circuita em "à vontade" antes de gramas, medida caseira e
+quantidade trocada.
+· **Teste** — `ItemSpec.aVontade` no `buildScenario` (013), com validação nos dois sentidos (item
+sem `grams` que não é à vontade lança; item à vontade que declara `grams` também). e2e novo com o
+cenário do plano real (arroz flexível + salada), `exposure: full_kcal` de propósito — é o nível em
+que o "0 kcal" apareceria.
+**Achado colateral que a 016 causou:** criar paciente pela tela (sem plano, como é o cadastro)
+**derrubou 4 suítes e2e**. 14 pontos em 8 suítes faziam `select().from(patient).limit(1)` **sem
+`where`** — o risco que a 013 catalogou como I-3, que dava certo por sorte enquanto só existia o
+paciente do seed. Agora existe `pacienteSemeado()` em `test/helpers.ts`: junta `plan` com
+`is_active`, `ORDER BY` explícito, e lança dizendo "rode o seed" quando não há nenhum.
+Resultado: **core 166** (164 + 2) · **api 291** (inclui a 017, em curso) · **mobile 27** (24 + 3) ·
+**db 20** · **web 29** verdes; lint 0 errors, Prettier e `check-types` limpos; OpenAPI regenerado.
+Artefatos: `specs/018-item-a-vontade/` (spec/plan/tasks).
+
 Feature **016-cadastro-de-paciente** (cadastrar paciente): **implementada e testada**
 (2026-07-26). Lacuna apontada pelo dono logo depois da 015: a nutri tinha tela que **lê**
 pacientes, mas um paciente só existia rodando `packages/db/scripts/seed.ts` — que **apaga** a

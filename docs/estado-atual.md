@@ -8,7 +8,8 @@
 > **Feature `014-rebalance-ciente-do-override`** (2026-07-26) — decisão do dono destravou os dois bugs: **KI-005 resolvido** (a prévia era 404 sob override) e **KI-002 Sintoma A resolvido** no caminho do override, sem trocar a chave de pareamento. Ver [ADR-0003](adr/0003-option-choice-aceita-o-override-de-tipo-de-dia.md), que supersede o ADR-0001.
 > **Feature `015-visao-da-nutri`** (2026-07-26) — **EP-6 começou**: o `apps/web` deixou de ser boilerplate. Duas telas server-rendered (roster + o ciclo do paciente) sobre as vias `/nutri/*` que já existiam, mais **um** endpoint novo (`GET /nutri/patients`, a porta de entrada). Nenhuma régua nova; a credencial da nutri nunca chega ao navegador.
 > **Feature `016-cadastro-de-paciente`** (2026-07-26) — `POST /nutri/patients` + formulário na lista. Antes, um paciente só existia rodando o **seed**, que é destrutivo. Só nome (LGPD), escreve uma tabela, sem migration. **Plano continua fora** por decisão: é o grafo de 6 tabelas que a Fase 4 resolve por import de PDF.
-> **Atualizado em:** 2026-07-26.
+> **Feature `018-item-a-vontade`** (2026-07-27) — `meal_item.ad_libitum` (migration 0005): item que a nutri prescreve **sem quantidade** (salada/vegetal, 12 das 30 opções do plano real). Não entra no alvo, não é alavanca de rebalanceamento, não tem gramatura na troca, e a tela escreve "à vontade" em vez de "0 g". Desbloqueia a carga do plano real.
+> **Atualizado em:** 2026-07-27.
 
 Documento vivo — snapshot do estado real do repositório nesta data, verificado por leitura direta dos arquivos e do histórico git. Em conflito com o cabeçalho do `CLAUDE.md`, **este snapshot vence**: o repo está bem além do que aquele header lista — Fases 0–4 implementadas e testadas.
 
