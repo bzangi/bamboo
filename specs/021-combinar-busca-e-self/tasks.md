@@ -97,6 +97,18 @@ ver a lista filtrar; rolar até o fim e ver a página seguinte carregar.
       021); registrado para o Bruno investigar separadamente.
       Quickstart §App designado ao Bruno (requer simulador, julgamento manual de UX).
 
+## Phase 6: Correção pós-shipping — troca simples também inclui a origem
+
+- [x] **T011 [US2]** Achado do dono ao testar: `SubstitutionSheet` (troca simples) também
+      excluía o alimento de origem — a mesma exclusão que esta feature já tinha corrigido para o
+      `CombineSheet`. `apps/mobile/src/SubstitutionSheet.tsx` passa a chamar
+      `useAlternativesSearch(item, { includeSelf: true })`. Zero mudança na API/core — o
+      parâmetro já existia; só o consumidor passou a pedi-lo. Gate: `tsc` do mobile limpo;
+      `substitutions.e2e-spec.ts` continua verde (o default do endpoint, sem parâmetro, não
+      mudou — quem muda é o app).
+- [x] **T012** spec.md emendado (FR-005/SC-004 revertidas, SC-005 nova, seção "Correção
+      pós-shipping"); bloco SPECKIT do `CLAUDE.md` atualizado com a correção.
+
 ## Dependencies
 
 - T001 → T002 → T003/T004 (paralelos entre si, ambos após T002).

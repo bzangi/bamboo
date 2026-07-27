@@ -294,6 +294,16 @@ stepper de proporção intactos.
 **Fora de escopo por DECISÃO:** combinação com alimento de **outro** grupo de substituição — só o
 alimento de origem (que já pertence ao grupo do item) ganhou a exceção; qualquer alvo fora do
 grupo continua `422` (`combinar()` mantém `fora-do-grupo`).
+**Correção pós-shipping (mesmo dia):** o dono testou e apontou que a troca simples
+(`SubstitutionSheet`) TAMBÉM excluía o alimento de origem — a mesma exclusão que esta feature já
+tinha corrigido só para o combinar. `SubstitutionSheet` passou a chamar `useAlternativesSearch`
+com `includeSelf: true` também. **Zero mudança na API**: o parâmetro já existia (criado para o
+combinar), o default do endpoint sem parâmetro segue excluindo a origem (suíte e2e inalterada) —
+só o consumidor mobile passou a pedi-lo nos dois sheets.
+**Pedido do mesmo feedback, adiado por decisão do dono:** registrar consumo que EXCEDE o
+combinado/planejado (ex.: comeu mais batata do que os 105g da combinação) exige "comida fora da
+lista" — item já listado no roadmap como Fase 4, não iniciada. Mantido lá; nenhuma mudança de
+escopo agora.
 **Achado colateral, fora do escopo desta feature:** `today-daytype`/`adesao`/`ciclo.e2e-spec.ts`
 falham tanto na suíte completa quanto isoladamente — confirmado por reversão (`git stash`) que é
 **pré-existente** (idêntico sem nenhuma mudança da 021), aparentemente estado/data do banco de dev

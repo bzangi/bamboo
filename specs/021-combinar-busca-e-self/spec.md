@@ -6,7 +6,9 @@
 está no plano e também quero o mesmo search que foi implementado na opção de troca". Grilling
 confirmou: não é combinação cross-grupo — é especificamente o alimento **de origem** (o que já
 está no item que vai ser combinado) faltando na lista de candidatos.
-**Status**: Draft
+**Status**: Implementada — **emendada em 2026-07-27** (mesmo dia): o dono testou e apontou que a
+troca simples (`SubstitutionSheet`) também excluía o alimento de origem — FR-005/SC-004 abaixo
+foram **revertidas**. Ver "Correção pós-shipping" ao fim.
 
 ## Por que existe
 
@@ -56,8 +58,9 @@ calculadas normalmente.
 2. **Given** o alimento de origem selecionado como um dos dois alvos, **When** o paciente também
    seleciona um segundo alimento do grupo, **Then** a combinação é calculada normalmente, com as
    duas partes preservando o nutriente-base do item original.
-3. **Given** a troca simples (1 alvo, não combinar), **When** o paciente abre a lista de
-   alternativas, **Then** o alimento de origem **não** aparece — comportamento inalterado.
+3. ~~**Given** a troca simples (1 alvo, não combinar), **When** o paciente abre a lista de
+   alternativas, **Then** o alimento de origem **não** aparece — comportamento inalterado.~~
+   **Revertido** — ver "Correção pós-shipping": a troca simples também passou a incluir a origem.
 
 ### Edge Cases
 
@@ -80,8 +83,11 @@ calculadas normalmente.
   origem, além dos demais do mesmo grupo.
 - **FR-004**: Selecionar o alimento de origem como um dos dois alvos da combinação deve calcular as
   duas partes normalmente, sem erro — preservando o nutriente-base do item original.
-- **FR-005**: A troca simples (1 alvo, `SubstitutionSheet`) não muda de comportamento — o alimento
-  de origem continua excluído da lista ali.
+- **FR-005**: ~~A troca simples (1 alvo, `SubstitutionSheet`) não muda de comportamento — o
+  alimento de origem continua excluído da lista ali.~~ **Revertida em 2026-07-27**: a troca
+  simples TAMBÉM passa a incluir o alimento de origem entre os candidatos — mesma decisão do
+  combinar, pedida pelo dono ao testar. Selecioná-lo é um "troquei" trivial (mesma comida, mesma
+  gramas); nenhum caso especial no core nem na casca.
 - **FR-006**: A combinação continua restrita ao **mesmo grupo de substituição** do item de origem —
   nenhum alvo de outro grupo, incluindo quando um dos alvos é o próprio alimento de origem.
 - **FR-007**: A regra de exatamente 2 alvos distintos não muda.
@@ -96,8 +102,26 @@ calculadas normalmente.
   escolhido como um dos dois alvos.
 - **SC-003**: Combinar o alimento de origem com outro do grupo produz duas partes cuja soma de
   nutriente-base é igual à do item original (dentro da tolerância de arredondamento já usada).
-- **SC-004**: A troca simples (1 alvo) continua sem alteração de comportamento — suítes existentes
-  passam sem diff.
+- **SC-004**: ~~A troca simples (1 alvo) continua sem alteração de comportamento — suítes
+  existentes passam sem diff.~~ **Revertido**: a troca simples agora também inclui o alimento de
+  origem (SC-005).
+- **SC-005** (adicionado na correção): a troca simples (`SubstitutionSheet`) também mostra o
+  alimento de origem entre os candidatos, selecionável como qualquer outro.
+
+## Correção pós-shipping (2026-07-27, mesmo dia)
+
+Ao testar a 021 recém-mergeada, o dono apontou: "o trocar alimento também está excluindo o
+alimento pré-existente naquela refeição. Isso deve mudar." Confirmado por pergunta direta: é o
+alimento de origem do próprio item (mesma coisa que o combinar já resolvia), não um alimento de
+outro item da mesma refeição.
+
+**Mudança**: `apps/mobile/src/SubstitutionSheet.tsx` passou a chamar
+`useAlternativesSearch(item, { includeSelf: true })` — antes chamava sem opções (default
+`includeSelf` ausente). **Nenhuma mudança na API**: o endpoint e o parâmetro `includeSelf` já
+existiam (criados para o combinar); o default do parâmetro continua `false`, então qualquer outro
+consumidor do endpoint sem o parâmetro não vê diferença. `apps/api/test/substitutions.e2e-spec.ts`
+não mudou — ele testa o comportamento do ENDPOINT sem parâmetro (que segue excluindo a origem por
+padrão), não o que cada tela do app escolhe pedir.
 
 ## Assumptions
 

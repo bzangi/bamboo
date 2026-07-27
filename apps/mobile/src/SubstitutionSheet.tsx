@@ -7,6 +7,11 @@
 // e rede que ninguém pediu. Com página, a busca precisa ser do SERVIDOR: filtrar
 // só o que já baixou devolveria resultado errado (o alimento pode estar na página
 // que ainda não veio).
+//
+// 021 (correção pós-shipping): `includeSelf` também aqui — o alimento que já
+// está no item entra na lista de candidatos, mesma decisão do combinar.
+// Selecioná-lo é um "troquei" trivial (mesma comida, mesma gramas), sem caso
+// especial: `handleSubstitute` já trata qualquer alternativa igual.
 import { useMemo } from "react";
 import {
   ActivityIndicator,
@@ -42,7 +47,7 @@ export function SubstitutionSheet({ item, onClose, onSelect }: Props) {
   const c = usePalette();
   const styles = useMemo(() => makeStyles(c), [c]);
   const { state, termo, setTermo, buscando, carregarMais } =
-    useAlternativesSearch(item);
+    useAlternativesSearch(item, { includeSelf: true });
 
   const visible = item !== null;
 
