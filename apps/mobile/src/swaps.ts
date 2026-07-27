@@ -17,6 +17,10 @@ export interface ActiveSwap {
   readonly previousOptionId: string;
   // itemId -> rótulo de quantidade já formatado (das OUTRAS refeições).
   readonly adjustments: Readonly<Record<string, string>>;
+  // itemId -> gramas novas do MESMO ajuste. Paralelo ao rótulo porque o sumário
+  // do dia precisa do NÚMERO, e ler de volta um rótulo formatado (com medida
+  // caseira no meio) pra recuperá-lo seria pior que carregar os dois.
+  readonly gramas: Readonly<Record<string, number>>;
 }
 
 // mealId-gatilho -> troca ativa.
@@ -45,6 +49,18 @@ export function buildAdjustments(
   }, {});
 }
 
+// Exportado pelo mesmo motivo do buildAdjustments: a edição em lote deriva as
+// gramas do MESMO outcome da prévia.
+export function buildGramas(
+  outcome: RebalanceOutcomeDto,
+): Readonly<Record<string, number>> {
+  if (outcome.kind !== "rebalanceado") return {};
+  return outcome.refeicoesAfetadas.reduce<Record<string, number>>((acc, r) => {
+    for (const it of r.itensAjustados) acc[it.itemId] = it.gramasNovo;
+    return acc;
+  }, {});
+}
+
 // Aplica (ou substitui) a troca de uma refeição. Substituição integral garante
 // que a re-troca não deixe ajustes da troca anterior (FR-006).
 export function applySwap(state: SwapState, args: ApplySwapArgs): SwapState {
@@ -54,6 +70,7 @@ export function applySwap(state: SwapState, args: ApplySwapArgs): SwapState {
       chosenOptionId: args.chosenOptionId,
       previousOptionId: args.previousOptionId,
       adjustments: buildAdjustments(args.outcome, args.formatLabel),
+      gramas: buildGramas(args.outcome),
     },
   };
 }
@@ -82,6 +99,16 @@ export function flattenAdjustments(
 ): Readonly<Record<string, string>> {
   return Object.values(state).reduce<Record<string, string>>((acc, swap) => {
     Object.assign(acc, swap.adjustments);
+    return acc;
+  }, {});
+}
+
+// O mesmo, com as gramas — para o sumário do dia.
+export function flattenGramas(
+  state: SwapState,
+): Readonly<Record<string, number>> {
+  return Object.values(state).reduce<Record<string, number>>((acc, swap) => {
+    Object.assign(acc, swap.gramas);
     return acc;
   }, {});
 }

@@ -25,6 +25,7 @@ import type {
   MealDto,
   MealItemDto,
   MealOptionDto,
+  NutritionDto,
   RebalanceOutcomeDto,
   RegistrationStatus,
   RegistroConsumo,
@@ -50,6 +51,7 @@ import {
   activeOptionId as getActiveOptionId,
   applySwap,
   flattenAdjustments,
+  flattenGramas,
   undoSwap,
   type SwapState,
 } from "./swaps";
@@ -57,11 +59,14 @@ import {
   applyEdit,
   capturarPrevious,
   flattenEditAdjustments,
+  flattenEditGramas,
   restaurarConsumo,
   restaurarNames,
   undoEdit,
   type EditState,
 } from "./edits";
+import { ResumoDoDia } from "./ResumoDoDia";
+import { somarNutricao } from "./resumo-dia";
 import { deveSinalizar } from "./meal-signal";
 import { montarConsumo, type ConsumoItem } from "./consumo";
 import { log } from "./logger";
@@ -83,6 +88,11 @@ interface NameOverride {
   // Presente só na combinação: uma etiqueta por alimento (nome + quantidade
   // juntos), pra não espremer o nome quando as 2 quantidades são longas.
   readonly parts?: readonly { readonly name: string; readonly qty: string }[];
+  // Nutrição do que entrou no lugar, como a API a devolveu junto da
+  // alternativa. É o que mantém o sumário do dia verdadeiro depois da troca —
+  // sem isso o topo seguiria somando o alimento que saiu. `null` = a exposição
+  // não liberou número (aí a faixa inteira já não aparece).
+  readonly nutrition?: NutritionDto | null;
 }
 
 export function HomeScreen() {
@@ -130,6 +140,22 @@ export function HomeScreen() {
   const adjustedItemIds = useMemo(
     () => new Set(Object.keys(qtyOverrides)),
     [qtyOverrides],
+  );
+  // Sumário do dia: as gramas novas dos MESMOS ajustes (o rótulo acima é pra
+  // ler; estas são pra somar) e a nutrição do que o paciente pôs no lugar.
+  const gramasAjustadas = useMemo(
+    () => ({ ...flattenGramas(swaps), ...flattenEditGramas(edits) }),
+    [swaps, edits],
+  );
+  const trocados = useMemo(
+    () =>
+      Object.fromEntries(
+        Object.entries(nameOverrides).map(([id, o]) => [
+          id,
+          o.nutrition ?? null,
+        ]),
+      ),
+    [nameOverrides],
   );
 
   // Sheets abertos.
@@ -218,6 +244,7 @@ export function HomeScreen() {
         [item.id]: {
           foodName: alt.name,
           quantityLabel: formatQuantidade(alt.gramas, alt.medidaCaseira),
+          nutrition: alt.nutrition ?? null,
         },
       }));
       // Consumo efetivo: 1 alimento substituto, pra derivar "troquei" no POST.
@@ -248,6 +275,8 @@ export function HomeScreen() {
               { name: p0.food.name, qty: label(p0) },
               { name: p1.food.name, qty: label(p1) },
             ],
+            // O item continua sendo UM aporte no dia: as duas metades somam.
+            nutrition: somarNutricao([p0.nutrition, p1.nutrition]) ?? null,
           },
         }));
         // Consumo efetivo: 2 alimentos do mesmo grupo, ambos no mesmo itemId;
@@ -321,6 +350,7 @@ export function HomeScreen() {
             quantityLabel: alt.adLibitum
               ? A_VONTADE
               : formatQuantidade(alt.gramas, alt.medidaCaseira),
+            nutrition: alt.nutrition ?? null,
           };
         }
         return next;
@@ -488,6 +518,17 @@ export function HomeScreen() {
           <Text style={styles.data}>{dataExtenso(new Date())}</Text>
           {pilula}
         </View>
+
+        {/* O dia em quatro números, logo abaixo da pílula: soma a opção ATIVA
+            de cada refeição (a padrão ou a trocada), pula o que foi pulado e
+            acompanha troca/combinação/rebalanceamento. Some inteira quando a
+            exposição do paciente não libera número. */}
+        <ResumoDoDia
+          meals={data.meals}
+          swaps={swaps}
+          trocados={trocados}
+          ajustados={gramasAjustadas}
+        />
 
         {/* Falha no registro (não-bloqueante): "nunca barra", mas não finge que
             salvou. Auto-some em ~6s; o paciente toca de novo pra tentar. */}

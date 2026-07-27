@@ -7,7 +7,7 @@
 // última edição, o previous dela já é o estado com a anterior aplicada).
 import type { ItemAjustadoDto, RebalanceOutcomeDto } from "@bamboo/types";
 import type { ConsumoItem } from "./consumo";
-import { buildAdjustments } from "./swaps";
+import { buildAdjustments, buildGramas } from "./swaps";
 
 // Mesma forma do NameOverride do HomeScreen (compatibilidade estrutural).
 export interface EditNameOverride {
@@ -26,6 +26,8 @@ export interface MealEdit {
   readonly previous: Readonly<Record<string, ItemPrevious>>;
   // itemId (de OUTRAS refeições) -> rótulo de quantidade formatado.
   readonly adjustments: Readonly<Record<string, string>>;
+  // itemId -> gramas novas do mesmo ajuste (sumário do dia). Ver swaps.ts.
+  readonly gramas: Readonly<Record<string, number>>;
 }
 
 // mealId editado -> edição ativa.
@@ -45,6 +47,7 @@ export function applyEdit(state: EditState, args: ApplyEditArgs): EditState {
     [args.mealId]: {
       previous: args.previous,
       adjustments: buildAdjustments(args.outcome, args.formatLabel),
+      gramas: buildGramas(args.outcome),
     },
   };
 }
@@ -64,6 +67,16 @@ export function flattenEditAdjustments(
 ): Readonly<Record<string, string>> {
   return Object.values(state).reduce<Record<string, string>>((acc, edit) => {
     Object.assign(acc, edit.adjustments);
+    return acc;
+  }, {});
+}
+
+// O mesmo, com as gramas — para o sumário do dia.
+export function flattenEditGramas(
+  state: EditState,
+): Readonly<Record<string, number>> {
+  return Object.values(state).reduce<Record<string, number>>((acc, edit) => {
+    Object.assign(acc, edit.gramas);
     return acc;
   }, {});
 }
