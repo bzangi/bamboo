@@ -177,6 +177,14 @@ export interface ItemDia {
   readonly isLocked: boolean;
   readonly groupId: string | null;
   readonly medidas: readonly HouseholdMeasure[];
+  /**
+   * "À vontade" (018): a nutri prescreveu o item SEM quantidade — `gramas` é 0 e
+   * não significa "zero grama", significa "não há quantidade prescrita".
+   *
+   * OBRIGATÓRIO de propósito, como o `isRegistered` da 004: opcional deixaria um
+   * adaptador esquecer, e esquecer aqui significa **reescalar salada**.
+   */
+  readonly adLibitum: boolean;
 }
 
 export interface RefeicaoDia {
@@ -185,8 +193,12 @@ export interface RefeicaoDia {
   readonly isRegistered: boolean; // NOVO (Fase 4) — estado vigente registrado hoje
 }
 
-// Item flexível = não travado e com grupo de substituição (FR-006).
-const ehAlavanca = (i: ItemDia): boolean => !i.isLocked && i.groupId != null;
+// Item flexível = não travado, com grupo de substituição (FR-006) e COM
+// quantidade prescrita: item "à vontade" não tem o que reescalar (018/FR-002).
+// A cláusula mora aqui, e não num filtro na casca, porque este predicado é a
+// definição única de "item flexível" — duas definições é como elas divergem.
+const ehAlavanca = (i: ItemDia): boolean =>
+  !i.isLocked && i.groupId != null && !i.adLibitum;
 
 const toAlavanca = (i: ItemDia, position: number): Alavanca => ({
   itemId: i.itemId,

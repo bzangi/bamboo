@@ -74,6 +74,7 @@ describe("previewTrocaTipoDia — espalha por 2 refeições restantes", () => {
       isLocked: false,
       groupId: "g",
       medidas: [],
+      adLibitum: false,
     });
     // alvoNovo: duas refeições de 100 → 200 kcal.
     const defaultNovo = [

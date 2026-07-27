@@ -153,6 +153,7 @@ const itemDia = (
     isLocked?: boolean;
     groupId?: string | null;
     gramasPlanejado?: number;
+    adLibitum?: boolean;
   } = {},
 ): ItemDia => ({
   itemId,
@@ -162,6 +163,7 @@ const itemDia = (
   isLocked: opts.isLocked ?? false,
   groupId: opts.groupId === undefined ? "g1" : opts.groupId,
   medidas: [],
+  adLibitum: opts.adLibitum ?? false,
 });
 
 // Alvo: m1=100, m2=100, m3=(lever 150 + travado 100) → kcal 450.
@@ -486,6 +488,63 @@ describe("previewTrocaTipoDia (P3, engine-level)", () => {
     });
     expect(r.ok && r.value.kind === "recusa-orientada" && r.value.motivo).toBe(
       "estoura-piso",
+    );
+  });
+});
+
+/* ============ 018 — item "à vontade" nunca é alavanca ============ */
+
+describe('previewTrocaOpcao (P1) — item "à vontade" fica fora dos ajustes', () => {
+  it("item à vontade na refeição seguinte não recebe ajuste; o flexível ao lado recebe", () => {
+    const dia = [
+      { position: 1, isRegistered: false, itens: [itemDia("ant", 100)] },
+      { position: 2, isRegistered: false, itens: [itemDia("m2", 150)] }, // gatilho
+      {
+        position: 3,
+        isRegistered: false,
+        itens: [
+          itemDia("seg", 150, { gramasPlanejado: 150 }),
+          // salada: tem grupo e não é travada, mas NÃO tem quantidade prescrita
+          itemDia("salada", 0, { gramasPlanejado: 0, adLibitum: true }),
+        ],
+      },
+    ];
+    const r = previewTrocaOpcao({
+      refeicoesDefault,
+      diaComEscolha: dia,
+      triggerPosition: 2,
+      parametros: PARAMETROS_SISTEMA,
+    });
+
+    if (r.ok && r.value.kind === "rebalanceado") {
+      const ids = r.value.alavancas.map((a) => a.itemId).sort();
+      expect(ids).toEqual(["ant", "seg"]); // "salada" fora
+    } else throw new Error("esperava rebalanceado");
+  });
+
+  it("se TODOS os flexíveis das não-gatilho são à vontade → recusa sem-alavanca (nunca ajusta o inajustável)", () => {
+    const dia = [
+      {
+        position: 1,
+        isRegistered: false,
+        itens: [itemDia("s1", 0, { gramasPlanejado: 0, adLibitum: true })],
+      },
+      { position: 2, isRegistered: false, itens: [itemDia("m2", 150)] }, // gatilho
+      {
+        position: 3,
+        isRegistered: false,
+        itens: [itemDia("s2", 0, { gramasPlanejado: 0, adLibitum: true })],
+      },
+    ];
+    const r = previewTrocaOpcao({
+      refeicoesDefault,
+      diaComEscolha: dia,
+      triggerPosition: 2,
+      parametros: PARAMETROS_SISTEMA,
+    });
+
+    expect(r.ok && r.value.kind === "recusa-orientada" && r.value.motivo).toBe(
+      "sem-alavanca",
     );
   });
 });
