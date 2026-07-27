@@ -1,4 +1,6 @@
-/* Tokens da visão da nutri (Feature 015).
+@import "tailwindcss";
+
+/* Tokens da visão da nutri (Feature 015) + Tailwind/shadcn por cima (017).
  *
  * A paleta categórica (feito / troquei / pulei) foi VALIDADA nos dois modos:
  * banda de luminosidade, piso de croma, separação para daltonismo (ΔE) e
@@ -9,6 +11,10 @@
  * feito/adesão = o verde do produto (o mesmo #2e7d32 do app do paciente) e
  * troquei = azul: as duas semânticas já existem no mobile, e a nutri lê as duas
  * telas. Consistência entre apps, não decoração.
+ *
+ * 017: os tokens do shadcn são MAPEADOS nestas variáveis (bloco @theme abaixo) em
+ * vez de trazerem a paleta neutra padrão dele. Assim o design system novo herda a
+ * cor que já foi validada, e a migração não regride a visualização de dados (R3).
  */
 :root {
   color-scheme: light;
@@ -32,6 +38,10 @@
 
   --sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
   --mono: var(--font-geist-mono), ui-monospace, "SF Mono", monospace;
+
+  /* Superfície levemente recuada para linhas de tabela e campos — o único token
+   * de cor que a 017 acrescenta, porque a 015 não tinha tabela nem formulário. */
+  --muted: #eeeee8;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -52,7 +62,38 @@
 
     --bom: #43a047;
     --ruim: #c97f22;
+
+    --muted: #22261e;
   }
+}
+
+/* Ponte para o Tailwind: `inline` faz as utilities resolverem a variável no ponto
+ * de uso, então o troco claro/escuro do @media acima continua funcionando sem
+ * duplicar classe nenhuma. */
+@theme inline {
+  --color-background: var(--paper);
+  --color-foreground: var(--ink);
+  --color-card: var(--surface);
+  --color-card-foreground: var(--ink);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--ink-2);
+  --color-subtle: var(--ink-3);
+  --color-border: var(--line);
+  --color-input: var(--line);
+  --color-ring: var(--feito);
+  --color-primary: var(--feito);
+  --color-primary-foreground: #ffffff;
+  --color-destructive: var(--pulei);
+  --color-feito: var(--feito);
+  --color-troquei: var(--troquei);
+  --color-pulei: var(--pulei);
+  --color-sem-registro: var(--sem-registro);
+
+  --radius-sm: var(--radius);
+  --radius-md: calc(var(--radius) * 2);
+
+  --font-sans: var(--sans);
+  --font-mono: var(--mono);
 }
 
 * {

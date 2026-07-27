@@ -1,49 +1,33 @@
-// Roster da nutri — a porta de entrada (015) e o cadastro (016). Server
-// Component: o fetch, a escrita e a credencial ficam no servidor.
+// Roster da nutri — a porta de entrada (015), o cadastro (016) e agora o caminho
+// para a ficha e para os planos (017). Server Component: o fetch, a escrita e a
+// credencial ficam no servidor.
 import Link from "next/link";
-import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
 import type { NutriPatientDto } from "@bamboo/types";
-import { createPatient, explicarFalha, listPatients } from "../lib/nutri";
-import { dataCurta, diaDoCiclo } from "../lib/format";
-import s from "./nutri.module.css";
+import {
+  Aviso,
+  Cabecalho,
+  Falha,
+  Mono,
+  Pagina,
+  Vazio,
+} from "@/components/chrome";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { dataCurta, diaDoCiclo } from "@/lib/format";
+import { explicarFalha, listPatients } from "@/lib/nutri";
+import { cadastrarPaciente } from "./acoes";
 
 const NOME_MAX = 120;
-
-// A falha volta pela URL como CÓDIGO, nunca como texto: nada vindo de fora é
-// refletido na página, e dispensa `useActionState` (que exigiria componente
-// client, e com ele a chance de a credencial encostar no browser).
-const ERROS: Record<string, string> = {
-  "nome-invalido": `Nome inválido. Digite de 1 a ${NOME_MAX} caracteres.`,
-  api: "Não foi possível cadastrar agora. Confira se a API está no ar e tente de novo.",
-};
-
-/**
- * Cadastra o paciente (016). Server Action: roda no servidor, então a
- * credencial continua onde estava.
- *
- * ⚠️ `redirect()` funciona LANÇANDO uma exceção interna do Next — por isso ele
- * nunca pode ficar dentro do `try`, ou o `catch` engole o redirect e a resposta
- * vira erro.
- */
-async function cadastrarPaciente(formData: FormData): Promise<void> {
-  "use server";
-  const name = String(formData.get("name") ?? "").trim();
-  if (name.length === 0 || name.length > NOME_MAX) {
-    redirect("/?erro=nome-invalido");
-  }
-
-  let ok = true;
-  try {
-    await createPatient(name);
-  } catch {
-    ok = false;
-  }
-  if (!ok) redirect("/?erro=api");
-
-  revalidatePath("/");
-  redirect("/"); // limpa um ?erro= antigo da barra de endereços
-}
 
 // Hoje em data-calendário LOCAL do servidor — a mesma convenção do domínio
 // (`localToday` na API, `localDate` nos testes), nunca UTC.
@@ -56,22 +40,20 @@ function hojeLocal(): string {
 
 function EstadoDoCiclo({ p }: { p: NutriPatientDto }) {
   const c = p.cicloAtual;
-  if (!c) {
-    return <span className={`${s.rowState} ${s.rowStateOff}`}>sem ciclo</span>;
-  }
+  if (!c) return <Badge variant="contorno">sem ciclo</Badge>;
   if (c.aberto) {
     return (
-      <span className={s.rowState}>
-        <span className={s.dot} aria-hidden="true" />
+      <Badge variant="feito">
+        <span aria-hidden="true" className="size-1.5 rounded-full bg-current" />
         em ciclo · dia {diaDoCiclo(c.startedOn, hojeLocal())} de{" "}
         {c.expectedDurationDays}
-      </span>
+      </Badge>
     );
   }
   return (
-    <span className={s.rowState}>
+    <Badge variant="neutro">
       último ciclo · {dataCurta(c.startedOn)} → {dataCurta(c.closedOn ?? "")}
-    </span>
+    </Badge>
   );
 }
 
@@ -82,7 +64,6 @@ export default async function Pacientes({
   searchParams: Promise<{ erro?: string }>;
 }) {
   const { erro } = await searchParams;
-  const falhaDoCadastro = erro ? (ERROS[erro] ?? ERROS.api) : null;
 
   let patients: ReadonlyArray<NutriPatientDto>;
   try {
@@ -90,85 +71,103 @@ export default async function Pacientes({
   } catch (e) {
     const { titulo, detalhe } = explicarFalha(e);
     return (
-      <main className={s.page}>
-        <p className={s.eyebrow}>Bamboo · visão da nutri</p>
-        <h1 className={s.title}>Pacientes</h1>
-        <div className={s.card}>
-          <p className={s.cardTitle}>{titulo}</p>
-          <p className={s.cardBody}>{detalhe}</p>
-        </div>
-      </main>
+      <Pagina>
+        <Cabecalho sobrescrito="Bamboo · visão da nutri" titulo="Pacientes" />
+        <Falha titulo={titulo} detalhe={detalhe} />
+      </Pagina>
     );
   }
 
   const emCiclo = patients.filter((p) => p.cicloAtual?.aberto).length;
 
   return (
-    <main className={s.page}>
-      <div className={s.head}>
-        <div>
-          <p className={s.eyebrow}>Bamboo · visão da nutri</p>
-          <h1 className={s.title}>Pacientes</h1>
-        </div>
-        <p className={s.rowState}>
-          {patients.length} {patients.length === 1 ? "paciente" : "pacientes"} ·{" "}
-          {emCiclo} em ciclo
-        </p>
-      </div>
+    <Pagina>
+      <Cabecalho
+        sobrescrito="Bamboo · visão da nutri"
+        titulo="Pacientes"
+        direita={
+          <Mono className="text-muted-foreground">
+            {patients.length} {patients.length === 1 ? "paciente" : "pacientes"}{" "}
+            · {emCiclo} em ciclo
+          </Mono>
+        }
+      />
 
-      {falhaDoCadastro && (
-        <div className={s.card}>
-          <p className={s.cardTitle}>O paciente não foi cadastrado</p>
-          <p className={s.cardBody}>{falhaDoCadastro}</p>
-        </div>
-      )}
+      <Aviso codigo={erro} />
 
       {patients.length === 0 ? (
-        <div className={s.card}>
-          <p className={s.cardTitle}>Nenhum paciente ainda</p>
-          <p className={s.cardBody}>
-            Cadastre o primeiro no campo abaixo. Ele nasce sem plano e sem ciclo
-            — o plano é semeado com{" "}
-            <span className={s.mono}>pnpm --filter @bamboo/db seed</span> e o
-            ciclo se abre na consulta.
-          </p>
-        </div>
+        <Vazio titulo="Nenhum paciente ainda">
+          Cadastre o primeiro no campo abaixo. Ele nasce sem plano e sem ciclo —
+          o plano se monta em <Mono>Planos</Mono> e o ciclo se abre na consulta.
+        </Vazio>
       ) : (
-        <ul className={s.list}>
-          {patients.map((p) => (
-            <li key={p.id}>
-              <Link className={s.row} href={`/patients/${p.id}`}>
-                <span className={s.rowName}>{p.name}</span>
-                <EstadoDoCiclo p={p} />
-              </Link>
-            </li>
-          ))}
-        </ul>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Paciente</TableHead>
+              <TableHead>Acompanhamento</TableHead>
+              <TableHead className="text-right">Abrir</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {patients.map((p) => (
+              <TableRow key={p.id}>
+                <TableCell className="font-medium text-foreground">
+                  <Link className="hover:underline" href={`/patients/${p.id}`}>
+                    {p.name}
+                  </Link>
+                </TableCell>
+                <TableCell>
+                  <EstadoDoCiclo p={p} />
+                </TableCell>
+                <TableCell className="text-right whitespace-nowrap">
+                  <Link href={`/patients/${p.id}`}>
+                    <Button variant="ghost" size="xs">
+                      Acompanhamento
+                    </Button>
+                  </Link>
+                  <Link href={`/patients/${p.id}/plans`}>
+                    <Button variant="ghost" size="xs">
+                      Planos
+                    </Button>
+                  </Link>
+                  <Link href={`/patients/${p.id}/ficha`}>
+                    <Button variant="ghost" size="xs">
+                      Ficha
+                    </Button>
+                  </Link>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
       )}
 
       {/* `<details>` nativo: colapsado por padrão, a tela continua sendo a
           lista. Sem estado, sem componente client. */}
-      <details className={s.novo}>
-        <summary className={s.novoResumo}>Cadastrar paciente</summary>
-        <form className={s.novoForm} action={cadastrarPaciente}>
-          <label className={s.novoLabel} htmlFor="name">
-            Nome
-          </label>
-          <input
-            className={s.novoInput}
-            id="name"
-            name="name"
-            type="text"
-            maxLength={NOME_MAX}
-            required
-            autoComplete="off"
-            placeholder="Ana Ribeiro"
-          />
-          <button className={s.novoBtn} type="submit">
-            Cadastrar
-          </button>
+      <details className="rounded-md border border-dashed border-border">
+        <summary className="cursor-pointer px-4 py-3 text-sm font-medium text-muted-foreground hover:text-foreground">
+          Cadastrar paciente
+        </summary>
+        <form
+          className="flex flex-wrap items-end gap-3 border-t border-border px-4 py-3"
+          action={cadastrarPaciente}
+        >
+          <div className="flex min-w-56 flex-1 flex-col gap-1.5">
+            <Label htmlFor="name">Nome</Label>
+            <Input
+              id="name"
+              name="name"
+              type="text"
+              maxLength={NOME_MAX}
+              required
+              autoComplete="off"
+              placeholder="Ana Ribeiro"
+            />
+          </div>
+          <Button type="submit">Cadastrar</Button>
         </form>
       </details>
-    </main>
+    </Pagina>
   );
 }

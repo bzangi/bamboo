@@ -95,3 +95,43 @@ export async function requestJson<T>(
 
   return (await res.json()) as T;
 }
+
+/**
+ * Igual ao `requestJson`, para respostas SEM corpo (204 No Content). Existe
+ * porque `requestJson` chama `res.json()` sempre, e num 204 isso lança —
+ * transformando um sucesso em erro. Os DELETE da via da nutri (017) respondem 204.
+ */
+export async function requestVoid(
+  url: string,
+  options: RequestOptions = {},
+): Promise<void> {
+  const { label, ...init } = options;
+  const method = init.method ?? "GET";
+  const op = label ?? method;
+
+  let res: Response;
+  try {
+    res = await fetch(url, init);
+  } catch (cause) {
+    throw new ApiError({
+      message: `${op} — falha de rede: não conectou em ${url} (verifique a API_URL/porta)`,
+      status: 0,
+      isNetworkError: true,
+      url,
+      method,
+      body: undefined,
+      cause,
+    });
+  }
+
+  if (!res.ok) {
+    throw new ApiError({
+      message: `${op} — HTTP ${res.status} ${res.statusText}`,
+      status: res.status,
+      isNetworkError: false,
+      url,
+      method,
+      body: await safeJson(res),
+    });
+  }
+}

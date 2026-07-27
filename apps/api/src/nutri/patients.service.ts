@@ -10,14 +10,50 @@ import {
   Inject,
   Injectable,
   InternalServerErrorException,
+  NotFoundException,
   UnprocessableEntityException,
 } from '@nestjs/common';
-import type { NutriPatientDto, NutriPatientsResponse } from '@bamboo/types';
+import type {
+  ExposureLevel,
+  NutriPatientDetalheDto,
+  NutriPatientDto,
+  NutriPatientsResponse,
+} from '@bamboo/types';
 import { asc, desc, eq, schema, sql } from '@bamboo/db';
 import { DB, type Db } from '../db/db.module';
+import {
+  apagarCiclosDoPaciente,
+  apagarGrafoDosPlanos,
+  recusar,
+} from '../plano-editor/cascata';
+import {
+  numeroPositivoOuNulo,
+  presente,
+  texto,
+  textoOuNulo,
+  umDe,
+} from '../plano-editor/validar';
 
 /** Limite de `name`. Não é regra de negócio, é sanidade de borda. */
 const NOME_MAX = 120;
+
+/** Os quatro níveis do enum `exposure_level` do schema. */
+const NIVEIS_EXPOSICAO = [
+  'hidden',
+  'percent',
+  'macros',
+  'full_kcal',
+] as const satisfies ReadonlyArray<ExposureLevel>;
+
+/** Corpo do PATCH da ficha (017). Tudo opcional; `null` limpa. */
+export interface AtualizarPacienteBody {
+  readonly name?: unknown;
+  readonly email?: unknown;
+  readonly phone?: unknown;
+  readonly heightCm?: unknown;
+  readonly weightKg?: unknown;
+  readonly exposure?: unknown;
+}
 
 /** Linha do join: um paciente × (0..n) ciclos. */
 interface RosterRow {
@@ -141,5 +177,113 @@ export class PatientsService {
     // Mesma forma do item da listagem (D3): o cliente insere na lista sem uma
     // segunda chamada, e não nasce um segundo formato para "paciente".
     return { id: row.id, name: row.name, cicloAtual: null };
+  }
+
+  /**
+   * A ficha de UM paciente (017). Existe porque o formulário de edição precisa
+   * preencher os campos com o que está lá — a minimização da 015 vale para a
+   * LISTAGEM, e um formulário cego não consegue nem limpar um campo.
+   *
+   * Sem `cicloAtual` de propósito: a regra de "qual ciclo mostrar" (015/D2) fica
+   * na roster e em nenhum outro lugar.
+   */
+  async detalhe(patientId: string): Promise<NutriPatientDetalheDto> {
+    const [p] = await this.db
+      .select({
+        id: schema.patient.id,
+        name: schema.patient.name,
+        email: schema.patient.email,
+        phone: schema.patient.phone,
+        heightCm: schema.patient.heightCm,
+        weightKg: schema.patient.weightKg,
+        exposure: schema.patient.exposure,
+      })
+      .from(schema.patient)
+      .where(eq(schema.patient.id, patientId))
+      .limit(1);
+
+    if (!p) throw new NotFoundException('paciente não encontrado');
+    return p;
+  }
+
+  /**
+   * PATCH parcial da ficha (017 / US1). Campo ausente preserva; `null` limpa.
+   * A distinção vem da PRESENÇA da chave, não do valor — `body.email ===
+   * undefined` não separa "não mandou" de "mandou null" (D7).
+   */
+  async atualizar(
+    patientId: string,
+    body: AtualizarPacienteBody,
+  ): Promise<NutriPatientDetalheDto> {
+    await this.detalhe(patientId); // 404 antes de validar corpo
+
+    const patch: Record<string, unknown> = {};
+    if (presente(body, 'name')) patch.name = texto(body.name, 'name', NOME_MAX);
+    if (presente(body, 'email')) {
+      patch.email = textoOuNulo(body.email, 'email', 254);
+    }
+    if (presente(body, 'phone')) {
+      patch.phone = textoOuNulo(body.phone, 'phone', 32);
+    }
+    if (presente(body, 'heightCm')) {
+      patch.heightCm = numeroPositivoOuNulo(body.heightCm, 'heightCm', 300);
+    }
+    if (presente(body, 'weightKg')) {
+      patch.weightKg = numeroPositivoOuNulo(body.weightKg, 'weightKg', 700);
+    }
+    if (presente(body, 'exposure')) {
+      patch.exposure = umDe(body.exposure, 'exposure', NIVEIS_EXPOSICAO);
+    }
+
+    // Corpo sem nenhum campo conhecido: no-op, não erro. A tela manda o
+    // formulário inteiro e nem sempre há mudança.
+    if (Object.keys(patch).length > 0) {
+      await this.db
+        .update(schema.patient)
+        .set(patch)
+        .where(eq(schema.patient.id, patientId));
+    }
+
+    return this.detalhe(patientId);
+  }
+
+  /**
+   * Exclui o paciente e tudo que só existe por causa dele: planos e o grafo
+   * inteiro abaixo, ciclos e vigências.
+   *
+   * RECUSA (409) se houver `meal_event`. A checagem é direta em
+   * `meal_event.patient_id` — não pela lista de refeições dos planos atuais —
+   * porque um registro de plano já apagado ainda é histórico do paciente.
+   */
+  async excluir(patientId: string): Promise<void> {
+    await this.detalhe(patientId); // 404
+
+    await this.db.transaction(async (tx) => {
+      const [registro] = await tx
+        .select({ id: schema.mealEvent.id })
+        .from(schema.mealEvent)
+        .where(eq(schema.mealEvent.patientId, patientId))
+        .limit(1);
+
+      if (registro) {
+        recusar(
+          'este paciente tem registro de refeição: o histórico não é apagado por exclusão de cadastro. Exclua os registros primeiro, se for realmente essa a intenção.',
+        );
+      }
+
+      const planos = await tx
+        .select({ id: schema.plan.id })
+        .from(schema.plan)
+        .where(eq(schema.plan.patientId, patientId));
+
+      await apagarGrafoDosPlanos(
+        tx,
+        planos.map((p) => p.id),
+      );
+      // Vigências referenciam ciclo E plano, então os ciclos saem antes do plano.
+      await apagarCiclosDoPaciente(tx, patientId);
+      await tx.delete(schema.plan).where(eq(schema.plan.patientId, patientId));
+      await tx.delete(schema.patient).where(eq(schema.patient.id, patientId));
+    });
   }
 }

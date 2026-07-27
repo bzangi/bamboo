@@ -48,11 +48,32 @@ function Falha({ titulo, detalhe }: { titulo: string; detalhe: string }) {
   );
 }
 
-function Voltar() {
+/**
+ * A barra de navegação da tela do paciente. Ganhou os caminhos para o editor de
+ * plano e para a ficha na 017 — é o único ponto desta tela que a 017 tocou: a
+ * visualização de dados abaixo tem paleta validada (banda de luminosidade, croma,
+ * ΔE de daltonismo, contraste) e migrá-la para Tailwind só criaria risco de
+ * regressão sem nenhum ganho.
+ */
+function Nav({ patientId }: { patientId: string }) {
   return (
-    <Link className={s.back} href="/">
-      ← pacientes
-    </Link>
+    <div className="flex flex-wrap items-center gap-4">
+      <Link className={s.back} href="/">
+        ← pacientes
+      </Link>
+      <Link
+        className="text-xs text-[var(--ink-3)] hover:text-[var(--ink)] hover:underline"
+        href={`/patients/${patientId}/plans`}
+      >
+        planos
+      </Link>
+      <Link
+        className="text-xs text-[var(--ink-3)] hover:text-[var(--ink)] hover:underline"
+        href={`/patients/${patientId}/ficha`}
+      >
+        ficha
+      </Link>
+    </div>
   );
 }
 
@@ -137,7 +158,7 @@ export default async function Paciente({
   } catch (e) {
     return (
       <main className={s.page}>
-        <Voltar />
+        <Nav patientId={patientId} />
         <Falha {...explicarFalha(e)} />
       </main>
     );
@@ -151,7 +172,7 @@ export default async function Paciente({
   if (!ciclo) {
     return (
       <main className={s.page}>
-        <Voltar />
+        <Nav patientId={patientId} />
         <p className={s.eyebrow}>paciente</p>
         <h1 className={s.title}>{paciente.name}</h1>
         <div className={s.card}>
@@ -172,7 +193,7 @@ export default async function Paciente({
   } catch (e) {
     return (
       <main className={s.page}>
-        <Voltar />
+        <Nav patientId={patientId} />
         <p className={s.eyebrow}>paciente</p>
         <h1 className={s.title}>{paciente.name}</h1>
         <Falha {...explicarFalha(e)} />
@@ -188,7 +209,7 @@ export default async function Paciente({
 
   return (
     <main className={s.page}>
-      <Voltar />
+      <Nav patientId={patientId} />
 
       <div className={s.head}>
         <div>

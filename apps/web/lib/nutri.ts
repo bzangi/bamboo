@@ -1,20 +1,35 @@
-// Acesso à via /nutri da API. **Só roda no servidor** (Server Components): a
-// credencial da nutri nunca pode chegar ao navegador (FR-006).
+// Acesso à via /nutri da API. **Só roda no servidor** (Server Components e Server
+// Actions): a credencial da nutri nunca pode chegar ao navegador (FR-006).
 //
-// A garantia não é um comentário: o app não tem NENHUM componente client
-// ("use client" não aparece em arquivo algum), e a chave é lida de
-// `process.env.NUTRI_API_KEY` — sem prefixo `NEXT_PUBLIC_`, ela simplesmente não
-// existe no bundle do browser. Se um dia alguém importar isto de um componente
-// client, `process.env` vem vazio e o fetch falha fechado, com a mensagem de
-// configuração abaixo. Fail-closed do mesmo jeito que o guard do lado da API.
+// A garantia não é um comentário: o app não tem NENHUM componente client, e a
+// chave é lida de `process.env.NUTRI_API_KEY` — sem prefixo `NEXT_PUBLIC_`, ela
+// simplesmente não existe no bundle do browser. Se um dia alguém importar isto de
+// um componente client, `process.env` vem vazio e o fetch falha fechado, com a
+// mensagem de configuração abaixo. Fail-closed como o guard do lado da API.
 //
-// Reusa o `requestJson` do @bamboo/api-client (D6): ele separa "não conectou" de
-// "a API respondeu erro", que é exatamente a distinção que a tela precisa dizer.
-import { ApiError, requestJson } from "@bamboo/api-client";
+// Como CONFERIR (a 017 aprendeu isto na mão): procure a DIRETIVA, não a
+// substring — vários arquivos citam a expressão em comentário, então um
+// `grep -rl "use client"` devolve 4 falsos positivos. O teste certo é
+//     grep -rlE '^\s*["'"'"']use client["'"'"']' apps/web/{app,components,lib}
+// que hoje devolve zero.
+//
+// Reusa o `requestJson`/`requestVoid` do @bamboo/api-client (D6): eles separam
+// "não conectou" de "a API respondeu erro", que é exatamente a distinção que a
+// tela precisa dizer.
+import { ApiError, requestJson, requestVoid } from "@bamboo/api-client";
 import type {
   CycleReportResponse,
+  FoodsResponse,
+  GruposResponse,
+  NutriPatientDetalheDto,
   NutriPatientDto,
   NutriPatientsResponse,
+  PlanoDto,
+  PlanoItemDto,
+  PlanoOpcaoDto,
+  PlanoRefeicaoDto,
+  PlanoTipoDiaDto,
+  PlanosResponse,
 } from "@bamboo/types";
 
 export const API_URL = process.env.API_URL ?? "http://localhost:3000";
@@ -37,9 +52,36 @@ const get = <T>(path: string, label: string): Promise<T> =>
   requestJson<T>(`${API_URL}${path}`, {
     label,
     headers: nutriHeaders(),
-    // A nutri está lendo acompanhamento: nada de resposta cacheada.
+    // A nutri está lendo/editando acompanhamento: nada de resposta cacheada.
     cache: "no-store",
   });
+
+const escrever = <T>(
+  method: "POST" | "PATCH" | "PUT",
+  path: string,
+  label: string,
+  body: unknown,
+): Promise<T> =>
+  requestJson<T>(`${API_URL}${path}`, {
+    label,
+    method,
+    headers: { ...nutriHeaders(), "content-type": "application/json" },
+    body: JSON.stringify(body),
+    cache: "no-store",
+  });
+
+/** DELETE responde 204 sem corpo — daí `requestVoid` e não `requestJson`. */
+const apagar = (path: string, label: string): Promise<void> =>
+  requestVoid(`${API_URL}${path}`, {
+    label,
+    method: "DELETE",
+    headers: nutriHeaders(),
+    cache: "no-store",
+  });
+
+const id = (v: string) => encodeURIComponent(v);
+
+/* ═══════════ paciente ═══════════ */
 
 /** A roster. Também é a fonte de nome + ciclo atual da tela do paciente (D1). */
 export const listPatients = (): Promise<NutriPatientsResponse> =>
@@ -47,23 +89,212 @@ export const listPatients = (): Promise<NutriPatientsResponse> =>
 
 /** Cadastro de paciente (016). Devolve o paciente já na forma do item da lista. */
 export const createPatient = (name: string): Promise<NutriPatientDto> =>
-  requestJson<NutriPatientDto>(`${API_URL}/nutri/patients`, {
-    label: "createPatient",
-    method: "POST",
-    headers: { ...nutriHeaders(), "content-type": "application/json" },
-    body: JSON.stringify({ name }),
-    cache: "no-store",
+  escrever<NutriPatientDto>("POST", "/nutri/patients", "createPatient", {
+    name,
   });
 
-/** O relatório de ciclo da 011, consumido sem alteração. */
+/** A ficha, para o formulário de edição preencher (017). */
+export const getPatient = (
+  patientId: string,
+): Promise<NutriPatientDetalheDto> =>
+  get<NutriPatientDetalheDto>(`/nutri/patients/${id(patientId)}`, "getPatient");
+
+export const updatePatient = (
+  patientId: string,
+  patch: Record<string, unknown>,
+): Promise<NutriPatientDetalheDto> =>
+  escrever<NutriPatientDetalheDto>(
+    "PATCH",
+    `/nutri/patients/${id(patientId)}`,
+    "updatePatient",
+    patch,
+  );
+
+export const deletePatient = (patientId: string): Promise<void> =>
+  apagar(`/nutri/patients/${id(patientId)}`, "deletePatient");
+
+/* ═══════════ plano ═══════════ */
+
+export const listPlans = (patientId: string): Promise<PlanosResponse> =>
+  get<PlanosResponse>(`/nutri/patients/${id(patientId)}/plans`, "listPlans");
+
+export const createPlan = (
+  patientId: string,
+  name: string,
+): Promise<PlanoDto> =>
+  escrever<PlanoDto>(
+    "POST",
+    `/nutri/patients/${id(patientId)}/plans`,
+    "createPlan",
+    { name },
+  );
+
+export const getPlan = (planId: string): Promise<PlanoDto> =>
+  get<PlanoDto>(`/nutri/plans/${id(planId)}`, "getPlan");
+
+export const updatePlan = (planId: string, name: string): Promise<PlanoDto> =>
+  escrever<PlanoDto>("PATCH", `/nutri/plans/${id(planId)}`, "updatePlan", {
+    name,
+  });
+
+export const deletePlan = (planId: string): Promise<void> =>
+  apagar(`/nutri/plans/${id(planId)}`, "deletePlan");
+
+/** Ativar plano continua sendo o ato observado pelo ciclo (007) — não é PATCH. */
+export const activatePlan = (
+  patientId: string,
+  planId: string,
+): Promise<{ planId: string; jaAtivo: boolean }> =>
+  escrever(
+    "POST",
+    `/nutri/patients/${id(patientId)}/active-plan`,
+    "activatePlan",
+    { planId },
+  );
+
+export const setSchedule = (
+  planId: string,
+  days: ReadonlyArray<{ weekday: number; dayTypeId: string }>,
+): Promise<PlanoDto> =>
+  escrever<PlanoDto>(
+    "PUT",
+    `/nutri/plans/${id(planId)}/schedule`,
+    "setSchedule",
+    { days },
+  );
+
+/* ═══════════ tipo-de-dia ═══════════ */
+
+export const createDayType = (
+  planId: string,
+  name: string,
+): Promise<PlanoTipoDiaDto> =>
+  escrever<PlanoTipoDiaDto>(
+    "POST",
+    `/nutri/plans/${id(planId)}/day-types`,
+    "createDayType",
+    { name },
+  );
+
+export const updateDayType = (
+  dayTypeId: string,
+  name: string,
+): Promise<PlanoTipoDiaDto> =>
+  escrever<PlanoTipoDiaDto>(
+    "PATCH",
+    `/nutri/day-types/${id(dayTypeId)}`,
+    "updateDayType",
+    { name },
+  );
+
+export const deleteDayType = (dayTypeId: string): Promise<void> =>
+  apagar(`/nutri/day-types/${id(dayTypeId)}`, "deleteDayType");
+
+/* ═══════════ refeição · opção · item ═══════════ */
+
+export const createMeal = (
+  dayTypeId: string,
+  body: { name: string; position: number; horario?: string | null },
+): Promise<PlanoRefeicaoDto> =>
+  escrever<PlanoRefeicaoDto>(
+    "POST",
+    `/nutri/day-types/${id(dayTypeId)}/meals`,
+    "createMeal",
+    body,
+  );
+
+export const updateMeal = (
+  mealId: string,
+  patch: Record<string, unknown>,
+): Promise<PlanoRefeicaoDto> =>
+  escrever<PlanoRefeicaoDto>(
+    "PATCH",
+    `/nutri/meals/${id(mealId)}`,
+    "updateMeal",
+    patch,
+  );
+
+export const deleteMeal = (mealId: string): Promise<void> =>
+  apagar(`/nutri/meals/${id(mealId)}`, "deleteMeal");
+
+export const createOption = (
+  mealId: string,
+  body: { label: string; isDefault?: boolean },
+): Promise<PlanoOpcaoDto> =>
+  escrever<PlanoOpcaoDto>(
+    "POST",
+    `/nutri/meals/${id(mealId)}/options`,
+    "createOption",
+    body,
+  );
+
+export const updateOption = (
+  optionId: string,
+  patch: Record<string, unknown>,
+): Promise<PlanoOpcaoDto> =>
+  escrever<PlanoOpcaoDto>(
+    "PATCH",
+    `/nutri/options/${id(optionId)}`,
+    "updateOption",
+    patch,
+  );
+
+export const deleteOption = (optionId: string): Promise<void> =>
+  apagar(`/nutri/options/${id(optionId)}`, "deleteOption");
+
+export const createItem = (
+  optionId: string,
+  body: {
+    foodId: string;
+    quantityGrams: number;
+    isLocked?: boolean;
+    substitutionGroupId?: string | null;
+  },
+): Promise<PlanoItemDto> =>
+  escrever<PlanoItemDto>(
+    "POST",
+    `/nutri/options/${id(optionId)}/items`,
+    "createItem",
+    body,
+  );
+
+export const updateItem = (
+  itemId: string,
+  patch: Record<string, unknown>,
+): Promise<PlanoItemDto> =>
+  escrever<PlanoItemDto>(
+    "PATCH",
+    `/nutri/items/${id(itemId)}`,
+    "updateItem",
+    patch,
+  );
+
+export const deleteItem = (itemId: string): Promise<void> =>
+  apagar(`/nutri/items/${id(itemId)}`, "deleteItem");
+
+/* ═══════════ catálogo ═══════════ */
+
+export const searchFoods = (q = "", limit = 600): Promise<FoodsResponse> =>
+  get<FoodsResponse>(
+    `/nutri/foods?q=${encodeURIComponent(q)}&limit=${limit}`,
+    "searchFoods",
+  );
+
+export const listGroups = (): Promise<GruposResponse> =>
+  get<GruposResponse>("/nutri/substitution-groups", "listGroups");
+
+/* ═══════════ relatório (015, consumido sem alteração) ═══════════ */
+
 export const getCycleReport = (
   patientId: string,
   cycleId: string,
 ): Promise<CycleReportResponse> =>
   get<CycleReportResponse>(
-    `/nutri/patients/${encodeURIComponent(patientId)}/cycles/${encodeURIComponent(cycleId)}/report`,
+    `/nutri/patients/${id(patientId)}/cycles/${id(cycleId)}/report`,
     "getCycleReport",
   );
+
+/* ═══════════ diagnóstico de falha ═══════════ */
 
 /** Diagnóstico em uma frase, com o próximo passo (US3). Sem stack trace na tela. */
 export function explicarFalha(e: unknown): {
@@ -100,4 +331,10 @@ export function explicarFalha(e: unknown): {
     titulo: "Erro inesperado",
     detalhe: e instanceof Error ? e.message : String(e),
   };
+}
+
+/** O status HTTP da falha, ou 0 se não houve resposta. Usado pelas ações para
+ *  escolher o código de erro que volta na URL (`lib/erros.ts`). */
+export function statusDaFalha(e: unknown): number {
+  return e instanceof ApiError ? e.status : -1;
 }

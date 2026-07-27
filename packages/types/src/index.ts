@@ -7,3 +7,4 @@ export * from "./combination.js";
 export * from "./registro.js";
 export * from "./relatorio.js";
 export * from "./nutri.js";
+export * from "./plano-editor.js";

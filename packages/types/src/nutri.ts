@@ -24,3 +24,24 @@ export interface NutriPatientDto {
 export interface NutriPatientsResponse {
   readonly patients: ReadonlyArray<NutriPatientDto>;
 }
+
+// `ExposureLevel` vive em `today.ts` desde a Fase 1 — reexportado aqui para quem
+// importa o módulo direto. Redeclarar quebra o barril (TS2308).
+export type { ExposureLevel } from "./today.js";
+import type { ExposureLevel } from "./today.js";
+
+/** A ficha de UM paciente (Feature 017): o que o formulário de edição precisa
+ *  preencher. A minimização da 015 vale para a LISTAGEM; a ficha do paciente que
+ *  a nutri está editando é justamente o dado que ela mantém.
+ *
+ *  Sem `cicloAtual` de propósito: a regra de "qual ciclo mostrar" (015/D2) mora
+ *  na roster e em nenhum outro lugar. */
+export interface NutriPatientDetalheDto {
+  readonly id: string;
+  readonly name: string;
+  readonly email: string | null;
+  readonly phone: string | null;
+  readonly heightCm: number | null;
+  readonly weightKg: number | null;
+  readonly exposure: ExposureLevel;
+}

@@ -1,6 +1,6 @@
 # Bamboo — SaaS para Nutricionistas
 
-Monorepo pnpm + Turborepo. B2B2C: a nutri paga o SaaS; o paciente usa de graça. Web/desktop pra nutri, app mobile pra paciente. Status: **pré-MVP, RN-first** — **Fases 0–4 implementadas e testadas**: fundação + alça do paciente (`001`), rebalanceamento (`002`), registro feito/troquei/pulei (`003`) e motor lê o registro (`004`). Resto da Fase 3 entregue (ciclo `007`, adesão `006`, relatório `011`, **UI da nutri — leitura `015`**); Fase 4 (import por IA/offline/notificações) não iniciada. Em conflito com este header, o snapshot em `docs/estado-atual.md` vence.
+Monorepo pnpm + Turborepo. B2B2C: a nutri paga o SaaS; o paciente usa de graça. Web/desktop pra nutri, app mobile pra paciente. Status: **pré-MVP, RN-first** — **Fases 0–4 implementadas e testadas**: fundação + alça do paciente (`001`), rebalanceamento (`002`), registro feito/troquei/pulei (`003`) e motor lê o registro (`004`). Resto da Fase 3 entregue (ciclo `007`, adesão `006`, relatório `011`, **UI da nutri — leitura `015`, escrita `016`+`017`**); Fase 4 (import por IA/offline/notificações) não iniciada. **Desde a `017` a nutri monta o plano alimentar inteiro pela tela** (CRUD do grafo `plan → day_type → meal → meal_option → meal_item` + semana + catálogo), então o seed deixou de ser o único caminho para um plano existir. Em conflito com este header, o snapshot em `docs/estado-atual.md` vence.
 
 ## Fonte da verdade
 
@@ -255,7 +255,9 @@ Trabalho atual = **Fase 0 (fundação) + Fase 1 (alça do paciente)**, quebrado 
 
 ## Fora de escopo agora (não construir antecipado)
 
-Combinação (arroz+batata juntos) · rebalanceamento multi-refeição · override de tipo-de-dia + `day_selection` · logs (feito/troquei/pulei) · adesão/relatório · UI da nutri · import por IA · offline · auth de verdade (v0 = auth stub, paciente fixo por env) · notificações · índices de performance.
+Combinação (arroz+batata juntos) · rebalanceamento multi-refeição · override de tipo-de-dia + `day_selection` · logs (feito/troquei/pulei) · adesão/relatório · ~~UI da nutri~~ (**entregue**: leitura `015`, cadastro `016`, editor de plano `017`) · import por IA · offline · auth de verdade (v0 = auth stub, paciente fixo por env) · notificações · índices de performance.
+
+Ainda fora de escopo **dentro** da UI da nutri, por decisão da `017`: escrita em `nutritionist` (sem auth real não há dono de conta, e uma segunda nutricionista quebra o `POST /nutri/patients`) · duplicar plano/tipo-de-dia e templates (ergonomia que faria o editor virar produto; a tese central é **adaptar** o plano, não editá-lo) · drag-and-drop de ordenação · undo do plano · idempotência das escritas.
 
 ## Constante — LGPD
 
@@ -345,6 +347,102 @@ paciente do seed. Agora existe `pacienteSemeado()` em `test/helpers.ts`: junta `
 Resultado: **core 166** (164 + 2) · **api 291** (inclui a 017, em curso) · **mobile 27** (24 + 3) ·
 **db 20** · **web 29** verdes; lint 0 errors, Prettier e `check-types` limpos; OpenAPI regenerado.
 Artefatos: `specs/018-item-a-vontade/` (spec/plan/tasks).
+
+Feature **017-editor-de-plano** (a nutri monta o plano alimentar pela tela; **CRUD completo do
+grafo**): **implementada e testada** (2026-07-27). Gatilho: avaliação pedida pelo dono dos
+endpoints do lado da nutri. O achado: **10 rotas `/nutri/*` e nenhuma que criasse um plano.** O
+lado de leitura estava completo (roster 015, adesão 006, ciclo 007, relatório 011); o de escrita
+tinha três atos — criar paciente (016), abrir/fechar ciclo (007) e **ativar um plano que já
+precisava existir**. Plano só existia rodando `packages/db/scripts/seed.ts`, com o grafo
+hard-coded: **a nutri não era usuária do produto, era uma linha no seed**. E a 016 tornou isso
+visível ao criar pacientes que nasciam e permaneciam sem plano — paciente sem plano faz o app do
+paciente não ter o que mostrar.
+· **API** — módulo novo `apps/api/src/plano-editor/` (+ `PATCH`/`DELETE`/`GET` de paciente no
+`nutri` da 015/016): **17 → 31 paths** no OpenAPI. **Forma das rotas (D1):** criar é aninhado
+(`POST <pai>/<filhos>`), editar/excluir é **plano** (`/nutri/<coleção>/:id`) — o caminho aninhado
+até um item teria 7 níveis de `@Param` e não acrescentaria informação, porque o grafo é caminhável
+**para cima** e a existência do nó já dá o 404. **A semana é UM objeto** (`PUT .../schedule` com
+os 7 pares, D2): `day_schedule` são 7 linhas que só fazem sentido juntas, e semana com 6 dias
+programados é um estado que nenhuma tela deveria poder produzir. **Leitura do grafo em UMA
+requisição** (`GET /nutri/plans/:planId`, D3): 4 `select` + montagem pura em memória — o grafo tem
+profundidade FIXA (4) e um plano real tem dezenas de nós, então CTE recursiva seria maquinário para
+um problema inexistente; ordenação toda no SQL e **sempre com desempate por `id`** (lição do `, id`
+da 012).
+**A REGRA de exclusão, em uma frase: cascata para baixo, 409 para os lados** (`cascata.ts`, D4).
+Apaga o que só existe por causa do nó; recusa quando outro agregado aponta para ele.
+`meal_event`/`meal_event_item` **NUNCA** entram numa cascata — registro é dado de saúde do
+paciente, não detalhe do plano: o plano pode ser reescrito, o que aconteceu no dia não. Provado ao
+vivo: 4 pacientes do smoke apagados pela via da nutri levaram 4 planos, 7 tipos-de-dia e 14 linhas
+de semana, com `meal_event` **intocado**.
+**Duas invariantes que a casca garante porque o schema não tem constraint:** `(day_type, position)`
+único — position é a chave que pareia refeições entre tipos-de-dia (009/012), e duplicá-la
+corromperia a troca de tipo-de-dia **em silêncio**; e **exatamente UMA opção padrão por refeição** —
+a primeira opção nasce padrão sem pedir, marcar outra desmarca as irmãs, excluir a padrão promove
+outra no mesmo ato, e desmarcar a única padrão é **409** (marque outra em vez de desmarcar esta).
+`ponytail:` as duas na aplicação, não no banco; se aparecer escrita concorrente, o lugar é um
+`uniqueIndex` parcial, na forma do `cycle_one_active_per_patient`.
+**`isLocked` e `substitutionGroupId` são mutuamente exclusivos** (400): travado não troca, então
+apontar grupo para ele é instrução contraditória — recusada, não "resolvida" por precedência. E no
+PATCH a marcação é avaliada **em conjunto com o que já está gravado**, senão mandar só
+`isLocked: true` num item que tem grupo passaria pela brecha. Item flexível exige que o alimento
+**participe** do grupo (422): é o vínculo que carrega `reference_portion_grams`, sem a qual a troca
+não sabe reescalar.
+**Catálogo (US4):** a base TACO estava semeada desde a Fase 0 e **inalcançável por HTTP** — sem
+busca, a nutri não achava o alimento entre ~580 para pôr num item. Alimento criado à mão nasce
+**sem `taco_id`** e com `source != 'taco'` ⇒ a ingestão da 008 (upsert por `taco_id`) nunca o
+alcança; vínculo criado à mão nasce **`origin: 'manual'`** ⇒ a auto-classificação nunca o
+sobrescreve. **Validação estrutural na borda** com helpers puros (`validar.ts`, 20 testes) no padrão
+que o repo já pratica: **não** entrou `class-validator`/`ValidationPipe`.
+· **Web** — Tailwind v4 + **shadcn/ui** (pedido do dono) e 3 telas novas
+(`/patients/[id]/ficha`, `/plans`, `/plans/[planId]` = o editor). **Os tokens do shadcn são
+MAPEADOS na paleta validada da 015** (`@theme inline` sobre as variáveis existentes), não a paleta
+neutra padrão dele: o design system novo herda a cor que já passou por banda de luminosidade,
+croma, ΔE de daltonismo e contraste. **A visualização de dados do relatório NÃO foi migrada** (D11)
+— `nutri.module.css` continua intacto; aquela tela só ganhou 3 links de navegação, e a ficha do
+paciente virou **rota própria** justamente para o diff não encostar nas 424 linhas dela.
+**Só componentes shadcn que não precisam de client:** `button`/`input`/`label`/`card`/`table`/
+`badge`, com `<select>` e `<details>` **nativos** no lugar de `Select`/`Dialog` do Radix — o
+`<select>` nativo dá type-ahead do navegador de graça sobre ~590 alimentos, funciona sem JS e
+dispensa ~6 dependências. **Zero diretiva `"use client"`** em todo o app; toda escrita é Server
+Action, então a credencial nunca sai do servidor.
+**VERIFICADO AO VIVO como browser SEM JavaScript** (POST multipart no `$ACTION_ID`, 10 passos): um
+paciente e um plano **inteiro** — 2 tipos-de-dia, semana programada, refeição, opção, 2 itens (um
+flexível num grupo, um travado) — montados **100% pela tela**, e no fim
+**`GET /patients/:id/today` respondendo com esse plano**. É o critério do objetivo, e é a primeira
+vez no repo que o caminho nutri→paciente fecha sem o seed. `grep` da `NUTRI_API_KEY` no HTML
+servido das 6 telas → **0** em todas.
+**Três defeitos que o smoke pegou e nenhum teste pegava:** (1) o código de falha precisava da
+**OPERAÇÃO**, não só da entidade — criar e excluir refeição respondem os dois **409** por causas
+opostas (posição ocupada vs. tem registro), e a tela mostrava a frase errada, mandando a nutri
+procurar o erro no lugar errado; virou o par `refeicao-posicao`/`refeicao`. (2) **`cod in FRASES`
+andava pela cadeia de protótipos** — `?erro=constructor` devolvia `Object.prototype.constructor`,
+uma função onde a tela espera texto; é a MESMA armadilha que o `presente()` da API já evitava com
+`hasOwnProperty` e que eu não apliquei na web (corrigido com `Object.hasOwn`). (3) a asserção óbvia
+do escape de curinga estava errada: buscar `%` **não** devolve zero, porque a TACO tem 8 alimentos
+com `%` literal no nome (`Margarina … (65% de lipídeos)`).
+**A falha de escrita volta pela URL como CÓDIGO de conjunto FECHADO, nunca como texto** — um
+parâmetro de texto refletido deixaria qualquer um montar uma URL que exibe a frase que quisesse
+dentro da tela da nutri (phishing, não XSS: o React escapa). O código sai de **(status, entidade)**
+sem inspecionar a mensagem da API, porque casar por substring quebraria calado no dia em que ela
+reescrevesse uma frase. `ponytail:` a frase de 409 lista as causas possíveis em vez da exata; se a
+precisão doer, o passo é uma ilha client com `useActionState`, não relaxar isto.
+**Fora de escopo por DECISÃO:** escrita em `nutritionist` (sem auth real não há dono de conta — e
+criar uma segunda **quebra** `POST /nutri/patients`, que resolve a responsável com `limit(2)` e
+responde 422 com mais de uma) · import de plano por PDF/IA (Fase 4, é a porta prevista no roadmap;
+este editor é a porta manual, não a substitui) · duplicar plano/tipo-de-dia e templates (ergonomia
+que faria o editor virar produto; ele é commodity de suporte — a tese central é **adaptar**, não
+editar) · drag-and-drop de ordenação · undo do plano · idempotência · escopo por nutri responsável
+(limite v0 da 006/015).
+**Sem migration.** `packages/core` não foi tocado por esta feature — e **logo depois** a **019**
+criou `core/fuzzy.ts` e reescreveu `buscarAlimentos` para delegar a ordenação por relevância a ela,
+mantendo o contrato do `GET /nutri/foods` (ganhou `offset`, aditivo). Por isso o SC-001 desta spec
+("`git diff` vazio em `packages/core`") era verdadeiro no fim da 017 e **não é mais verificável** —
+e o que o invalidou não foi esta feature.
+Resultado: **core 181 · db 20 · api 296 · web 38 (29 + 9) · api-client 4 · mobile 39** verdes —
+**126 testes em 6 arquivos** são desta feature (4 e2e self-contained via `buildScenario` + 2 unit);
+`tsc` limpo em api e web, lint 0 errors (api) e 0 warnings (web, `--max-warnings 0`), Prettier
+limpo; OpenAPI regenerado. Artefatos: `specs/017-editor-de-plano/` (spec/plan com as correções
+C1–C6/tasks).
 
 Feature **016-cadastro-de-paciente** (cadastrar paciente): **implementada e testada**
 (2026-07-26). Lacuna apontada pelo dono logo depois da 015: a nutri tinha tela que **lê**

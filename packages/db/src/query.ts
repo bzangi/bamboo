@@ -19,5 +19,10 @@ export {
   isNull,
   isNotNull,
   inArray,
+  notInArray,
+  ilike,
+  or,
+  not,
+  count,
   sql,
 } from "drizzle-orm";

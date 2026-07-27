@@ -11,6 +11,7 @@ import { AdesaoModule } from './adesao/adesao.module';
 import { CicloModule } from './ciclo/ciclo.module';
 import { RelatorioModule } from './relatorio/relatorio.module';
 import { NutriModule } from './nutri/nutri.module';
+import { PlanoEditorModule } from './plano-editor/plano-editor.module';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { NutriModule } from './nutri/nutri.module';
     CicloModule,
     RelatorioModule,
     NutriModule,
+    PlanoEditorModule,
   ],
   controllers: [AppController],
   providers: [AppService],

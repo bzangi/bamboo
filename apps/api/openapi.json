@@ -1666,7 +1666,7 @@
     },
     "/nutri/foods": {
       "get": {
-        "description": "Busca por trecho do nome, insensível a maiúscula E a acento (\"acai\" acha \"Açaí\"). `q` vazio devolve a primeira página, não erro — é o estado inicial da tela. `total` diz quantos casaram; a lista vem truncada por `limit` (default 50, máximo 600, que é a base TACO inteira).",
+        "description": "Busca fuzzy: insensível a maiúscula E a acento (\"acai\" acha \"Açaí\"), e por subsequência — \"arrint\" acha \"Arroz integral\". O resultado vem ordenado por relevância (casamento colado e em início de palavra na frente). `q` vazio devolve a primeira página, não erro — é o estado inicial da tela. `total` diz quantos casaram; a lista é a fatia `[offset, offset+limit)`, então há mais páginas enquanto `offset + foods.length < total`. `limit`/`offset` fora de forma caem no default em vez de 400.",
         "operationId": "CatalogoController_buscarAlimentos",
         "parameters": [
           {
@@ -1692,6 +1692,15 @@
             "required": false,
             "in": "query",
             "description": "1–600, default 50",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "offset",
+            "required": false,
+            "in": "query",
+            "description": "quantos pular, default 0",
             "schema": {
               "type": "string"
             }
