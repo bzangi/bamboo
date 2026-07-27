@@ -1,6 +1,7 @@
 import { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
+import { pacienteSemeado } from './helpers';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { and, eq, inArray, isNull, db, schema } from '@bamboo/db';
 import { CicloModule } from '../src/ciclo/ciclo.module';
@@ -50,10 +51,7 @@ const nutriGet = (path: string) =>
   request(app.getHttpServer()).get(path).set('x-nutri-key', NUTRI_KEY);
 
 beforeAll(async () => {
-  const [pat] = await db
-    .select({ id: schema.patient.id })
-    .from(schema.patient)
-    .limit(1);
+  const pat = await pacienteSemeado();
   patientId = pat.id;
   const [pln] = await db
     .select({ id: schema.plan.id })

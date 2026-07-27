@@ -1,6 +1,7 @@
 import { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
+import { pacienteSemeado } from './helpers';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
   PARAMETROS_SISTEMA,
@@ -270,15 +271,7 @@ const getAdesao = (pid: string, from: string, to: string) =>
 // ───────────────────────── setup único da suíte ─────────────────────────
 
 beforeAll(async () => {
-  const [pat] = await db
-    .select({
-      id: schema.patient.id,
-      nutritionistId: schema.patient.nutritionistId,
-      bandTolerancePct: schema.patient.bandTolerancePct,
-      floorPct: schema.patient.floorPct,
-    })
-    .from(schema.patient)
-    .limit(1);
+  const pat = await pacienteSemeado();
   patientId = pat.id;
   const [pln] = await db
     .select({ id: schema.plan.id })

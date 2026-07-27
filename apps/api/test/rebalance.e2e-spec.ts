@@ -5,7 +5,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { and, asc, eq, db, pool, schema } from '@bamboo/db';
 import { RebalanceModule } from '../src/rebalance/rebalance.module';
 import { RegistroModule } from '../src/registro/registro.module';
-import { limparEventosDeHoje } from './helpers';
+import { limparEventosDeHoje, pacienteSemeado } from './helpers';
 
 // e2e US1 — POST /patients/:id/rebalance/option-choice (gatilho P1).
 // IDs por query (o seed gera UUIDs novos a cada run; resolve o day_type de hoje).
@@ -20,10 +20,7 @@ describe('POST /patients/:id/rebalance/option-choice (US1)', () => {
   let foreignOptionId: string; // opção de OUTRA refeição (pra testar 422)
 
   beforeAll(async () => {
-    const [pat] = await db
-      .select({ id: schema.patient.id, exposure: schema.patient.exposure })
-      .from(schema.patient)
-      .limit(1);
+    const pat = await pacienteSemeado();
     patientId = pat.id;
     exposure = pat.exposure;
 
@@ -187,10 +184,7 @@ describe('POST .../rebalance/option-choice (US1 Fase 4) — não recalcula o reg
   let allMealIds: string[]; // todas as refeições do dia (ordem por position)
 
   beforeAll(async () => {
-    const [pat] = await db
-      .select({ id: schema.patient.id })
-      .from(schema.patient)
-      .limit(1);
+    const pat = await pacienteSemeado();
     patientId = pat.id;
 
     const [pln] = await db
@@ -385,10 +379,7 @@ describe('POST .../rebalance/option-choice (US2) — total do dia pelo consumo r
   let scheduleBackup: { id: string; dayTypeId: string } | null = null;
 
   beforeAll(async () => {
-    const [pat] = await db
-      .select({ id: schema.patient.id })
-      .from(schema.patient)
-      .limit(1);
+    const pat = await pacienteSemeado();
     patientId = pat.id;
 
     const [pln] = await db

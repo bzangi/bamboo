@@ -5,7 +5,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { and, asc, desc, eq, ne, db, pool, schema } from '@bamboo/db';
 import { RegistroModule } from '../src/registro/registro.module';
 import { PlanModule } from '../src/plan/plan.module';
-import { limparEventosDeHoje } from './helpers';
+import { limparEventosDeHoje, pacienteSemeado } from './helpers';
 
 // e2e US1 (test-first) — POST /patients/:id/registro + reflexo no GET /today.
 // Registrar feito/pulei numa refeição do dia, "o agora" avança, estado vigente
@@ -23,10 +23,7 @@ describe('POST /patients/:id/registro (US1) + reflexo no GET /today', () => {
   let mealIds: string[]; // refeições do dia, na ordem do plano (position asc)
 
   beforeAll(async () => {
-    const [pat] = await db
-      .select({ id: schema.patient.id })
-      .from(schema.patient)
-      .limit(1);
+    const pat = await pacienteSemeado();
     patientId = pat.id;
 
     const [pln] = await db
@@ -254,10 +251,7 @@ describe('POST /patients/:id/registro (US2) — derivação de "troquei"', () =>
   let otherGroupFoodId: string; // food de OUTRO grupo (caso 422)
 
   beforeAll(async () => {
-    const [pat] = await db
-      .select({ id: schema.patient.id })
-      .from(schema.patient)
-      .limit(1);
+    const pat = await pacienteSemeado();
     patientId = pat.id;
 
     const [pln] = await db
@@ -725,10 +719,7 @@ describe('POST /patients/:id/registro (US3) — correção, idempotência, desfa
   let nonDefaultOptionId: string;
 
   beforeAll(async () => {
-    const [pat] = await db
-      .select({ id: schema.patient.id })
-      .from(schema.patient)
-      .limit(1);
+    const pat = await pacienteSemeado();
     patientId = pat.id;
 
     const [pln] = await db

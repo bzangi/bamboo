@@ -1,6 +1,7 @@
 import { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
+import { pacienteSemeado } from './helpers';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { and, asc, eq, inArray, ne, db, pool, schema } from '@bamboo/db';
 import { PlanModule } from '../src/plan/plan.module';
@@ -49,10 +50,7 @@ describe('GET /patients/:id/today?dayTypeId (US3 — troca de tipo-de-dia)', () 
   let otherCafePosition: number; // position do café do novo tipo (slot registrado → não ajusta)
 
   beforeAll(async () => {
-    const [pat] = await db
-      .select({ id: schema.patient.id })
-      .from(schema.patient)
-      .limit(1);
+    const pat = await pacienteSemeado();
     patientId = pat.id;
 
     const [pln] = await db

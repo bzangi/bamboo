@@ -1,6 +1,7 @@
 import { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
+import { pacienteSemeado } from './helpers';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { db, pool, schema } from '@bamboo/db';
 import { PlanModule } from '../src/plan/plan.module';
@@ -13,10 +14,7 @@ describe('GET /patients/:id/today — opções (Fase 2)', () => {
   let exposure: string;
 
   beforeAll(async () => {
-    const [pat] = await db
-      .select({ id: schema.patient.id, exposure: schema.patient.exposure })
-      .from(schema.patient)
-      .limit(1);
+    const pat = await pacienteSemeado();
     patientId = pat.id;
     exposure = pat.exposure;
 
