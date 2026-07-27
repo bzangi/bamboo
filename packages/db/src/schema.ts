@@ -218,6 +218,14 @@ export const mealItem = pgTable("meal_item", {
   substitutionGroupId: uuid("substitution_group_id").references(
     () => substitutionGroup.id,
   ),
+  // "À vontade" (Feature 018): a nutri prescreveu o item SEM quantidade — é o
+  // caso de salada/verdura/vegetal, que o plano real repete em 12 das 30 opções.
+  // Quando true, `quantity_grams` é 0 e significa "sem quantidade prescrita":
+  // o item não entra no alvo, não é alavanca de rebalanceamento e não tem
+  // gramatura calculada na troca (vegetal ↔ vegetal é 1:1). A FLAG é o que
+  // distingue "0 porque à vontade" de "0 porque bug" — por isso ela existe em
+  // vez de deixar `quantity_grams` nullable.
+  adLibitum: boolean("ad_libitum").default(false).notNull(),
 });
 
 /* ============ registro pendurado na consulta (append-only) ============ */

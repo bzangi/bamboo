@@ -1,0 +1,1 @@
+ALTER TABLE "meal_item" ADD COLUMN "ad_libitum" boolean DEFAULT false NOT NULL;
