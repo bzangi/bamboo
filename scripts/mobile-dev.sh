@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Sobe o simulador iOS do app mobile usando dados da seed.
-# Roda a seed, extrai o patientId, escreve apps/mobile/.env e inicia o Expo.
+# Sobe o simulador iOS do app mobile com o PLANO REAL do paciente 0.
+# Carrega o plano (packages/db/scripts/planos/carregar.ts), extrai o patientId,
+# escreve apps/mobile/.env e inicia o Expo.
 # Uso: pnpm mobile:dev
 set -euo pipefail
 
@@ -8,14 +9,17 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$REPO_ROOT"
 
-echo "[mobile-dev] Rodando seed..."
-SEED_OUT=$(node --env-file=.env --import tsx packages/db/scripts/seed.ts 2>&1)
-echo "$SEED_OUT"
+# Carrega o PLANO REAL do paciente 0 (não o plano fictício do seed). O carregador
+# é idempotente e exige a nutricionista do seed — se o banco estiver vazio, ele
+# diz "rode o seed primeiro".
+echo "[mobile-dev] Carregando o plano real..."
+CARGA_OUT=$(node --env-file=.env --import tsx packages/db/scripts/planos/carregar.ts 2>&1)
+echo "$CARGA_OUT"
 
-PATIENT_ID=$(echo "$SEED_OUT" | grep 'patientId:' | awk '{print $NF}')
+PATIENT_ID=$(echo "$CARGA_OUT" | grep 'patientId ' | awk '{print $NF}')
 
 if [ -z "$PATIENT_ID" ]; then
-  echo "[mobile-dev] ERRO: patientId não encontrado na saída do seed. O banco está rodando?"
+  echo "[mobile-dev] ERRO: patientId não encontrado na saída da carga. O banco está rodando e semeado?"
   exit 1
 fi
 

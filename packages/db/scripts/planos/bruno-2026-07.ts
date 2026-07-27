@@ -91,9 +91,13 @@ export const ALIMENTOS: ReadonlyArray<AlimentoDoPlano> = [
   },
   {
     plano: "Macarrão cozido",
-    base: "Macarrão de trigo (cru)", // ⚠️ cru ≠ cozido: kcal/100g diferentes
+    // Era mapeado para `Macarrão de trigo (cru)` (371 kcal/100 g) e inflava o
+    // jantar em ~320 kcal. Agora é alimento próprio, com os números que o Bruno
+    // trouxe (2026-07-27). Sem grupo: a nutri não listou substituição para ele.
+    base: null,
+    falta: "rotulo",
+    macros: { kcal: 131, carb: 25, protein: 5, fat: 1.05, fiber: 0 },
     medidas: [{ label: "colher de servir cheia", grams: 50 }],
-    grupo: "Amidos e cereais",
   },
   {
     plano: "Feijão carioca cozido",
@@ -415,7 +419,7 @@ export const ALIMENTOS: ReadonlyArray<AlimentoDoPlano> = [
     plano: "Pizza de frigideira",
     base: null,
     falta: "receita",
-    macros: { kcal: 157, carb: 22.4, protein: 16.7, fat: 5.1, fiber: 0.8 },
+    macros: { kcal: 250, carb: 47, protein: 6.4, fat: 4, fiber: 0 },
     medidas: [{ label: "porção", grams: 185 }],
   },
   {
@@ -835,6 +839,13 @@ export const TIPOS_DE_DIA = {
  *   então não há como inserir "pendente" — e chutar valor de composição em dado
  *   de saúde é o que eu não vou fazer. Sem eles, 2 de cada 3 opções do plano
  *   ficam com alvo errado, o que contamina faixa-alvo, adesão e relatório.
+ *
+ * ALERTA-2 — PIZZA DE FRIGIDEIRA: o rótulo trazido (250 kcal/100 g) declara
+ *   PORÇÃO DE 25 g, e o plano prescreve 185 g. Os dois números não podem se
+ *   referir à mesma coisa: 185 g a 250 kcal/100 g = 462 kcal num lanche das 16h.
+ *   Ou o item do plano é a massa/mistura (e a gramatura deveria ser ~25 g), ou o
+ *   rótulo é do pó e falta a composição da pizza MONTADA. Carregado como veio,
+ *   porque é o dado que existe — mas é o número menos confiável do plano.
  *
  * NOTA-1 — SUBSTITUIÇÃO: PAR vs GRUPO. A nutri prescreve pares com gramatura
  *   pronta; o Bamboo deriva a gramatura do grupo (preserva o nutriente-base).

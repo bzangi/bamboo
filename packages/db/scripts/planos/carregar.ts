@@ -23,16 +23,16 @@ import {
 const PACIENTE = "Bruno Zangirolami";
 const PLANO = "Plano real — 24/07/2026";
 
-/** Seg–sex = dias com corrida; sáb/dom = sem corrida. Weekday do Postgres/JS:
- *  0 = domingo. Confirmar com a nutri, mas é o que os títulos dizem. */
+/** Confirmado pelo Bruno (2026-07-27): corre **terça, quinta e sábado**.
+ *  Weekday do Postgres/JS: 0 = domingo. */
 const PROGRAMACAO: Record<number, "comCorrida" | "semCorrida"> = {
-  0: "semCorrida",
-  1: "comCorrida",
-  2: "comCorrida",
-  3: "comCorrida",
-  4: "comCorrida",
-  5: "comCorrida",
-  6: "semCorrida",
+  0: "semCorrida", // domingo
+  1: "semCorrida", // segunda
+  2: "comCorrida", // terça
+  3: "semCorrida", // quarta
+  4: "comCorrida", // quinta
+  5: "semCorrida", // sexta
+  6: "comCorrida", // sábado
 };
 
 const porNomeDoPlano = new Map(ALIMENTOS.map((a) => [a.plano, a]));
