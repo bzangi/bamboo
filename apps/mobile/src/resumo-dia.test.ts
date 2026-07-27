@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { MealDto, MealOptionDto, NutritionDto } from "@bamboo/types";
 import { applySwap, type SwapState } from "./swaps";
-import { resumoDoDia, somarNutricao, temNumero } from "./resumo-dia";
+import { fracao, somarNutricao, sumarioDoDia, temNumero } from "./resumo-dia";
 
 // O número do topo só serve se for VERDADE: ele é a primeira coisa que o
 // paciente lê, e um total que não acompanha o que está na tela é pior que
@@ -59,15 +59,16 @@ function refeicao(
   };
 }
 
+const FEITO = { state: "feito" } as const;
 const VAZIO = { swaps: {}, trocados: {}, ajustados: {} } as const;
 
-describe("resumoDoDia", () => {
-  it("soma a opção padrão de cada refeição", () => {
+describe("meta — o dia planejado", () => {
+  it("soma a opção PADRÃO de todas as refeições, registradas ou não", () => {
     const meals = [
-      refeicao("cafe", [opcao("o1", true, [item(nut(200, 30, 8, 4))])]),
+      refeicao("cafe", [opcao("o1", true, [item(nut(200, 30, 8, 4))])], FEITO),
       refeicao("almoco", [opcao("o2", true, [item(nut(500, 60, 40, 12))])]),
     ];
-    expect(resumoDoDia({ ...VAZIO, meals })).toEqual({
+    expect(sumarioDoDia({ ...VAZIO, meals }).meta).toEqual({
       kcal: 700,
       carb: 90,
       protein: 48,
@@ -75,111 +76,157 @@ describe("resumoDoDia", () => {
     });
   });
 
-  it("a opção NÃO escolhida não entra — senão a refeição contaria duas vezes", () => {
+  it("a opção NÃO padrão não entra — senão a refeição contaria duas vezes", () => {
     const meals = [
       refeicao("almoco", [
         opcao("o1", true, [item(nut(500))]),
         opcao("o2", false, [item(nut(900))]),
       ]),
     ];
-    expect(resumoDoDia({ ...VAZIO, meals }).kcal).toBe(500);
+    expect(sumarioDoDia({ ...VAZIO, meals }).meta.kcal).toBe(500);
   });
 
-  it("troca de opção: passa a somar a escolhida", () => {
-    const meals = [
-      refeicao("almoco", [
-        opcao("o1", true, [item(nut(500))]),
-        opcao("o2", false, [item(nut(900))]),
-      ]),
-    ];
-    const swaps: SwapState = applySwap(
-      {},
-      {
-        mealId: "almoco",
-        chosenOptionId: "o2",
-        previousOptionId: "o1",
-        outcome: { kind: "sem-acao" },
-        formatLabel: () => "",
-      },
-    );
-    expect(resumoDoDia({ ...VAZIO, meals, swaps }).kcal).toBe(900);
-  });
-
-  it("refeição pulada não entra: ela não foi comida", () => {
+  it("refeição pulada continua na meta: pular deixa o dia curto", () => {
     const meals = [
       refeicao("cafe", [opcao("o1", true, [item(nut(200))])], {
         state: "pulei",
       }),
-      refeicao("almoco", [opcao("o2", true, [item(nut(500))])], {
-        state: "feito",
-      }),
+      refeicao("almoco", [opcao("o2", true, [item(nut(500))])], FEITO),
     ];
-    expect(resumoDoDia({ ...VAZIO, meals }).kcal).toBe(500);
+    const { consumido, meta } = sumarioDoDia({ ...VAZIO, meals });
+    expect(meta.kcal).toBe(700);
+    expect(consumido.kcal).toBe(500);
+  });
+
+  it("a meta ignora a troca de opção da sessão — o alvo é o plano", () => {
+    const meals = [
+      refeicao(
+        "almoco",
+        [
+          opcao("o1", true, [item(nut(500))]),
+          opcao("o2", false, [item(nut(900))]),
+        ],
+        FEITO,
+      ),
+    ];
+    const swaps = trocar("almoco", "o2", "o1");
+    const { consumido, meta } = sumarioDoDia({ ...VAZIO, meals, swaps });
+    expect(meta.kcal).toBe(500);
+    expect(consumido.kcal).toBe(900);
+  });
+});
+
+describe("consumido — só o que foi registrado como comido", () => {
+  it("refeição por vir não conta; feito e troquei contam", () => {
+    const meals = [
+      refeicao("cafe", [opcao("o1", true, [item(nut(200))])], FEITO),
+      refeicao("almoco", [opcao("o2", true, [item(nut(500))])], {
+        state: "troquei",
+      }),
+      refeicao("jantar", [opcao("o3", true, [item(nut(700))])]),
+    ];
+    expect(sumarioDoDia({ ...VAZIO, meals }).consumido.kcal).toBe(700);
+  });
+
+  it("nada registrado: consumido vazio, meta cheia", () => {
+    const meals = [refeicao("cafe", [opcao("o1", true, [item(nut(200))])])];
+    const { consumido, meta } = sumarioDoDia({ ...VAZIO, meals });
+    expect(consumido.kcal).toBeNull();
+    expect(meta.kcal).toBe(200);
   });
 
   it("item trocado conta pela nutrição do substituto, não pela do que saiu", () => {
     const trocado = item(nut(500), 100, { id: "alvo" });
-    const meals = [refeicao("almoco", [opcao("o1", true, [trocado])])];
+    const meals = [refeicao("almoco", [opcao("o1", true, [trocado])], FEITO)];
     expect(
-      resumoDoDia({ ...VAZIO, meals, trocados: { alvo: nut(120) } }).kcal,
+      sumarioDoDia({ ...VAZIO, meals, trocados: { alvo: nut(120) } }).consumido
+        .kcal,
     ).toBe(120);
   });
 
   it("item rebalanceado é reescalado pelas gramas novas", () => {
     // O rebalanceamento mexe nas GRAMAS de itens de outras refeições, e o
     // /today segue mandando a nutrição do planejado. Sem reescalar, o topo
-    // mostraria o dia ANTES do ajuste — o número que acabou de mudar.
+    // contaria o dia ANTES do ajuste — o número que acabou de mudar.
     const alvo = item(nut(200, 40, 10, 2), 100, { id: "arroz" });
-    const meals = [refeicao("jantar", [opcao("o1", true, [alvo])])];
-    expect(resumoDoDia({ ...VAZIO, meals, ajustados: { arroz: 150 } })).toEqual(
-      { kcal: 300, carb: 60, protein: 15, fat: 3 },
-    );
+    const meals = [refeicao("jantar", [opcao("o1", true, [alvo])], FEITO)];
+    expect(
+      sumarioDoDia({ ...VAZIO, meals, ajustados: { arroz: 150 } }).consumido,
+    ).toEqual({ kcal: 300, carb: 60, protein: 15, fat: 3 });
   });
 
   it("a troca vence o ajuste: quem trocou não é reescalado por gramas antigas", () => {
     const alvo = item(nut(200), 100, { id: "arroz" });
-    const meals = [refeicao("jantar", [opcao("o1", true, [alvo])])];
+    const meals = [refeicao("jantar", [opcao("o1", true, [alvo])], FEITO)];
     expect(
-      resumoDoDia({
+      sumarioDoDia({
         ...VAZIO,
         meals,
         trocados: { arroz: nut(90) },
         ajustados: { arroz: 150 },
-      }).kcal,
+      }).consumido.kcal,
     ).toBe(90);
   });
 
   it("item à vontade não entra (não tem quantidade prescrita)", () => {
     const meals = [
-      refeicao("almoco", [
-        opcao("o1", true, [
-          item(undefined, 0, { adLibitum: true }),
-          item(nut(500)),
-        ]),
-      ]),
+      refeicao(
+        "almoco",
+        [
+          opcao("o1", true, [
+            item(undefined, 0, { adLibitum: true }),
+            item(nut(500)),
+          ]),
+        ],
+        FEITO,
+      ),
     ];
-    expect(resumoDoDia({ ...VAZIO, meals }).kcal).toBe(500);
+    const { consumido, meta } = sumarioDoDia({ ...VAZIO, meals });
+    expect(consumido.kcal).toBe(500);
+    expect(meta.kcal).toBe(500);
   });
+});
 
-  it("exposição 'macros': soma os macros e o eixo de kcal fica nulo", () => {
+describe("gate de exposição", () => {
+  it("'macros': soma os macros e o eixo de kcal fica nulo", () => {
     // Sem `if` de nível de exposição: o eixo que o servidor não mandou some.
     const semKcal: NutritionDto = { carb: 30, protein: 10, fat: 5 };
     const meals = [refeicao("cafe", [opcao("o1", true, [item(semKcal)])])];
-    const r = resumoDoDia({ ...VAZIO, meals });
-    expect(r).toEqual({ kcal: null, carb: 30, protein: 10, fat: 5 });
-    expect(temNumero(r)).toBe(true);
+    const { meta } = sumarioDoDia({ ...VAZIO, meals });
+    expect(meta).toEqual({ kcal: null, carb: 30, protein: 10, fat: 5 });
+    expect(temNumero(meta)).toBe(true);
   });
 
-  it("exposição 'hidden'/'percent': nada a mostrar, a faixa não aparece", () => {
+  it("'hidden'/'percent': nada a mostrar, a faixa não aparece", () => {
     const soPct: NutritionDto = { carbPct: 50, proteinPct: 30, fatPct: 20 };
     const hidden = [refeicao("cafe", [opcao("o1", true, [item(undefined)])])];
     const percent = [refeicao("cafe", [opcao("o1", true, [item(soPct)])])];
-    expect(temNumero(resumoDoDia({ ...VAZIO, meals: hidden }))).toBe(false);
-    expect(temNumero(resumoDoDia({ ...VAZIO, meals: percent }))).toBe(false);
+    expect(temNumero(sumarioDoDia({ ...VAZIO, meals: hidden }).meta)).toBe(
+      false,
+    );
+    expect(temNumero(sumarioDoDia({ ...VAZIO, meals: percent }).meta)).toBe(
+      false,
+    );
   });
 
   it("dia sem refeição é vazio, não zero", () => {
-    expect(temNumero(resumoDoDia({ ...VAZIO, meals: [] }))).toBe(false);
+    expect(temNumero(sumarioDoDia({ ...VAZIO, meals: [] }).meta)).toBe(false);
+  });
+});
+
+describe("fracao", () => {
+  it("é a razão consumido/meta", () => {
+    expect(fracao(500, 2000)).toBe(0.25);
+  });
+
+  it("satura em cheio: passar da meta não é alerta, a faixa-alvo não é teto", () => {
+    expect(fracao(3000, 2000)).toBe(1);
+  });
+
+  it("sem meta (ou meta zero) não há arco a preencher", () => {
+    expect(fracao(500, null)).toBe(0);
+    expect(fracao(500, 0)).toBe(0);
+    expect(fracao(null, 2000)).toBe(0);
   });
 });
 
@@ -198,3 +245,20 @@ describe("somarNutricao", () => {
     expect(somarNutricao([undefined, undefined])).toBeUndefined();
   });
 });
+
+function trocar(
+  mealId: string,
+  chosenOptionId: string,
+  previousOptionId: string,
+): SwapState {
+  return applySwap(
+    {},
+    {
+      mealId,
+      chosenOptionId,
+      previousOptionId,
+      outcome: { kind: "sem-acao" },
+      formatLabel: () => "",
+    },
+  );
+}

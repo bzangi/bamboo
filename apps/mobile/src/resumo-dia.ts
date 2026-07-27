@@ -1,52 +1,58 @@
-// O SUMÁRIO DO DIA do topo da home: kcal, carboidrato, proteína e gordura do
-// dia como ele está AGORA na tela.
+// O SUMÁRIO DO DIA do topo da home: consumido × meta, em kcal, carboidrato,
+// proteína e gordura.
 //
 // Sem JSX de propósito (padrão do `swaps.ts`/`consumo.ts`): é o pedaço com
 // decisão, e num `.ts` ele roda no Vitest — não há harness de componente aqui.
 //
-// O QUE ENTRA: a opção ATIVA de cada refeição (a padrão, ou a que o paciente
-// trocou na sessão). Somar as outras opções contaria a refeição duas ou três
-// vezes — é a mesma definição de "o dia" que o motor de rebalanceamento usa.
-// Refeição marcada "pulei" NÃO entra: ela não foi comida.
+// A META é o dia PLANEJADO: soma da opção PADRÃO de todas as refeições do
+// tipo-de-dia exibido, com as gramas do plano. É a definição de `alvoDoDia` no
+// `@bamboo/core`, a mesma que o motor de rebalanceamento usa pra decidir se o
+// dia fechou — a tela não inventa uma segunda régua. Não existe alvo prescrito
+// no banco (nem coluna, nem endpoint): o alvo É o plano.
+// Refeição pulada NÃO sai da meta: a meta é o dia, e pular deixa o dia curto.
 //
-// De onde vem o número de cada item, nesta ordem:
+// O CONSUMIDO é só o que foi registrado como comido (`feito`/`troquei`).
+// Refeição por vir e refeição pulada contribuem zero — o velocímetro enche
+// conforme o dia é registrado.
+//
+// De onde vem o número de cada item consumido, nesta ordem:
 //  1. trocou/combinou/editou → a nutrição do que ele escolheu, que veio da API
 //     junto com a alternativa (a conta de equivalência é do servidor).
 //  2. rebalanceado → a nutrição planejada REESCALADA pelas gramas novas
 //     (nutriente é linear na quantidade: a mesma regra de três do servidor).
-//     Sem isso o total mostraria o dia ANTES do ajuste — justamente o número
-//     que o rebalanceamento acabou de mudar.
 //  3. senão → a nutrição que o `/today` já traz no item.
 //
 // O GATE DE EXPOSIÇÃO decide sozinho, sem um `if` de nível aqui: o eixo que o
 // servidor não mandou fica `null` e não é exibido. Em `percent`/`hidden` não
 // vem eixo nenhum e a faixa some inteira — o app não inventa número que a nutri
 // não liberou.
-import type { MealDto, NutritionDto } from "@bamboo/types";
+import type { MealDto, MealOptionDto, NutritionDto } from "@bamboo/types";
 import { activeOptionId, type SwapState } from "./swaps";
 
-/** `null` = o eixo não foi liberado pela exposição (ou o dia não tem item com
- *  número). Quem exibe pula o eixo nulo em vez de escrever "0". */
-export interface ResumoDia {
+/** `null` = o eixo não foi liberado pela exposição (ou não há item com número).
+ *  Quem exibe pula o eixo nulo em vez de escrever "0". */
+export interface Eixos {
   readonly kcal: number | null;
   readonly carb: number | null;
   readonly protein: number | null;
   readonly fat: number | null;
 }
 
+export interface SumarioDia {
+  /** O que já foi registrado como comido hoje. */
+  readonly consumido: Eixos;
+  /** O dia planejado — o alvo. */
+  readonly meta: Eixos;
+}
+
 const EIXOS = ["kcal", "carb", "protein", "fat"] as const;
 type Eixo = (typeof EIXOS)[number];
 
-export const RESUMO_VAZIO: ResumoDia = {
-  kcal: null,
-  carb: null,
-  protein: null,
-  fat: null,
-};
+const VAZIO: Eixos = { kcal: null, carb: null, protein: null, fat: null };
 
 /** Tem algum eixo pra mostrar? Falso ⇒ a faixa inteira não é renderizada. */
-export function temNumero(r: ResumoDia): boolean {
-  return EIXOS.some((k) => r[k] !== null);
+export function temNumero(e: Eixos): boolean {
+  return EIXOS.some((k) => e[k] !== null);
 }
 
 export interface EntradaResumo {
@@ -62,37 +68,56 @@ export interface EntradaResumo {
   readonly ajustados: Readonly<Record<string, number>>;
 }
 
-export function resumoDoDia(e: EntradaResumo): ResumoDia {
-  const total: Record<Eixo, number | null> = { ...RESUMO_VAZIO };
+export function sumarioDoDia(e: EntradaResumo): SumarioDia {
+  const consumido: Record<Eixo, number | null> = { ...VAZIO };
+  const meta: Record<Eixo, number | null> = { ...VAZIO };
 
   for (const meal of e.meals) {
-    if (meal.registro?.state === "pulei") continue;
+    // Meta: sempre a opção padrão, sempre o planejado — sem troca de sessão e
+    // sem os ajustes do rebalanceamento. (Sob override de tipo-de-dia o
+    // servidor já manda as gramas reconciliadas na padrão; a meta é o plano
+    // como ele está hoje, que é o que o motor também avalia.)
+    acumular(meta, meal.defaultOption, () => undefined);
+
+    const estado = meal.registro?.state;
+    if (estado !== "feito" && estado !== "troquei") continue;
     const ativa =
       meal.options.find((o) => o.id === activeOptionId(e.swaps, meal.id)) ??
       meal.defaultOption;
-
-    for (const item of ativa.items) {
-      // 018: item à vontade não tem quantidade prescrita — contribui zero de
-      // qualquer forma, e o `/today` já não emite nutrição nele.
-      if (item.adLibitum) continue;
-      const n = nutricaoDoItem(item, e);
-      if (!n) continue;
-      for (const k of EIXOS) {
-        const v = n[k];
-        if (typeof v === "number") total[k] = (total[k] ?? 0) + v;
-      }
-    }
+    acumular(consumido, ativa, (item) => nutricaoDoItem(item, e));
   }
 
-  return total;
+  return { consumido, meta };
+}
+
+type Item = MealOptionDto["items"][number];
+
+function acumular(
+  destino: Record<Eixo, number | null>,
+  opcao: MealOptionDto,
+  substituta: (item: Item) => NutritionDto | undefined,
+): void {
+  for (const item of opcao.items) {
+    // 018: item à vontade não tem quantidade prescrita — contribui zero de
+    // qualquer forma, e o `/today` já não emite nutrição nele.
+    if (item.adLibitum) continue;
+    const n = substituta(item) ?? item.nutrition;
+    if (!n) continue;
+    for (const k of EIXOS) {
+      const v = n[k];
+      if (typeof v === "number") destino[k] = (destino[k] ?? 0) + v;
+    }
+  }
 }
 
 function nutricaoDoItem(
-  item: MealDto["defaultOption"]["items"][number],
+  item: Item,
   e: EntradaResumo,
 ): NutritionDto | undefined {
   const trocado = e.trocados[item.id];
-  if (trocado !== undefined) return trocado ?? undefined;
+  // Chave presente vence o ajuste: quem trocou de alimento não é reescalado
+  // pelas gramas do que saiu. `null` = sem número ⇒ o item fica de fora.
+  if (trocado !== undefined) return trocado ?? SEM_NUMERO;
 
   const gramasNovo = e.ajustados[item.id];
   if (gramasNovo !== undefined && item.quantityGrams > 0)
@@ -100,6 +125,10 @@ function nutricaoDoItem(
 
   return item.nutrition;
 }
+
+/** Sentinela: nutrição vazia. Distingue "trocado e sem número" (fica de fora)
+ *  de "não trocado" (usa a do plano) sem um segundo valor de retorno. */
+const SEM_NUMERO: NutritionDto = {};
 
 /** Regra de três sobre a porção. As proporções (`*Pct`) não escalam — são
  *  razões entre macros, e a razão não muda com a quantidade. */
@@ -134,4 +163,13 @@ export function somarNutricao(
       soma[k] = vs.reduce<number>((a, v) => a + (v as number), 0);
   }
   return soma;
+}
+
+/** Fração do velocímetro, presa em [0, 1]. Meta ausente ou zero ⇒ 0: não há o
+ *  que preencher, e dividir por zero desenharia um arco cheio sem motivo.
+ *  Passar da meta NÃO vira alerta — a faixa-alvo não é teto; o arco satura e o
+ *  número diz o resto. */
+export function fracao(consumido: number | null, meta: number | null): number {
+  if (consumido === null || meta === null || meta <= 0) return 0;
+  return Math.max(0, Math.min(1, consumido / meta));
 }
