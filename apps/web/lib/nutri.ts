@@ -62,7 +62,11 @@ export function explicarFalha(e: unknown): {
   if (e instanceof ApiError && e.isNetworkError) {
     return {
       titulo: "A API não respondeu",
-      detalhe: `Não foi possível conectar em ${API_URL}. Suba a API (\`pnpm --filter api dev\`) ou ajuste API_URL.`,
+      // Cita as DUAS portas de propósito: os scripts da API discordam
+      // (`dev` sobe na 3333, `start` na 3000), e uma mensagem que manda rodar
+      // `dev` citando a 3000 não resolve nada — foi assim que este caminho
+      // apareceu pela primeira vez.
+      detalhe: `Não foi possível conectar em ${API_URL}. Suba a API nessa porta ou ajuste API_URL no .env da raiz — \`pnpm --filter api dev\` sobe na 3333, \`pnpm --filter api start\` na 3000.`,
     };
   }
   if (e instanceof ApiError && e.status === 403) {

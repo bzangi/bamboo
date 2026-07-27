@@ -34,8 +34,12 @@ const TOM: Record<Tom, string | undefined> = {
   "sem-dado": s.tomSemDado,
 };
 
-function Falha({ e }: { e: unknown }) {
-  const { titulo, detalhe } = explicarFalha(e);
+// Recebe TEXTO, nunca a exceção. Passar a instância de `Error` como prop de
+// componente explode a serialização do React Flight com um erro que não explica
+// nada ("chunk.reason.enqueueModel is not a function") — e o 500 acontece no
+// caminho que existe justamente para não haver 500. `explicarFalha` roda no
+// chamador; daqui para baixo só trafega string.
+function Falha({ titulo, detalhe }: { titulo: string; detalhe: string }) {
   return (
     <div className={s.card}>
       <p className={s.cardTitle}>{titulo}</p>
@@ -134,7 +138,7 @@ export default async function Paciente({
     return (
       <main className={s.page}>
         <Voltar />
-        <Falha e={e} />
+        <Falha {...explicarFalha(e)} />
       </main>
     );
   }
@@ -171,7 +175,7 @@ export default async function Paciente({
         <Voltar />
         <p className={s.eyebrow}>paciente</p>
         <h1 className={s.title}>{paciente.name}</h1>
-        <Falha e={e} />
+        <Falha {...explicarFalha(e)} />
       </main>
     );
   }
