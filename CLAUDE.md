@@ -263,6 +263,41 @@ Dado de saúde desde a Fase 0: controle de acesso, criptografia, consentimento. 
 
 <!-- SPECKIT START -->
 
+Feature **016-cadastro-de-paciente** (cadastrar paciente): **implementada e testada**
+(2026-07-26). Lacuna apontada pelo dono logo depois da 015: a nutri tinha tela que **lê**
+pacientes, mas um paciente só existia rodando `packages/db/scripts/seed.ts` — que **apaga** a
+nutricionista e os pacientes antes de recriar. Não havia como acrescentar um.
+· **API** — `POST /nutri/patients` no módulo `nutri` da 015. Corpo `{ name }` **e só**:
+e-mail/telefone/peso/altura existem no schema e continuam nulos porque nada os consome (coleta
+mínima, LGPD). **201 na mesma forma do item da listagem** (`cicloAtual: null`) — o cliente insere
+na lista sem 2ª chamada e não nasce um segundo formato de "paciente". **Escreve UMA tabela**, e o
+e2e trava isso comparando as contagens de `plan`/`cycle`/`day_schedule` antes e depois: cadastro
+que inventa grafo cria plano fantasma. A nutricionista responsável é resolvida com **`limit(2)`**,
+que distingue os três casos numa query — nenhuma → 422 orientado; **mais de uma → 422** dizendo
+que a credencial stub não sabe qual é a responsável. `limit(1)` silencioso penduraria dado de
+saúde na nutricionista errada. Validação **estrutural na borda** com `typeof`/`trim`, no padrão que
+o repo já usa (`ciclo.controller.ts`): **não** existe `class-validator`/`ValidationPipe` aqui, e
+não se traz dependência para validar uma string. Homônimo é aceito (não há chave natural).
+· **Web** — `<details>` **nativo** guarda o formulário (a tela continua sendo a lista) e uma
+**Server Action** faz a escrita, então a credencial segue no servidor. **Verificado ao vivo como
+browser SEM JavaScript** (POST multipart no `$ACTION_ID`): nome válido → 303 + paciente na lista;
+nome em branco → 303 para `/?erro=nome-invalido` e nada criado. A falha volta pela URL como
+**código**, nunca como texto — a página traduz para uma frase fixa, então nada de fora é
+refletido e dispensa `useActionState` (que exigiria componente client). **`redirect()` fica FORA
+do `try`**: ele funciona lançando exceção interna do Next, e o `catch` o engoliria.
+**Custo assumido:** o roster passa a carregar o runtime de Server Actions e deixa de ser 100%
+zero-JS; a garantia que importa (credencial só no servidor) não muda.
+**Fora de escopo por DECISÃO:** criar **plano** (o grafo `plan → day_type → meal → meal_option →
+meal_item` + `day_schedule`; escrever esse payload à mão é pior que rodar o seed, e o
+`buildScenario` já expressa o grafo declarativamente — o endpoint nasce com o **import de PDF por
+IA da Fase 4**, que é o que o roadmap prevê como porta de entrada do plano) · editar/excluir
+paciente · cadastrar nutricionista (sem auth real não há dono da conta) · idempotência.
+**Limite conhecido, documentado e NÃO corrigido:** paciente cadastrado por esta via **não
+sobrevive** ao próximo `seed` — é o que o seed sempre fez, mas só agora fica visível.
+Sem migration, core intocado. **api 158 → 165** · web 29 · core 164 · db 20 · mobile 24 verdes;
+lint 0 errors, `check-types`/Prettier limpos; OpenAPI regenerado.
+Artefatos: `specs/016-cadastro-de-paciente/` (spec/plan/tasks).
+
 Feature **015-visao-da-nutri** (a visão da nutri — parte de leitura; **começa o EP-6**):
 **implementada e testada** (2026-07-26). O EP-5 estava concluído e **invisível**: 4 vias
 `/nutri/*` prontas (adesão 006, ciclo 007, relatório 011) e **zero consumidores** — a única
