@@ -134,6 +134,32 @@ describe("diff", () => {
     expect(diff(f)).toHaveLength(2);
   });
 
+  it("o seletor de alimento entra pelo NOME, não pelo id", () => {
+    // O seletor com busca envia um `<input type=hidden>` com o UUID; o `data-valor`
+    // é o nome escolhido. Sem isso a revisão mostraria "9c1f-… → 4b2e-…".
+    const f = form(`
+      <input type="hidden" name="item.i1.foodId" value="f2"
+             data-rotulo="Almoço · Padrão · Arroz"
+             data-orig="Arroz branco cozido"
+             data-valor="Batata inglesa cozida">`);
+    expect(diff(f)).toEqual([
+      {
+        rotulo: "Almoço · Padrão · Arroz",
+        de: "Arroz branco cozido",
+        para: "Batata inglesa cozida",
+      },
+    ]);
+  });
+
+  it("linha nova sem alimento escolhido não é adição, mesmo com o nome vazio", () => {
+    const f = form(`
+      <div data-linha-nova>
+        <input type="hidden" name="novo-item.op1.0.foodId" value=""
+               data-novo="" data-rotulo="Novo alimento em Almoço · Padrão" data-valor="">
+      </div>`);
+    expect(diff(f)).toEqual([]);
+  });
+
   it("no grupo de rádio, só o marcado responde pelo grupo", () => {
     const f = form(`
       <input type="radio" name="p" data-rotulo="Almoço — opção padrão" data-orig="Arroz e carne" data-valor="Arroz e carne">

@@ -3,11 +3,12 @@
 //
 // A garantia não é um comentário: a chave é lida de `process.env.NUTRI_API_KEY`
 // — sem prefixo `NEXT_PUBLIC_`, ela simplesmente não existe no bundle do
-// browser. Existem DUAS ilhas client no app, as duas no editor de plano
-// (`plans/[planId]/revisao.tsx`, o modal de revisão antes de salvar, e
-// `repetir.tsx`, o "+" que clona uma linha em branco). Nenhuma importa este
-// arquivo, recebe segredo por prop ou faz fetch: o que atravessa para o
-// cliente é HTML. Se um dia alguém importar isto de
+// browser. O editor de plano tem TRÊS ilhas client — `revisao.tsx` (o modal de
+// revisão antes de salvar), `novos.tsx` (as linhas que ainda não existem no
+// banco) e `seletor.tsx` (a busca de alimento). Nenhuma importa este arquivo e
+// nenhuma recebe segredo por prop. O seletor CONSULTA o catálogo, mas por uma
+// Server Action (`app/busca.ts`): a chave fica no servidor e o que atravessa
+// para o cliente é a resposta já filtrada. Se um dia alguém importar isto de
 // um componente client, `process.env` vem vazio e o fetch falha fechado, com a
 // mensagem de configuração abaixo. Fail-closed como o guard do lado da API.
 //
@@ -15,9 +16,9 @@
 // substring — vários arquivos citam a expressão em comentário, então um
 // `grep -rl "use client"` devolve falsos positivos. O teste certo é
 //     grep -rlE '^\s*["'"'"']use client["'"'"']' apps/web/{app,components,lib}
-// e a resposta esperada são DOIS arquivos, `revisao.tsx` e `repetir.tsx`. Três
-// é regressão — vale a mesma pergunta de sempre: essa tela precisa mesmo de
-// JavaScript?
+// e a resposta esperada são TRÊS arquivos, todos em `plans/[planId]/`:
+// `revisao.tsx`, `novos.tsx` e `seletor.tsx`. Um quarto é regressão — vale a
+// mesma pergunta de sempre: essa tela precisa mesmo de JavaScript?
 //
 // Reusa o `requestJson`/`requestVoid` do @bamboo/api-client (D6): eles separam
 // "não conectou" de "a API respondeu erro", que é exatamente a distinção que a
@@ -308,9 +309,13 @@ export const deleteItem = (itemId: string): Promise<void> =>
 
 /* ═══════════ catálogo ═══════════ */
 
-export const searchFoods = (q = "", limit = 600): Promise<FoodsResponse> =>
+export const searchFoods = (
+  q = "",
+  limit = 600,
+  offset = 0,
+): Promise<FoodsResponse> =>
   get<FoodsResponse>(
-    `/nutri/foods?q=${encodeURIComponent(q)}&limit=${limit}`,
+    `/nutri/foods?q=${encodeURIComponent(q)}&limit=${limit}&offset=${offset}`,
     "searchFoods",
   );
 
