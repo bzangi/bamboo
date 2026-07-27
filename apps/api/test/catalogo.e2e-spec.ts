@@ -4,6 +4,7 @@ import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { buildScenario, type Scenario } from '@bamboo/db/testing';
 import { and, db, eq, inArray, schema } from '@bamboo/db';
+import type { FoodDto } from '@bamboo/types';
 import { NutriModule } from '../src/nutri/nutri.module';
 import { PlanoEditorModule } from '../src/plano-editor/plano-editor.module';
 
@@ -54,7 +55,7 @@ async function criarFood(name: string, extra: object = {}) {
     ...extra,
   }).expect(201);
   paraLimpar.foods.push(res.body.id as string);
-  return res.body as { id: string; name: string; source: string };
+  return res.body as FoodDto;
 }
 
 async function criarGrupo(name: string, basis = 'carb') {
@@ -264,6 +265,30 @@ describe('CRUD de alimento', () => {
     // Sem `taco_id`, o upsert por taco_id da ingestão não o alcança.
     expect(row).toMatchObject({ tacoId: null });
     expect(row.source).not.toBe('taco');
+  });
+
+  it('sódio: ausente é null, e o teto é o do SAL, não o dos macros em grama', async () => {
+    // Nulo e não zero: "não sabemos" é diferente de "não tem sódio", e o sumário
+    // do plano conta os sem-dado em vez de somá-los como zero.
+    const semSodio = await criarFood(`${PRE} Sem sódio`);
+    expect(semSodio.sodiumMgPer100g).toBeNull();
+
+    const salgado = await criarFood(`${PRE} Bem salgado`, {
+      sodiumMgPer100g: 38758,
+    });
+    expect(salgado.sodiumMgPer100g).toBe(38758);
+
+    const editado = await patch(`/nutri/foods/${semSodio.id}`, {
+      sodiumMgPer100g: 120,
+    }).expect(200);
+    expect(editado.body.sodiumMgPer100g).toBe(120);
+
+    // O teto de 100 dos macros em grama barraria o sal de cozinha (~39 g/100 g).
+    await post('/nutri/foods', {
+      name: `${PRE} Impossível`,
+      ...NUTRIENTES,
+      sodiumMgPer100g: 40001,
+    }).expect(400);
   });
 
   it('aceita nutriente ZERO (água tem 0 kcal)', async () => {

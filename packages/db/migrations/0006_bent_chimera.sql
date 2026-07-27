@@ -1,0 +1,1 @@
+ALTER TABLE "food" ADD COLUMN "sodium_mg_per_100g" double precision;

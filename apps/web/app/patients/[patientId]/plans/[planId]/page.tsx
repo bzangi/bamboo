@@ -74,6 +74,9 @@ import {
   NovosItens,
   NovosTiposDeDia,
 } from "./novos";
+import { resumoDoTipoDia } from "./resumo";
+import { PainelResumo } from "./resumo-painel";
+import { ResumoReativo } from "./resumo-reativo";
 import { SalvarComRevisao } from "./revisao";
 import { SeletorDeAlimento } from "./seletor";
 
@@ -125,7 +128,12 @@ function ItemEdicao({
   const k = `item.${item.id}`;
   const aqui = `${onde} · ${item.foodName}`;
   return (
-    <li className="flex flex-wrap items-end gap-2 border-t border-border px-3 py-2 has-[>label>input:checked]:[&>*:not(label)]:opacity-40">
+    <li
+      // `data-item` é o que o sumário conta (`resumo.ts`): a linha é a unidade
+      // de aporte, e é dela que saem macros, gramas e a marcação de excluir.
+      data-item
+      className="flex flex-wrap items-end gap-2 border-t border-border px-3 py-2 has-[>label>input:checked]:[&>*:not(label)]:opacity-40"
+    >
       <Original
         chave={k}
         valor={assinaturaItem(
@@ -139,7 +147,11 @@ function ItemEdicao({
         <Label htmlFor={`${k}.foodId`}>Alimento</Label>
         <SeletorDeAlimento
           name={`${k}.foodId`}
-          inicial={{ id: item.foodId, nome: item.foodName }}
+          inicial={{
+            id: item.foodId,
+            nome: item.foodName,
+            macros: item.macros,
+          }}
           rotulo={aqui}
           grupo={item.id}
           obrigatorio
@@ -182,7 +194,10 @@ function Opcao({
 }) {
   const aqui = `${onde} · ${opcao.label}`;
   return (
-    <div className="rounded-sm border border-border">
+    // `data-opcao` + o `data-padrao` do rádio são o que o sumário usa para somar
+    // SÓ a opção padrão. Opção nova (`novos.tsx`) não tem nem um nem outro: ela
+    // nasce não-padrão, e por isso não entra na conta nem por acidente.
+    <div data-opcao className="rounded-sm border border-border">
       <div className="flex flex-wrap items-center justify-between gap-2 bg-muted/60 px-3 py-2 has-[>label>input:checked]:[&>*:not(label)]:opacity-40">
         {editando ? (
           <>
@@ -206,6 +221,7 @@ function Opcao({
                   type="radio"
                   name={`padrao.${mealId}`}
                   value={opcao.id}
+                  data-padrao
                   defaultChecked={opcao.isDefault}
                   data-rotulo={`${onde} — opção padrão`}
                   data-orig={padraoAtual}
@@ -273,7 +289,7 @@ function Refeicao({
   const padrao = refeicao.options.find((o) => o.isDefault);
   const padraoAtual = padrao?.id ?? "";
   return (
-    <Card>
+    <Card data-refeicao>
       <CardHeader className="has-[>label>input:checked]:[&>*:not(label)]:opacity-40">
         {editando ? (
           <>
@@ -603,6 +619,21 @@ export default async function Editor({
               </Link>
             ))}
           </div>
+
+          {/* Os parâmetros do dia. Em edição eles acompanham a tela em vez do
+              banco (`resumo-reativo.tsx`) — o número que a nutri precisa é o do
+              plano que ela está montando, não o do que já estava salvo. */}
+          {editando ? (
+            <ResumoReativo
+              inicial={resumoDoTipoDia(selecionado)}
+              nomeDoTipo={selecionado.name}
+            />
+          ) : (
+            <PainelResumo
+              resumo={resumoDoTipoDia(selecionado)}
+              nomeDoTipo={selecionado.name}
+            />
+          )}
 
           {selecionado.meals.length === 0 ? (
             <Vazio titulo={`${selecionado.name} não tem refeição`}>

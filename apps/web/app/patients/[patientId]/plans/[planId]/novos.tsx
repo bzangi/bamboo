@@ -78,6 +78,9 @@ export function NovosItens({
         return (
           <div
             key={chave}
+            // `data-item` como nas linhas gravadas: preenchida numa opção
+            // PADRÃO, ela já entra no sumário do dia antes de existir no banco.
+            data-item
             className="flex flex-wrap items-end gap-2 border-t border-dashed border-border px-3 py-2"
           >
             <div className="flex min-w-56 flex-1 flex-col gap-1">

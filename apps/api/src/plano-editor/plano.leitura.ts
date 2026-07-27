@@ -64,6 +64,12 @@ export interface ItemRow {
   readonly isLocked: boolean;
   readonly substitutionGroupId: string | null;
   readonly substitutionGroupName: string | null;
+  readonly kcalPer100g: number;
+  readonly carbPer100g: number;
+  readonly proteinPer100g: number;
+  readonly fatPer100g: number;
+  readonly fiberPer100g: number | null;
+  readonly sodiumMgPer100g: number | null;
 }
 
 /* ═══════════ a montagem (função PURA — é o que tem teste unitário) ═══════════ */
@@ -104,6 +110,16 @@ export function montarPlano(dados: {
     isLocked: r.isLocked,
     substitutionGroupId: r.substitutionGroupId,
     substitutionGroupName: r.substitutionGroupName,
+    // Por 100 g e não já multiplicado pelas gramas: o sumário do plano é
+    // recalculado no navegador a cada gramatura editada.
+    macros: {
+      kcalPer100g: r.kcalPer100g,
+      carbPer100g: r.carbPer100g,
+      proteinPer100g: r.proteinPer100g,
+      fatPer100g: r.fatPer100g,
+      fiberPer100g: r.fiberPer100g,
+      sodiumMgPer100g: r.sodiumMgPer100g,
+    },
   });
 
   const opcao = (r: OptionRow): PlanoOpcaoDto => ({
@@ -247,6 +263,12 @@ export async function carregarPlano(
       isLocked: schema.mealItem.isLocked,
       substitutionGroupId: schema.mealItem.substitutionGroupId,
       substitutionGroupName: schema.substitutionGroup.name,
+      kcalPer100g: schema.food.kcalPer100g,
+      carbPer100g: schema.food.carbPer100g,
+      proteinPer100g: schema.food.proteinPer100g,
+      fatPer100g: schema.food.fatPer100g,
+      fiberPer100g: schema.food.fiberPer100g,
+      sodiumMgPer100g: schema.food.sodiumMgPer100g,
     })
     .from(schema.mealItem)
     .innerJoin(schema.food, eq(schema.food.id, schema.mealItem.foodId))

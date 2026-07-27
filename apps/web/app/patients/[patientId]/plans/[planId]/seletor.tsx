@@ -22,14 +22,22 @@
 // hidden, então um salvar sem JS preserva o alimento do item em vez de apagá-lo.
 
 import { useEffect, useRef, useState, useTransition } from "react";
-import type { FoodDto } from "@bamboo/types";
+import type { FoodDto, MacrosPer100gDto } from "@bamboo/types";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { buscarAlimentos } from "../../../../busca";
+import { macrosParaAtributo } from "./resumo";
 
 /** O que a nutri digita e o que ela vê são coisas diferentes: o termo filtra, o
- *  nome escolhido fica no campo até ela mexer de novo. */
-type Escolha = { readonly id: string; readonly nome: string } | null;
+ *  nome escolhido fica no campo até ela mexer de novo.
+ *
+ *  `macros` viaja junto porque é o que o sumário do dia soma: trocar o alimento
+ *  muda as kcal na hora, sem ir ao servidor — e a busca já traz a composição. */
+type Escolha = {
+  readonly id: string;
+  readonly nome: string;
+  readonly macros: MacrosPer100gDto;
+} | null;
 
 const DEBOUNCE_MS = 250;
 
@@ -43,7 +51,7 @@ export function SeletorDeAlimento({
   onEscolher,
 }: {
   name: string;
-  inicial?: { id: string; nome: string };
+  inicial?: { id: string; nome: string; macros: MacrosPer100gDto };
   /** Rótulo da mudança na revisão (`data-rotulo`). */
   rotulo?: string;
   grupo?: string;
@@ -106,6 +114,9 @@ export function SeletorDeAlimento({
         data-orig={novo ? undefined : inicial?.nome}
         data-valor={escolha?.nome ?? ""}
         data-grupo={grupo}
+        // Vazio sem escolha: o item entra na conta do sumário só quando há
+        // alimento — zeros baixariam o total calado.
+        data-macros={escolha ? macrosParaAtributo(escolha.macros) : ""}
       />
       {/* `required` num hidden não é validável pelo navegador; o campo visível
           carrega a obrigatoriedade e some da validação assim que há escolha. */}
@@ -156,7 +167,7 @@ export function SeletorDeAlimento({
                     role="option"
                     aria-selected={f.id === escolha?.id}
                     onClick={() => {
-                      setEscolha({ id: f.id, nome: f.name });
+                      setEscolha({ id: f.id, nome: f.name, macros: f });
                       onEscolher?.(true);
                       setAberto(false);
                       setTermo("");

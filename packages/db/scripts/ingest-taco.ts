@@ -44,6 +44,9 @@ type Macro = {
   readonly proteinPer100g: number;
   readonly fatPer100g: number;
   readonly fiberPer100g: number | null;
+  // Opcional de propósito: o modo curado (fallback offline) não tem sódio, e
+  // preencher os ~25 literais abaixo exigiria inventar número. Ausente = null.
+  readonly sodiumMgPer100g?: number | null;
 };
 
 type CuratedFood = {
@@ -384,6 +387,7 @@ type RawTacoRow = {
   readonly protein_g: number | string;
   readonly lipid_g: number | string;
   readonly fiber_g: number | string;
+  readonly sodium_mg: number | string;
 };
 
 // "Tr" (traço) -> 0; "NA"/"" -> null. Número -> número.
@@ -434,6 +438,7 @@ function buildAllFromDataset(rows: readonly RawTacoRow[]): {
     const protein = parseNutrient(row.protein_g);
     const fat = parseNutrient(row.lipid_g);
     const fiber = parseNutrient(row.fiber_g);
+    const sodium = parseNutrient(row.sodium_mg);
 
     // 4 macros principais são NOT NULL no schema (FR-004: não inventamos valor).
     if (kcal === null || carb === null || protein === null || fat === null) {
@@ -453,6 +458,7 @@ function buildAllFromDataset(rows: readonly RawTacoRow[]): {
         proteinPer100g: round2(protein),
         fatPer100g: round2(fat),
         fiberPer100g: fiber === null ? null : round2(fiber),
+        sodiumMgPer100g: sodium === null ? null : round2(sodium),
       },
     });
   }
@@ -540,6 +546,7 @@ async function persist(foods: ReadonlyArray<FoodToInsert>): Promise<{
         proteinPer100g: f.macros.proteinPer100g,
         fatPer100g: f.macros.fatPer100g,
         fiberPer100g: f.macros.fiberPer100g,
+        sodiumMgPer100g: f.macros.sodiumMgPer100g ?? null,
       };
 
       // Match: por taco_id; senão por nome (backfill do taco_id nos curados).
@@ -629,6 +636,7 @@ async function main(): Promise<void> {
       protein: food.proteinPer100g,
       fat: food.fatPer100g,
       fiber: food.fiberPer100g,
+      sodium: food.sodiumMgPer100g,
     })
     .from(food)
     .limit(4);
@@ -636,7 +644,7 @@ async function main(): Promise<void> {
   console.log("[taco] spot-check (por 100 g):");
   for (const s of sample) {
     console.log(
-      `  - ${s.name}: ${s.kcal} kcal | carb ${s.carb} g | prot ${s.protein} g | gord ${s.fat} g | fibra ${s.fiber ?? "—"} g`,
+      `  - ${s.name}: ${s.kcal} kcal | carb ${s.carb} g | prot ${s.protein} g | gord ${s.fat} g | fibra ${s.fiber ?? "—"} g | sódio ${s.sodium ?? "—"} mg`,
     );
   }
 }

@@ -244,6 +244,30 @@ describe('GET /nutri/plans/:planId — o grafo inteiro numa requisição', () =>
     expect(res.body.week.length).toBe(7);
   });
 
+  it('cada item traz a composição por 100 g do seu alimento', async () => {
+    // POR 100 g, não já multiplicada: o sumário da tela da nutri é recalculado no
+    // navegador a cada gramatura editada — com o valor da porção pronto ele teria
+    // de dividir de volta, e uma requisição por tecla é a alternativa.
+    const res = await get(
+      `/nutri/plans/${cenario.ids.plan('p-vigencia')}`,
+    ).expect(200);
+    const item = res.body.dayTypes[0].meals[0].options[0].items[0];
+
+    const [alimento] = await db
+      .select()
+      .from(schema.food)
+      .where(eq(schema.food.id, cenario.ids.food('base')));
+
+    expect(item.macros).toEqual({
+      kcalPer100g: alimento.kcalPer100g,
+      carbPer100g: alimento.carbPer100g,
+      proteinPer100g: alimento.proteinPer100g,
+      fatPer100g: alimento.fatPer100g,
+      fiberPer100g: alimento.fiberPer100g,
+      sodiumMgPer100g: alimento.sodiumMgPer100g,
+    });
+  });
+
   it('404 em plano inexistente', async () => {
     await get(`/nutri/plans/${UUID_INEXISTENTE}`).expect(404);
   });

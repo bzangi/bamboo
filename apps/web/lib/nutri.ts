@@ -3,10 +3,11 @@
 //
 // A garantia não é um comentário: a chave é lida de `process.env.NUTRI_API_KEY`
 // — sem prefixo `NEXT_PUBLIC_`, ela simplesmente não existe no bundle do
-// browser. O editor de plano tem TRÊS ilhas client — `revisao.tsx` (o modal de
+// browser. O editor de plano tem QUATRO ilhas client — `revisao.tsx` (o modal de
 // revisão antes de salvar), `novos.tsx` (as linhas que ainda não existem no
-// banco) e `seletor.tsx` (a busca de alimento). Nenhuma importa este arquivo e
-// nenhuma recebe segredo por prop. O seletor CONSULTA o catálogo, mas por uma
+// banco), `seletor.tsx` (a busca de alimento) e `resumo-reativo.tsx` (o sumário
+// nutricional que acompanha a edição). Nenhuma importa este arquivo e nenhuma
+// recebe segredo por prop — o sumário recebe NÚMEROS já calculados. O seletor CONSULTA o catálogo, mas por uma
 // Server Action (`app/busca.ts`): a chave fica no servidor e o que atravessa
 // para o cliente é a resposta já filtrada. Se um dia alguém importar isto de
 // um componente client, `process.env` vem vazio e o fetch falha fechado, com a
@@ -16,9 +17,10 @@
 // substring — vários arquivos citam a expressão em comentário, então um
 // `grep -rl "use client"` devolve falsos positivos. O teste certo é
 //     grep -rlE '^\s*["'"'"']use client["'"'"']' apps/web/{app,components,lib}
-// e a resposta esperada são TRÊS arquivos, todos em `plans/[planId]/`:
-// `revisao.tsx`, `novos.tsx` e `seletor.tsx`. Um quarto é regressão — vale a
-// mesma pergunta de sempre: essa tela precisa mesmo de JavaScript?
+// e a resposta esperada são QUATRO arquivos, todos em `plans/[planId]/`:
+// `revisao.tsx`, `novos.tsx`, `seletor.tsx` e `resumo-reativo.tsx`. Um quinto é
+// regressão — vale a mesma pergunta de sempre: essa tela precisa mesmo de
+// JavaScript?
 //
 // Reusa o `requestJson`/`requestVoid` do @bamboo/api-client (D6): eles separam
 // "não conectou" de "a API respondeu erro", que é exatamente a distinção que a

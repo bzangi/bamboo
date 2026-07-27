@@ -14,6 +14,25 @@ import type { EquivalenceBasis } from "./substitution.js";
 
 /* ============ o grafo do plano ============ */
 
+/**
+ * Composição por 100 g. É a base do sumário do plano na tela da nutri: kcal,
+ * macros, fibra e sódio do dia saem de `gramas/100 × isto`, somado sobre os
+ * itens — então o valor tem de vir POR 100 g, não já multiplicado: durante a
+ * edição as gramas mudam no navegador e a soma é refeita ali.
+ *
+ * `fiberPer100g`/`sodiumMgPer100g` são nullable porque a base é assim (alimento
+ * cadastrado à mão não os tem). Somar `null` como zero mostraria um total menor
+ * do que o real com cara de exato — quem exibe conta quantos itens faltaram.
+ */
+export interface MacrosPer100gDto {
+  readonly kcalPer100g: number;
+  readonly carbPer100g: number;
+  readonly proteinPer100g: number;
+  readonly fatPer100g: number;
+  readonly fiberPer100g: number | null;
+  readonly sodiumMgPer100g: number | null;
+}
+
 /** Item de uma opção. `foodName`/`substitutionGroupName` vêm resolvidos porque
  *  a tela precisa exibir texto, não UUID. */
 export interface PlanoItemDto {
@@ -31,6 +50,8 @@ export interface PlanoItemDto {
   readonly isLocked: boolean;
   readonly substitutionGroupId: string | null;
   readonly substitutionGroupName: string | null;
+  /** Do alimento do item, por 100 g — o insumo do sumário do dia. */
+  readonly macros: MacrosPer100gDto;
 }
 
 export interface PlanoOpcaoDto {
@@ -93,17 +114,12 @@ export interface PlanosResponse {
 
 /* ============ catálogo: alimentos e grupos ============ */
 
-export interface FoodDto {
+export interface FoodDto extends MacrosPer100gDto {
   readonly id: string;
   readonly name: string;
   /** 'taco' = base ingerida (008); qualquer outro = cadastrado à mão. */
   readonly source: string;
   readonly tacoCategory: string | null;
-  readonly kcalPer100g: number;
-  readonly carbPer100g: number;
-  readonly proteinPer100g: number;
-  readonly fatPer100g: number;
-  readonly fiberPer100g: number | null;
 }
 
 export interface FoodsResponse {

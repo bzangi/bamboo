@@ -100,6 +100,11 @@ export const food = pgTable("food", {
   proteinPer100g: doublePrecision("protein_per_100g").notNull(),
   fatPer100g: doublePrecision("fat_per_100g").notNull(),
   fiberPer100g: doublePrecision("fiber_per_100g"),
+  // Sódio em MILIGRAMAS por 100 g (a unidade está no nome porque é a única
+  // coluna aqui que não é grama). Nullable como a fibra: alimento cadastrado à
+  // mão não tem o dado, e gravar `0` diria "não tem sódio" — que é diferente de
+  // "não sabemos".
+  sodiumMgPer100g: doublePrecision("sodium_mg_per_100g"),
 });
 
 // Medidas caseiras: "1 colher de sopa cheia" = X g. Essencial pra traduzir

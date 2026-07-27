@@ -61,6 +61,7 @@ export interface AlimentoBody {
   readonly proteinPer100g?: unknown;
   readonly fatPer100g?: unknown;
   readonly fiberPer100g?: unknown;
+  readonly sodiumMgPer100g?: unknown;
 }
 
 export interface GrupoBody {
@@ -149,6 +150,7 @@ export class CatalogoService {
         proteinPer100g: schema.food.proteinPer100g,
         fatPer100g: schema.food.fatPer100g,
         fiberPer100g: schema.food.fiberPer100g,
+        sodiumMgPer100g: schema.food.sodiumMgPer100g,
       })
       .from(schema.food)
       .where(filtro)
@@ -181,6 +183,13 @@ export class CatalogoService {
         ? body.fiberPer100g === null
           ? null
           : numeroNaoNegativo(body.fiberPer100g, 'fiberPer100g', 100)
+        : null,
+      // Sódio em mg: teto 40000 (sal de cozinha é ~39 g de sódio por 100 g), e
+      // não os 100 dos macros em grama — o mesmo teto ali barraria o sal.
+      sodiumMgPer100g: presente(body, 'sodiumMgPer100g')
+        ? body.sodiumMgPer100g === null
+          ? null
+          : numeroNaoNegativo(body.sodiumMgPer100g, 'sodiumMgPer100g', 40000)
         : null,
     };
 
@@ -217,6 +226,12 @@ export class CatalogoService {
         body.fiberPer100g === null
           ? null
           : numeroNaoNegativo(body.fiberPer100g, 'fiberPer100g', 100);
+    }
+    if (presente(body, 'sodiumMgPer100g')) {
+      patch.sodiumMgPer100g =
+        body.sodiumMgPer100g === null
+          ? null
+          : numeroNaoNegativo(body.sodiumMgPer100g, 'sodiumMgPer100g', 40000);
     }
 
     if (Object.keys(patch).length > 0) {
@@ -478,6 +493,7 @@ export class CatalogoService {
         proteinPer100g: schema.food.proteinPer100g,
         fatPer100g: schema.food.fatPer100g,
         fiberPer100g: schema.food.fiberPer100g,
+        sodiumMgPer100g: schema.food.sodiumMgPer100g,
       })
       .from(schema.food)
       .where(eq(schema.food.id, foodId))
