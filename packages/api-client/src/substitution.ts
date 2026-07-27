@@ -8,6 +8,8 @@ export interface SubstitutionsQuery {
   readonly q?: string;
   readonly limit?: number;
   readonly offset?: number;
+  /** 021: inclui o food de origem entre os candidatos (uso do combinar). */
+  readonly includeSelf?: boolean;
 }
 
 /**
@@ -25,6 +27,7 @@ export async function getSubstitutions(
   if (query.q) params.set("q", query.q);
   if (query.limit !== undefined) params.set("limit", String(query.limit));
   if (query.offset) params.set("offset", String(query.offset));
+  if (query.includeSelf) params.set("includeSelf", "true");
   const qs = params.toString();
 
   return requestJson<SubstitutionsResponse>(

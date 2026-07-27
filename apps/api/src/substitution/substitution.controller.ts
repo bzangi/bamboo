@@ -26,7 +26,7 @@ export class SubstitutionController {
   @ApiOperation({
     summary: 'Substituições de um item flexível',
     description:
-      'Lista os alimentos do mesmo grupo de substituição do item, cada um com a quantidade recalculada (preservando o nutriente-base do grupo) e a medida caseira correspondente. Alvos com nutriente-base zero são excluídos. Item travado ou sem grupo → 422 (não substituível). Lista vazia de alternativas é 200 (grupo sem substitutos).\n\nBusca e página (019, todos opcionais): `q` filtra por nome com busca fuzzy (subsequência, insensível a caixa e acento) e ordena por relevância; `limit`/`offset` recortam a página. **Sem nenhum dos três, a resposta é a de sempre — o grupo inteiro.** Não há campo de total: a última página é aquela que volta com menos itens que o `limit`.',
+      'Lista os alimentos do mesmo grupo de substituição do item, cada um com a quantidade recalculada (preservando o nutriente-base do grupo) e a medida caseira correspondente. Alvos com nutriente-base zero são excluídos. Item travado ou sem grupo → 422 (não substituível). Lista vazia de alternativas é 200 (grupo sem substitutos).\n\nBusca e página (019, todos opcionais): `q` filtra por nome com busca fuzzy (subsequência, insensível a caixa e acento) e ordena por relevância; `limit`/`offset` recortam a página. **Sem nenhum dos três, a resposta é a de sempre — o grupo inteiro.** Não há campo de total: a última página é aquela que volta com menos itens que o `limit`.\n\n`includeSelf` (021, opcional): quando `true`, inclui o próprio food do item entre os candidatos — usado pelo modo de combinar, que pode querer manter o alimento de origem como um dos dois alvos. Ausente ou qualquer outro valor: comportamento de sempre (food de origem excluído).',
   })
   @ApiParam({
     name: 'mealItemId',
@@ -49,6 +49,12 @@ export class SubstitutionController {
     required: false,
     description: 'quantos pular, default 0',
   })
+  @ApiQuery({
+    name: 'includeSelf',
+    required: false,
+    description:
+      '"true" inclui o próprio food do item entre os candidatos (uso do combinar)',
+  })
   @ApiOkResponse({
     type: SubstitutionsResponseModel,
     description: 'alternativas equivalentes (lista pode ser vazia)',
@@ -67,11 +73,13 @@ export class SubstitutionController {
     @Query('q') q?: string,
     @Query('limit') limit?: string,
     @Query('offset') offset?: string,
+    @Query('includeSelf') includeSelf?: string,
   ): Promise<SubstitutionsResponse> {
     return this.substitutionService.getSubstitutions(mealItemId, {
       q,
       limit,
       offset,
+      includeSelf,
     });
   }
 }

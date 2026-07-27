@@ -14,3 +14,9 @@ export function inteiroDeQuery(
   if (typeof n !== 'number' || !Number.isFinite(n) || n < min) return padrao;
   return Math.min(Math.floor(n), max);
 }
+
+// Flag opcional: só 'true'/'1' ligam; qualquer outra coisa (ausente, 'false',
+// lixo) é desligado — Boolean(str) trataria a STRING 'false' como truthy.
+export function booleanDeQuery(v: unknown): boolean {
+  return v === 'true' || v === '1';
+}

@@ -344,6 +344,56 @@ describe('GET /meal-items/:id/substitutions (US2)', () => {
     });
   });
 
+  // 021 — o food de origem vira candidato do combinar (aditivo; troca simples
+  // continua excluindo-o, comportamento intacto — testado acima).
+  describe('021 includeSelf — alimento de origem também combinável', () => {
+    it('sem includeSelf, resposta idêntica à de hoje (food de origem fora)', async () => {
+      const semParam = await request(app.getHttpServer())
+        .get(`/meal-items/${flexItemId}/substitutions`)
+        .expect(200);
+      const comFalse = await request(app.getHttpServer())
+        .get(`/meal-items/${flexItemId}/substitutions?includeSelf=false`)
+        .expect(200);
+      expect(comFalse.body.alternatives).toEqual(semParam.body.alternatives);
+      expect(
+        (semParam.body.alternatives as Array<{ foodId: string }>).map(
+          (a) => a.foodId,
+        ),
+      ).not.toContain(flexFoodId);
+    });
+
+    it('com includeSelf=true, o food de origem entra com as gramas atuais', async () => {
+      const [item] = await db
+        .select({ quantityGrams: schema.mealItem.quantityGrams })
+        .from(schema.mealItem)
+        .where(eq(schema.mealItem.id, flexItemId))
+        .limit(1);
+
+      const res = await request(app.getHttpServer())
+        .get(`/meal-items/${flexItemId}/substitutions?includeSelf=true`)
+        .expect(200);
+
+      const self = (
+        res.body.alternatives as Array<{ foodId: string; gramas: number }>
+      ).find((a) => a.foodId === flexFoodId);
+      expect(self).toBeDefined();
+      expect(self!.gramas).toBeCloseTo(item.quantityGrams, 5);
+    });
+
+    it('includeSelf=true continua paginando/buscando normalmente (019)', async () => {
+      const cheio = await request(app.getHttpServer())
+        .get(`/meal-items/${flexItemId}/substitutions?includeSelf=true`)
+        .expect(200);
+      const todas = cheio.body.alternatives as Array<{ foodId: string }>;
+      expect(todas.length).toBeGreaterThan(1); // origem + ao menos 1 outro
+
+      const pagina = await request(app.getHttpServer())
+        .get(`/meal-items/${flexItemId}/substitutions?includeSelf=true&limit=1`)
+        .expect(200);
+      expect(pagina.body.alternatives.length).toBe(1);
+    });
+  });
+
   // US1-010: nutrição da porção equivalente, sob o mesmo gate de exposição do
   // /today. ANINHADO no describe pai (não top-level): o afterAll dele chama
   // pool.end(), então um segundo describe top-level neste arquivo quebraria o

@@ -7,7 +7,7 @@
 // e rede que ninguém pediu. Com página, a busca precisa ser do SERVIDOR: filtrar
 // só o que já baixou devolveria resultado errado (o alimento pode estar na página
 // que ainda não veio).
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -19,26 +19,13 @@ import {
 } from "react-native";
 import { Folha } from "./Folha";
 import { radius, space, text, usePalette, type Palette } from "./theme";
-import { getSubstitutions } from "@bamboo/api-client";
-import type {
-  MealItemDto,
-  SubstitutionAlternativeDto,
-  SubstitutionsResponse,
-} from "@bamboo/types";
-import { API_URL } from "./config";
+import type { MealItemDto, SubstitutionAlternativeDto } from "@bamboo/types";
 import { formatAlternativeQuantity, formatNutrition } from "./format";
-import { log } from "./logger";
-
-type LoadState =
-  | { readonly status: "loading" }
-  | { readonly status: "error"; readonly message: string }
-  | {
-      readonly status: "ready";
-      // `data.alternatives` ACUMULA as páginas já recebidas.
-      readonly data: SubstitutionsResponse;
-      readonly fim: boolean;
-      readonly carregandoMais: boolean;
-    };
+import {
+  MINIMO_PARA_BUSCAR,
+  useAlternativesSearch,
+  type AlternativesLoadState,
+} from "./useAlternativesSearch";
 
 interface Props {
   // Item tocado; null = sheet fechado. Só itens substitutable=true chegam aqui.
@@ -51,121 +38,11 @@ interface Props {
   ) => void;
 }
 
-/** Abaixo disto o campo de busca é ruído: a lista inteira já cabe na tela. */
-const MINIMO_PARA_BUSCAR = 8;
-
-/** Espera de digitação antes de consultar o servidor. */
-const DEBOUNCE_MS = 250;
-
-/** Itens por página. */
-const PAGINA = 20;
-
-/**
- * Fim da lista = página que voltou com menos itens que o pedido. O endpoint não
- * devolve total, e não precisa: quando o grupo tem múltiplo exato de `PAGINA`,
- * sobra uma requisição que volta vazia e encerra. Uma requisição a mais no caso
- * raro é mais barato que um campo de total em toda resposta.
- */
-const fimDaLista = (recebidos: number) => recebidos < PAGINA;
-
 export function SubstitutionSheet({ item, onClose, onSelect }: Props) {
   const c = usePalette();
   const styles = useMemo(() => makeStyles(c), [c]);
-  const [state, setState] = useState<LoadState>({ status: "loading" });
-  const [termo, setTermo] = useState("");
-  // O termo já "assentado" — é ele que vai à rede, não cada tecla.
-  const [busca, setBusca] = useState("");
-  // Cada primeira página é uma geração nova; página seguinte que chegar de uma
-  // geração velha (o usuário digitou no meio do caminho) é descartada.
-  const geracao = useRef(0);
-
-  useEffect(() => {
-    const t = setTimeout(() => setBusca(termo), DEBOUNCE_MS);
-    return () => clearTimeout(t);
-  }, [termo]);
-
-  // O sheet não desmonta entre aberturas: sem isto a busca da troca anterior
-  // continuaria valendo para o item novo. Zerar DURANTE O RENDER (padrão do
-  // "You Might Not Need an Effect") e não num `useEffect`: em efeito, o fetch
-  // abaixo dispararia uma vez com o termo velho antes de o reset chegar.
-  const [itemAnterior, setItemAnterior] = useState(item);
-  if (item !== itemAnterior) {
-    setItemAnterior(item);
-    setTermo("");
-    setBusca("");
-  }
-
-  useEffect(() => {
-    if (!item) return;
-    const minha = ++geracao.current;
-    setState({ status: "loading" });
-
-    getSubstitutions(API_URL, item.id, { q: busca, limit: PAGINA })
-      .then((data) => {
-        if (geracao.current !== minha) return;
-        setState({
-          status: "ready",
-          data,
-          fim: fimDaLista(data.alternatives.length),
-          carregandoMais: false,
-        });
-      })
-      .catch((e: unknown) => {
-        log.error(
-          "SubstitutionSheet",
-          `falha ao buscar alternativas item=${item.id}`,
-          e,
-        );
-        if (geracao.current !== minha) return;
-        const message =
-          e instanceof Error ? e.message : "Falha ao buscar alternativas.";
-        setState({ status: "error", message });
-      });
-  }, [item, busca]);
-
-  function carregarMais() {
-    if (!item || state.status !== "ready") return;
-    if (state.fim || state.carregandoMais) return;
-
-    const minha = geracao.current;
-    const jaTem = state.data.alternatives.length;
-    setState({ ...state, carregandoMais: true });
-
-    getSubstitutions(API_URL, item.id, {
-      q: busca,
-      limit: PAGINA,
-      offset: jaTem,
-    })
-      .then((pagina) => {
-        if (geracao.current !== minha) return;
-        setState((atual) =>
-          atual.status === "ready"
-            ? {
-                ...atual,
-                data: {
-                  ...atual.data,
-                  alternatives: [
-                    ...atual.data.alternatives,
-                    ...pagina.alternatives,
-                  ],
-                },
-                fim: fimDaLista(pagina.alternatives.length),
-                carregandoMais: false,
-              }
-            : atual,
-        );
-      })
-      .catch((e: unknown) => {
-        log.error("SubstitutionSheet", `falha na página offset=${jaTem}`, e);
-        if (geracao.current !== minha) return;
-        // Falha de página NÃO derruba o que já está na tela: só para de crescer.
-        setState((atual) =>
-          atual.status === "ready"
-            ? { ...atual, fim: true, carregandoMais: false }
-            : atual,
-        );
-      });
-  }
+  const { state, termo, setTermo, buscando, carregarMais } =
+    useAlternativesSearch(item);
 
   const visible = item !== null;
 
@@ -180,7 +57,7 @@ export function SubstitutionSheet({ item, onClose, onSelect }: Props) {
       <SheetBody
         state={state}
         termo={termo}
-        buscando={busca.length > 0}
+        buscando={buscando}
         onTermo={setTermo}
         onFimDaLista={carregarMais}
         onSelect={(alt) => {
@@ -207,7 +84,7 @@ function SheetBody({
   onFimDaLista,
   onSelect,
 }: {
-  readonly state: LoadState;
+  readonly state: AlternativesLoadState;
   readonly termo: string;
   /** Há termo valendo na consulta atual — muda o texto do estado vazio. */
   readonly buscando: boolean;

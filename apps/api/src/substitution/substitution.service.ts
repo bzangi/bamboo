@@ -13,7 +13,7 @@ import type {
   SubstitutionsResponse,
 } from '@bamboo/types';
 import { DB, type Db } from '../db/db.module';
-import { inteiroDeQuery } from '../query-param';
+import { booleanDeQuery, inteiroDeQuery } from '../query-param';
 import {
   toAlternativeDto,
   toSubstitutionsResponse,
@@ -28,6 +28,8 @@ export interface PaginaSubstituicoes {
   readonly q?: unknown;
   readonly limit?: unknown;
   readonly offset?: unknown;
+  /** 021: truthy inclui o food de origem entre os candidatos (para o combinar). */
+  readonly includeSelf?: unknown;
 }
 
 // Casca imperativa: I/O (Drizzle), orquestra o núcleo puro (substituir), e
@@ -94,7 +96,10 @@ export class SubstitutionService {
       throw new NotFoundException('grupo de substituição não encontrado');
     const basis = group.basis;
 
-    // 4. Outros foods do grupo (exclui o food atual), com macros.
+    // 4. Foods do grupo, com macros. Exclui o food atual — SALVO quando
+    // includeSelf pede o contrário (021: o combinar quer poder oferecer o
+    // próprio alimento como um dos dois alvos).
+    const incluirOrigem = booleanDeQuery(pagina.includeSelf);
     const targets = await this.db
       .select({
         foodId: schema.food.id,
@@ -110,10 +115,12 @@ export class SubstitutionService {
         eq(schema.foodSubstitutionGroup.foodId, schema.food.id),
       )
       .where(
-        and(
-          eq(schema.foodSubstitutionGroup.groupId, groupId),
-          ne(schema.foodSubstitutionGroup.foodId, item.foodId),
-        ),
+        incluirOrigem
+          ? eq(schema.foodSubstitutionGroup.groupId, groupId)
+          : and(
+              eq(schema.foodSubstitutionGroup.groupId, groupId),
+              ne(schema.foodSubstitutionGroup.foodId, item.foodId),
+            ),
       )
       // 019: ordem explícita. A busca do app é estável no empate, então sem isto
       // a lista filtrada herdaria a ordem que o heap devolvesse.

@@ -11,6 +11,7 @@ describe('POST /meal-items/:id/combine (US2)', () => {
   let app: INestApplication;
   let exposure: string;
   let flexItemId: string;
+  let flexFoodId: string;
   let alvoA: string;
   let alvoB: string;
   let foreignFoodId: string;
@@ -35,6 +36,7 @@ describe('POST /meal-items/:id/combine (US2)', () => {
       )
       .limit(1);
     flexItemId = flex.id;
+    flexFoodId = flex.foodId;
     const flexGroupId = flex.groupId!;
 
     // 2 outros foods do MESMO grupo (alvos válidos).
@@ -135,5 +137,23 @@ describe('POST /meal-items/:id/combine (US2)', () => {
       .post(`/meal-items/${flexItemId}/combine`)
       .send({ alvoFoodIds: [alvoA] })
       .expect(400);
+  });
+
+  // 021: o food de origem já era aceito como alvo por este endpoint — a
+  // novidade é só o cliente conseguir OFERECÊ-LO na lista de candidatos
+  // (GET .../substitutions?includeSelf=true). Este caso trava que o
+  // /combine não precisou (e não precisa) mudar.
+  it('food de origem como um dos 2 alvos — "metade do que já era + metade de outro"', async () => {
+    const res = await request(app.getHttpServer())
+      .post(`/meal-items/${flexItemId}/combine`)
+      .send({ alvoFoodIds: [flexFoodId, alvoA] })
+      .expect(200);
+
+    expect(res.body.partes).toHaveLength(2);
+    expect(
+      (res.body.partes as Array<{ food: { id: string } }>).map(
+        (p) => p.food.id,
+      ),
+    ).toContain(flexFoodId);
   });
 });

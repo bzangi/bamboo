@@ -265,6 +265,48 @@ Dado de saúde desde a Fase 0: controle de acesso, criptografia, consentimento. 
 
 <!-- SPECKIT START -->
 
+Feature **021-combinar-busca-e-self** (busca + alimento de origem no modo de combinar):
+**implementada e testada** (2026-07-27). Pedido do dono: "ao combinar 2 alimentos, quero poder
+selecionar o alimento que já está no plano e também quero o mesmo search que foi implementado na
+opção de troca". Grilling resolveu a ambiguidade antes de escrever a spec: não é combinação
+cross-grupo — o `CombineSheet` já listava o grupo inteiro; o que faltava era especificamente o
+**alimento de origem** (o que já está no item sendo combinado), que o mesmo endpoint
+`GET /meal-items/:id/substitutions` compartilhado com a troca simples excluía via
+`ne(foodId, item.foodId)` — correto para trocar um alimento por ele mesmo, errado para "metade do
+que já como + metade de outro".
+· **API** — `includeSelf` **aditivo** (padrão do `q`/`limit`/`offset` da 019): truthy inclui o food
+de origem em `targets`; ausente ou falsy, resposta byte-a-byte a de sempre (suíte existente que já
+afirma `alt.foodId !== flexFoodId` continua verde sem alteração). Helper novo `booleanDeQuery` em
+`query-param.ts` (só `'true'`/`'1'` ligam — `Boolean(str)` trataria a STRING `'false'` como
+truthy). **Zero mudança em `POST /meal-items/:id/combine`**: a query de `groupFoods` em
+`combination.service.ts` nunca excluiu a origem — o achado, confirmado por e2e, é que o endpoint
+já aceitava o alimento de origem como alvo; faltava só o cliente OFERECER essa opção na lista.
+`packages/core` intocado (`combinar()`/`substituir()`) — o alimento de origem, quando vira alvo,
+passa pela MESMA conta que qualquer outro do grupo (resultado trivial: mesmas macros ⇒ mesmas
+gramas).
+· **App** — a lógica de busca+paginação (debounce 250ms, guarda de geração, fim-de-lista) saiu de
+dentro do `SubstitutionSheet` (019) para um hook compartilhado `useAlternativesSearch` — a 2ª
+chamada real ao mesmo padrão (mesmo argumento já usado para `fuzzy.ts` como régua única: duas
+cópias divergem no primeiro ajuste). `SubstitutionSheet` passou a consumi-lo sem mudança de
+comportamento; `CombineSheet` trocou `ScrollView` por `FlatList` com o mesmo campo de busca
+(limiar `MINIMO_PARA_BUSCAR`) e `onEndReached`, mantendo o checkbox multi-select (máx. 2) e o
+stepper de proporção intactos.
+**Fora de escopo por DECISÃO:** combinação com alimento de **outro** grupo de substituição — só o
+alimento de origem (que já pertence ao grupo do item) ganhou a exceção; qualquer alvo fora do
+grupo continua `422` (`combinar()` mantém `fora-do-grupo`).
+**Achado colateral, fora do escopo desta feature:** `today-daytype`/`adesao`/`ciclo.e2e-spec.ts`
+falham tanto na suíte completa quanto isoladamente — confirmado por reversão (`git stash`) que é
+**pré-existente** (idêntico sem nenhuma mudança da 021), aparentemente estado/data do banco de dev
+fora da janela que esses testes esperam. Não corrigido aqui; registrado para investigação
+separada.
+Sem migration, sem endpoint novo. Resultado: **core 181 · db 20 · mobile 54** verdes;
+`substitutions.e2e-spec.ts` 21/21 e `combine.e2e-spec.ts` 7/7 verdes (os dois arquivos tocados);
+lint 0 errors, Prettier e `check-types` limpos; OpenAPI regenerado (31 paths — só o parâmetro novo
+no path existente). **Pendente:** quickstart manual no simulador (Bruno) — busca filtrando,
+paginação por rolagem, e o alimento de origem selecionável de fato na tela.
+Artefatos: `specs/021-combinar-busca-e-self/` (spec/plan/research D1–D4/data-model/contracts/
+quickstart/tasks).
+
 Feature **020-edicao-de-refeicao** (edição de refeição em lote): **implementada e testada**
 (2026-07-27). Pedido do dono: "não vou comer nada do que está listado" exigia N fluxos de troca
 item a item; agora há **um modo de edição por refeição** — troca vários itens de uma vez e vê

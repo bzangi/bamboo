@@ -82,7 +82,7 @@
     },
     "/meal-items/{mealItemId}/substitutions": {
       "get": {
-        "description": "Lista os alimentos do mesmo grupo de substituição do item, cada um com a quantidade recalculada (preservando o nutriente-base do grupo) e a medida caseira correspondente. Alvos com nutriente-base zero são excluídos. Item travado ou sem grupo → 422 (não substituível). Lista vazia de alternativas é 200 (grupo sem substitutos).\n\nBusca e página (019, todos opcionais): `q` filtra por nome com busca fuzzy (subsequência, insensível a caixa e acento) e ordena por relevância; `limit`/`offset` recortam a página. **Sem nenhum dos três, a resposta é a de sempre — o grupo inteiro.** Não há campo de total: a última página é aquela que volta com menos itens que o `limit`.",
+        "description": "Lista os alimentos do mesmo grupo de substituição do item, cada um com a quantidade recalculada (preservando o nutriente-base do grupo) e a medida caseira correspondente. Alvos com nutriente-base zero são excluídos. Item travado ou sem grupo → 422 (não substituível). Lista vazia de alternativas é 200 (grupo sem substitutos).\n\nBusca e página (019, todos opcionais): `q` filtra por nome com busca fuzzy (subsequência, insensível a caixa e acento) e ordena por relevância; `limit`/`offset` recortam a página. **Sem nenhum dos três, a resposta é a de sempre — o grupo inteiro.** Não há campo de total: a última página é aquela que volta com menos itens que o `limit`.\n\n`includeSelf` (021, opcional): quando `true`, inclui o próprio food do item entre os candidatos — usado pelo modo de combinar, que pode querer manter o alimento de origem como um dos dois alvos. Ausente ou qualquer outro valor: comportamento de sempre (food de origem excluído).",
         "operationId": "SubstitutionController_getSubstitutions",
         "parameters": [
           {
@@ -119,6 +119,15 @@
             "required": false,
             "in": "query",
             "description": "quantos pular, default 0",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "includeSelf",
+            "required": false,
+            "in": "query",
+            "description": "\"true\" inclui o próprio food do item entre os candidatos (uso do combinar)",
             "schema": {
               "type": "string"
             }
