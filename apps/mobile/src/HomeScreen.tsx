@@ -80,6 +80,9 @@ const ALTURA_CABECALHO = 100;
 interface NameOverride {
   readonly foodName: string;
   readonly quantityLabel: string;
+  // Presente só na combinação: uma etiqueta por alimento (nome + quantidade
+  // juntos), pra não espremer o nome quando as 2 quantidades são longas.
+  readonly parts?: readonly { readonly name: string; readonly qty: string }[];
 }
 
 export function HomeScreen() {
@@ -159,7 +162,12 @@ export function HomeScreen() {
       });
       return;
     }
-    setState({ status: "loading" });
+    // Só mostra o spinner de tela cheia no carregamento inicial — um reload
+    // (pós-registro) troca `data` no lugar, sem desmontar o ScrollView e
+    // resetar a rolagem pro topo.
+    setState((prev) =>
+      prev.status === "ready" ? prev : { status: "loading" },
+    );
     getToday(API_URL, PATIENT_ID, dt)
       .then((data) => setState({ status: "ready", data }))
       .catch((e: unknown) => {
@@ -236,6 +244,10 @@ export function HomeScreen() {
           [item.id]: {
             foodName: `${p0.food.name} + ${p1.food.name}`,
             quantityLabel: `${label(p0)} + ${label(p1)}`,
+            parts: [
+              { name: p0.food.name, qty: label(p0) },
+              { name: p1.food.name, qty: label(p1) },
+            ],
           },
         }));
         // Consumo efetivo: 2 alimentos do mesmo grupo, ambos no mesmo itemId;
@@ -890,15 +902,31 @@ function ItemRow({
 
   return (
     <View style={styles.itemRow}>
-      <View style={styles.itemBody}>
-        <View style={styles.itemTextCol}>
-          <Text style={styles.itemName}>{foodName}</Text>
-          {nutritionLine ? (
-            <Text style={styles.itemNutrition}>{nutritionLine}</Text>
-          ) : null}
+      {nameOverride?.parts ? (
+        // Combinação: uma etiqueta por alimento — nome + quantidade contidos
+        // no mesmo bloco, pra nunca espremer o nome quando a quantidade é longa.
+        <View style={styles.tagList}>
+          {nameOverride.parts.map((p, i) => (
+            <View key={p.name + i}>
+              {i > 0 ? <Text style={styles.tagPlus}>+</Text> : null}
+              <View style={styles.tag}>
+                <Text style={styles.tagName}>{p.name}</Text>
+                <Text style={styles.tagQty}>{p.qty}</Text>
+              </View>
+            </View>
+          ))}
         </View>
-        <Text style={styles.itemQty}>{quantityText}</Text>
-      </View>
+      ) : (
+        <View style={styles.itemBody}>
+          <View style={styles.itemTextCol}>
+            <Text style={styles.itemName}>{foodName}</Text>
+            {nutritionLine ? (
+              <Text style={styles.itemNutrition}>{nutritionLine}</Text>
+            ) : null}
+          </View>
+          <Text style={styles.itemQty}>{quantityText}</Text>
+        </View>
+      )}
 
       {/* "deixa trocar num toque" — sempre disponível em item flexível: dá pra
           trocar/combinar de novo. O "↺ desfazer" por-item aparece SÓ quando o
@@ -1200,6 +1228,23 @@ const makeStyles = (c: Palette) =>
     itemName: { ...text.body, color: c.ink },
     itemNutrition: { ...text.small, color: c.ink3, marginTop: 3 },
     itemQty: { ...text.value, color: c.ink2 },
+    // Combinação (021/opção C): 1 etiqueta contida por alimento.
+    tagList: { gap: space.xs },
+    tag: {
+      backgroundColor: c.muted,
+      borderRadius: radius.md,
+      paddingVertical: space.sm,
+      paddingHorizontal: space.md,
+      gap: 2,
+    },
+    tagName: { ...text.value, color: c.ink },
+    tagQty: { ...text.small, color: c.ink2 },
+    tagPlus: {
+      textAlign: "center",
+      fontSize: 12,
+      color: c.sand,
+      marginVertical: 2,
+    },
     itemActions: { flexDirection: "row", gap: space.lg, marginTop: space.sm },
     action: { ...text.small, color: c.troquei, fontWeight: "600" },
     actionReset: { ...text.small, color: c.ink3, fontWeight: "600" },

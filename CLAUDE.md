@@ -304,6 +304,12 @@ só o consumidor mobile passou a pedi-lo nos dois sheets.
 combinado/planejado (ex.: comeu mais batata do que os 105g da combinação) exige "comida fora da
 lista" — item já listado no roadmap como Fase 4, não iniciada. Mantido lá; nenhuma mudança de
 escopo agora.
+**Correção de layout (mesmo dia):** o resultado da combinação (ex.: arroz + batata) ficava com o
+nome do alimento ilegível — `ItemRow` espreme a coluna do nome quando a quantidade concatenada das
+2 partes é longa. 3 mockups apresentados (Artifact); escolhida a **opção C — etiqueta contida por
+alimento** (nome + quantidade no mesmo bloco, um bloco por componente da combinação). `NameOverride`
+ganhou `parts?` aditivo, populado só por `handleCombine`; troca simples e edição em lote (que nunca
+combinam) seguem sem `parts`, layout inalterado.
 **Achado colateral, fora do escopo desta feature:** `today-daytype`/`adesao`/`ciclo.e2e-spec.ts`
 falham tanto na suíte completa quanto isoladamente — confirmado por reversão (`git stash`) que é
 **pré-existente** (idêntico sem nenhuma mudança da 021), aparentemente estado/data do banco de dev

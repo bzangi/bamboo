@@ -109,6 +109,17 @@ ver a lista filtrar; rolar até o fim e ver a página seguinte carregar.
 - [x] **T012** spec.md emendado (FR-005/SC-004 revertidas, SC-005 nova, seção "Correção
       pós-shipping"); bloco SPECKIT do `CLAUDE.md` atualizado com a correção.
 
+## Phase 7: Correção de layout — nome ilegível após combinar
+
+- [x] **T013** 3 mockups de layout (Artifact) apresentados para o resultado da combinação;
+      escolhida a **opção C** (etiqueta contida por alimento). `NameOverride` ganhou
+      `parts?: readonly {name, qty}[]` (aditivo); `handleCombine` popula 2 partes;
+      `handleSubstitute`/edição em lote seguem sem `parts` (`foodName`/`quantityLabel` simples).
+      `ItemRow` renderiza etiquetas empilhadas (fundo `muted`, `radius.md`) quando `parts` existe;
+      sem `parts`, layout de sempre (nome esquerda/quantidade direita) inalterado. Gate: `tsc`
+      do mobile limpo; mobile 54/54 verdes; `edits.ts`/`MealEditScreen.tsx` (que nunca combinam)
+      seguem estruturalmente compatíveis (campo opcional ausente).
+
 ## Dependencies
 
 - T001 → T002 → T003/T004 (paralelos entre si, ambos após T002).

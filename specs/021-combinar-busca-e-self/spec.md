@@ -123,6 +123,25 @@ consumidor do endpoint sem o parâmetro não vê diferença. `apps/api/test/subs
 não mudou — ele testa o comportamento do ENDPOINT sem parâmetro (que segue excluindo a origem por
 padrão), não o que cada tela do app escolhe pedir.
 
+## Correção de layout (mesmo dia): nome do alimento ilegível após combinar
+
+Ao ver a combinação renderizada (arroz + batata), o dono apontou que o nome dos alimentos ficava
+ilegível: `ItemRow` (`HomeScreen.tsx`) mostra nome numa coluna à esquerda (`flexShrink: 1`, sem
+largura mínima) e quantidade numa coluna à direita (sem limite de largura); com as 2 quantidades
+da combinação concatenadas (`"4 colheres de sopa cheias (105 g) + 1 unidade média (106 g)"`), a
+coluna da quantidade toma o espaço todo e espreme o nome a quase nada.
+
+Apresentadas 3 propostas de layout (mockup em Artifact); **escolhida a opção C — uma etiqueta
+contida por alimento** (nome + quantidade dentro do mesmo bloco com fundo, um bloco por
+componente da combinação, empilhados com um "+" entre eles).
+
+**Mudança**: `NameOverride` (`HomeScreen.tsx`) ganhou `parts?: readonly {name, qty}[]`, aditivo —
+populado só por `handleCombine` (2 partes); `handleSubstitute` e o fluxo de edição em lote
+(`edits.ts`/`MealEditScreen.tsx`, que nunca combina) continuam com `foodName`/`quantityLabel`
+simples, sem `parts`, e permanecem estruturalmente compatíveis (campo opcional ausente). `ItemRow`
+passa a renderizar as etiquetas quando `nameOverride.parts` existe; sem `parts`, o layout de
+sempre (nome à esquerda / quantidade à direita) continua idêntico.
+
 ## Assumptions
 
 - Busca e paginação do combinar reusam a mesma régua e o mesmo endpoint já usados pela troca
