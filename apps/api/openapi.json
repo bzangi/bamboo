@@ -82,7 +82,7 @@
     },
     "/meal-items/{mealItemId}/substitutions": {
       "get": {
-        "description": "Lista os alimentos do mesmo grupo de substituição do item, cada um com a quantidade recalculada (preservando o nutriente-base do grupo) e a medida caseira correspondente. Alvos com nutriente-base zero são excluídos. Item travado ou sem grupo → 422 (não substituível). Lista vazia de alternativas é 200 (grupo sem substitutos).",
+        "description": "Lista os alimentos do mesmo grupo de substituição do item, cada um com a quantidade recalculada (preservando o nutriente-base do grupo) e a medida caseira correspondente. Alvos com nutriente-base zero são excluídos. Item travado ou sem grupo → 422 (não substituível). Lista vazia de alternativas é 200 (grupo sem substitutos).\n\nBusca e página (019, todos opcionais): `q` filtra por nome com busca fuzzy (subsequência, insensível a caixa e acento) e ordena por relevância; `limit`/`offset` recortam a página. **Sem nenhum dos três, a resposta é a de sempre — o grupo inteiro.** Não há campo de total: a última página é aquela que volta com menos itens que o `limit`.",
         "operationId": "SubstitutionController_getSubstitutions",
         "parameters": [
           {
@@ -93,6 +93,33 @@
             "schema": {
               "format": "uuid",
               "example": "d5efbc96-9aa8-4d33-a92f-ecf2f0b81b2d",
+              "type": "string"
+            }
+          },
+          {
+            "name": "q",
+            "required": false,
+            "in": "query",
+            "description": "trecho do nome do alimento (busca fuzzy)",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "tamanho da página; ausente = lista inteira",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "offset",
+            "required": false,
+            "in": "query",
+            "description": "quantos pular, default 0",
+            "schema": {
               "type": "string"
             }
           }
