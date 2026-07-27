@@ -1,12 +1,26 @@
-// (020) Modo de edição da refeição INTEIRA: troca vários itens de uma vez e vê
-// UMA prévia de impacto no submit — "não vou comer nada disso" sem abrir a
-// folha de troca N vezes. As trocas ficam PENDENTES aqui dentro (nada é
-// aplicado nem persistido); o picker é o SubstitutionSheet de sempre (busca e
-// paginação de graça) e a prévia é o RebalancePreviewSheet com a composição
-// editada no corpo. Cancelar (ou falhar a rede da prévia) preserva o trabalho.
-import { useMemo, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { Folha } from "./Folha";
+// (020) PÁGINA de edição da refeição inteira — desliza da direita por cima da
+// Home (decisão do dono no smoke). Não é Modal de propósito: a 1ª versão era
+// uma folha modal, e empilhar picker/prévia sobre ela no iOS ou não apresentava
+// o 2º modal ("already presenting") ou, no teardown aninhado, deixava um
+// overlay fantasma comendo todos os toques. Como página, o picker e a prévia
+// são modais de NÍVEL ÚNICO sobre uma tela comum — a classe inteira do
+// problema deixa de existir.
+//
+// Troca vários itens de uma vez e vê UMA prévia de impacto no submit. As
+// trocas ficam PENDENTES aqui dentro (nada é aplicado nem persistido); o
+// picker é o SubstitutionSheet de sempre (busca e paginação de graça) e a
+// prévia é o RebalancePreviewSheet com a composição editada no corpo.
+// Voltar (ou falhar a rede da prévia) preserva o trabalho.
+import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  Animated,
+  Dimensions,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import { radius, space, text, usePalette, type Palette } from "./theme";
 import type {
   MealDto,
@@ -33,8 +47,8 @@ interface NameOverride {
 export type Pendentes = Readonly<Record<string, SubstitutionAlternativeDto>>;
 
 interface Props {
-  // Refeição em edição; null = fechado. Só chega aqui refeição NÃO registrada
-  // com ao menos um item flexível (o botão nem aparece fora disso).
+  // Refeição em edição; null = página fechada. Só chega aqui refeição NÃO
+  // registrada com ao menos um item flexível (o botão nem aparece fora disso).
   readonly meal: MealDto | null;
   // Opção atualmente EXIBIDA (FR-010: a edição parte do que está na tela).
   readonly activeOption: MealOptionDto | null;
@@ -53,7 +67,7 @@ interface Props {
   ) => void;
 }
 
-export function MealEditSheet({
+export function MealEditScreen({
   meal,
   activeOption,
   meals,
@@ -78,6 +92,21 @@ export function MealEditSheet({
     setPickingItem(null);
     setPreviewOpen(false);
   }
+
+  const visible = meal !== null && activeOption !== null;
+
+  // Desliza da direita ao abrir (1 = fora da tela, 0 = no lugar). Saída é
+  // imediata — animar o fechamento exigiria adiar o desmonte, custo sem pedido.
+  const slide = useRef(new Animated.Value(1)).current;
+  useEffect(() => {
+    if (!visible) return;
+    slide.setValue(1);
+    Animated.timing(slide, {
+      toValue: 0,
+      duration: 220,
+      useNativeDriver: true,
+    }).start();
+  }, [visible, slide]);
 
   const temPendencia = Object.keys(pendentes).length > 0;
 
@@ -109,57 +138,76 @@ export function MealEditSheet({
     setPreviewOpen(true);
   };
 
-  const visible = meal !== null && activeOption !== null;
+  if (!meal || !activeOption) return null;
+
+  const largura = Dimensions.get("window").width;
 
   return (
-    <>
-      <Folha
-        visible={visible}
-        onClose={onClose}
-        titulo="Editar refeição"
-        legenda={
-          meal
-            ? `${meal.name} — troque o que quiser e veja o impacto`
-            : undefined
-        }
-        maxHeight="85%"
-      >
-        <ScrollView style={styles.list}>
-          {activeOption?.items.map((item) => (
-            <LinhaEdicao
-              key={item.id}
-              item={item}
-              atual={nameOverrides[item.id]}
-              pendente={pendentes[item.id]}
-              onPick={() => setPickingItem(item)}
-              onDesfazer={() =>
-                setPendentes((prev) => {
-                  const next = { ...prev };
-                  delete next[item.id];
-                  return next;
-                })
-              }
-            />
-          ))}
-        </ScrollView>
+    <Animated.View
+      style={[
+        styles.screen,
+        {
+          transform: [
+            {
+              translateX: slide.interpolate({
+                inputRange: [0, 1],
+                outputRange: [0, largura],
+              }),
+            },
+          ],
+        },
+      ]}
+    >
+      <View style={styles.header}>
+        <Pressable
+          onPress={onClose}
+          hitSlop={8}
+          accessibilityRole="button"
+          accessibilityHint="Volta sem aplicar as trocas"
+        >
+          <Text style={styles.voltar}>‹ Voltar</Text>
+        </Pressable>
+        <Text style={styles.titulo}>Editar {meal.name}</Text>
+        <Text style={styles.legenda}>
+          Troque o que quiser e veja o impacto no resto do dia antes de aplicar.
+        </Text>
+      </View>
 
-        <View style={styles.footerRow}>
-          <Pressable style={styles.secondaryBtn} onPress={onClose}>
-            <Text style={styles.secondaryText}>Cancelar</Text>
-          </Pressable>
-          <Pressable
-            style={[styles.primaryBtn, !temPendencia && styles.primaryBtnOff]}
-            disabled={!temPendencia}
-            onPress={submeter}
-            accessibilityRole="button"
-            accessibilityHint="Mostra o impacto das trocas no resto do dia antes de aplicar"
-          >
-            <Text style={styles.primaryText}>Ver impacto</Text>
-          </Pressable>
-        </View>
-      </Folha>
+      <ScrollView style={styles.list}>
+        {activeOption.items.map((item) => (
+          <LinhaEdicao
+            key={item.id}
+            item={item}
+            atual={nameOverrides[item.id]}
+            pendente={pendentes[item.id]}
+            onPick={() => setPickingItem(item)}
+            onDesfazer={() =>
+              setPendentes((prev) => {
+                const next = { ...prev };
+                delete next[item.id];
+                return next;
+              })
+            }
+          />
+        ))}
+      </ScrollView>
 
-      {/* Picker aninhado: a folha de troca de sempre; a escolha vira PENDÊNCIA. */}
+      <View style={styles.footerRow}>
+        <Pressable style={styles.secondaryBtn} onPress={onClose}>
+          <Text style={styles.secondaryText}>Cancelar</Text>
+        </Pressable>
+        <Pressable
+          style={[styles.primaryBtn, !temPendencia && styles.primaryBtnOff]}
+          disabled={!temPendencia}
+          onPress={submeter}
+          accessibilityRole="button"
+          accessibilityHint="Mostra o impacto das trocas no resto do dia antes de aplicar"
+        >
+          <Text style={styles.primaryText}>Ver impacto</Text>
+        </Pressable>
+      </View>
+
+      {/* Picker: a folha de troca de sempre; a escolha vira PENDÊNCIA. */}
       <SubstitutionSheet
         item={pickingItem}
         onClose={() => setPickingItem(null)}
@@ -179,10 +227,16 @@ export function MealEditSheet({
         titulo="Impacto no seu dia"
         onClose={() => setPreviewOpen(false)}
         onConfirm={(_option, outcome) => {
-          if (meal) onConfirm(meal, pendentes, outcome);
+          // Fecha o modal da prévia ANTES de a página desmontar: desmontar um
+          // Modal ainda visível é o que deixava o overlay fantasma comendo os
+          // toques. O confirm vai no tick seguinte, com o modal já recolhido.
+          setPreviewOpen(false);
+          const m = meal;
+          const p = pendentes;
+          setTimeout(() => onConfirm(m, p, outcome), 0);
         }}
       />
-    </>
+    </Animated.View>
   );
 }
 
@@ -258,7 +312,24 @@ function LinhaEdicao({
 
 const makeStyles = (c: Palette) =>
   StyleSheet.create({
-    list: { marginTop: space.lg, marginBottom: space.sm },
+    // Cobre a Home inteira (dentro da SafeArea do App). Papel opaco: é uma
+    // página, não um véu.
+    screen: {
+      position: "absolute",
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      backgroundColor: c.paper,
+      paddingHorizontal: space.xl,
+      paddingTop: space.md,
+      paddingBottom: space.xl,
+    },
+    header: { marginBottom: space.md },
+    voltar: { ...text.body, color: c.troquei, fontWeight: "600" },
+    titulo: { ...text.sheetTitle, color: c.ink, marginTop: space.lg },
+    legenda: { ...text.small, color: c.ink2, marginTop: space.xs },
+    list: { flex: 1, marginTop: space.sm, marginBottom: space.sm },
     row: {
       paddingVertical: space.lg,
       borderBottomWidth: StyleSheet.hairlineWidth,
