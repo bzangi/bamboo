@@ -32,7 +32,9 @@ export interface ApplySwapArgs {
   readonly formatLabel: (item: ItemAjustadoDto) => string;
 }
 
-function buildAdjustments(
+// Exportado: a edição em lote (020, edits.ts) deriva os rótulos do MESMO
+// outcome da prévia — duas cópias divergiriam no primeiro ajuste.
+export function buildAdjustments(
   outcome: RebalanceOutcomeDto,
   formatLabel: (item: ItemAjustadoDto) => string,
 ): Readonly<Record<string, string>> {

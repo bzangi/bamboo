@@ -20,8 +20,10 @@ export function montarConsumo(
   defaultOptionId: string,
 ): RegistroConsumo | undefined {
   // Overrides fora da opção ativa são ignorados (só itens dela contam).
-  const items = activeOption.items.flatMap(
-    (it) => consumoOverrides[it.id] ?? [],
+  // Entradas com 0 g também (troca de item à vontade, 018/020-D7): são só
+  // exibição — 1:1, nada muda nutricionalmente — e o registro rejeita ≤ 0.
+  const items = activeOption.items.flatMap((it) =>
+    (consumoOverrides[it.id] ?? []).filter((c) => c.quantityGrams > 0),
   );
   const optionNaoDefault = activeOption.id !== defaultOptionId;
   if (!optionNaoDefault && items.length === 0) return undefined;

@@ -59,6 +59,18 @@ describe("montarConsumo", () => {
     expect(result).toEqual({ chosenOptionId: "opt-alt" });
   });
 
+  it("troca de item à vontade (0 g) fica FORA do payload — o registro rejeitaria 0", () => {
+    // Colateral da 018 achado na 020/D7: trocar salada por tomate (à vontade)
+    // gravava consumo com quantityGrams 0, e o "Feito" seguinte levaria 400.
+    const activeOption = option("opt-default", true, [item("item-1")]);
+    const overrides: Readonly<Record<string, readonly ConsumoItem[]>> = {
+      "item-1": [{ itemId: "item-1", foodId: "food-tomate", quantityGrams: 0 }],
+    };
+    const result = montarConsumo(activeOption, overrides, "opt-default");
+    // Só a troca visual: nutricionalmente nada mudou -> sem consumo, vira "feito".
+    expect(result).toBeUndefined();
+  });
+
   it("override de item fora da opção ativa -> ignorado", () => {
     const activeOption = option("opt-default", true, [item("item-1")]);
     const overrides: Readonly<Record<string, readonly ConsumoItem[]>> = {

@@ -265,6 +265,57 @@ Dado de saúde desde a Fase 0: controle de acesso, criptografia, consentimento. 
 
 <!-- SPECKIT START -->
 
+Feature **020-edicao-de-refeicao** (edição de refeição em lote): **implementada e testada**
+(2026-07-27). Pedido do dono: "não vou comer nada do que está listado" exigia N fluxos de troca
+item a item; agora há **um modo de edição por refeição** — troca vários itens de uma vez e vê
+**UMA prévia de impacto** no submit, antes de aplicar. **Zero matemática nova, zero migration,
+`packages/core` com diff vazio.**
+· **API** — `POST /rebalance/option-choice` ganhou `items?` **aditivo** (padrão do `dayTypeId` da
+014): o overlay da composição EDITADA da refeição-gatilho, na **MESMA forma** do `consumo.items`
+do `POST /registro` (D2 — o que a prévia avalia é o que o registro grava; divergência
+inexpressável). A casca aplica o overlay na montagem do `diaComEscolha` com ids sintéticos `ed-`
+(mesmo padrão dos `reg-` das registradas): o gatilho sai das alavancas por `position`, então só
+macros+gramas entram no total — **o que o paciente escolheu comer nunca é reescalado**. Entradas
+repetidas do mesmo `itemId` **somam** (combinação). Validação: 400 forma / 404 item fora da opção
+ou food inexistente / **422 item travado no overlay** (editar travado é instrução contraditória,
+argumento da 017); o **grupo do food NÃO é re-validado** na prévia (`ponytail:` no service) — o
+registro é o enforcement e o app só produz troca dentro do grupo com gramas do servidor. Sem
+`items`, resposta **byte-a-byte** a de hoje (suíte pré-existente verde com diff vazio). e2e novo
+`edicao-refeicao.e2e-spec.ts` (16 casos) **calibrado por foods reais da TACO** (arroz 128.26 /
+frango 159.19 / macarrão 131 kcal/100g, régua pinada no paciente): sem-acao, rebalanceado
+excluindo gatilho+registradas, **pulei contribui 0 e o ajuste compensa só o delta líquido**,
+recusa sem-alavanca, 0 escritas. Achado no RED: `sem-acao` exige TODOS os nutrientes na faixa
+(não só kcal) — teste redesenhado para discriminar pelo ajuste líquido, não pela ausência dele.
+· **App** — reducer puro novo `edits.ts` (padrão `swaps.ts` da 005): render e consumo continuam
+em `nameOverrides`/`consumoOverrides` (**fonte única** — uma 3ª estrutura de display recriaria o
+bug que a 005 matou); `edits[mealId]` guarda só o **"antes"** de cada item + os ajustes da prévia,
+e o desfazer (snackbar, atômico) repõe trocas E ajustes num ato, apagando a chave quando não havia
+override. `MealEditSheet` novo reusa o `SubstitutionSheet` como **picker aninhado** (busca/
+paginação da 019 de graça) e o `RebalancePreviewSheet` ganhou `consumoItems?`/`titulo?` + textos
+de edição; travado aparece "fixo no plano"; **à vontade troca 1:1 só no display** (fora do payload
+— D7). Falha de rede na prévia **preserva as pendências** (o sheet de edição fica atrás). Toast
+unificado (`swap`/`edit`) no `UndoSwapToast`, que virou label-genérico. Registrar "Feito" depois
+de confirmar → **"troquei" com a composição editada completa**, pelo caminho existente — nada
+novo persiste.
+· **Colateral (pré-existente, 018)**: trocar item à vontade gravava `consumoOverrides` com
+`quantityGrams: 0` — o "Feito" seguinte levaria **400**; `montarConsumo` agora filtra ≤ 0 (RED
+visto; troca só-de-exibição vira "feito", não "troquei" — nutricionalmente idêntico).
+**Resíduo aceito (D6)**: a prévia não enxerga adaptações efêmeras de OUTRAS refeições da sessão —
+exatamente como a troca de opção hoje; consertar é decisão de produto separada.
+**Fora de escopo por DECISÃO:** comida fora da lista (Fase 4 — "livremente" = a refeição inteira
+de uma vez, não "qualquer comida"; troca segue dentro do grupo, que é o que preserva o
+nutriente-base) · gramas digitáveis à mão · combinação dentro do modo de edição · trocar de opção
+dentro do modo (é o fluxo de chips) · registrar direto do confirmar (o "Feito" já deriva).
+Resultado: **api 318** (302 + 16) · **mobile 54** (inclui 9 do reducer + 1 do colateral) · core/db
+sem mudança; lint raiz 0 errors, `check-types` 9/9, Prettier limpo; OpenAPI regenerado (31 paths).
+**Pendente:** smoke manual no simulador (Bruno) — inclui conferir o EMPILHAMENTO de modais no iOS
+(edição → picker/prévia por cima; se o 2º modal não apresentar, o plano B é o picker inline na
+folha). **Nota da árvore:** a fiação em `HomeScreen`/`RebalancePreviewSheet`/`UndoSwapToast` foi
+feita por cima do redesign visual NÃO COMMITADO que avança em paralelo na mesma árvore — esses 3
+arquivos ficaram fora do commit da 020 de propósito (commitá-los levaria junto o WIP alheio) e
+descem com o commit do redesign. Artefatos: `specs/020-edicao-de-refeicao/`
+(spec/plan/research D1–D9/data-model/contracts/quickstart/tasks).
+
 Feature **019-busca-de-alimentos** (busca fuzzy + paginação do catálogo): **implementada e testada**
 (2026-07-27). Dois sintomas do mesmo problema — **lista longa sem como filtrar**: a
 auto-classificação (008) pôs ~506 alimentos em ~7 grupos, e o `SubstitutionSheet` despejava o grupo
