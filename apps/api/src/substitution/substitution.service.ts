@@ -35,6 +35,7 @@ export class SubstitutionService {
         id: schema.mealItem.id,
         quantityGrams: schema.mealItem.quantityGrams,
         isLocked: schema.mealItem.isLocked,
+        adLibitum: schema.mealItem.adLibitum,
         substitutionGroupId: schema.mealItem.substitutionGroupId,
         foodId: schema.food.id,
         foodName: schema.food.name,
@@ -126,6 +127,48 @@ export class SubstitutionService {
     };
 
     const alternatives: SubstitutionAlternativeDto[] = [];
+
+    // 018: origem "à vontade" NÃO passa pelo núcleo. Não é caso especial por
+    // preguiça — é que não existe conta a fazer: trocar salada por salada é 1:1,
+    // e `substituir` com 0 g devolveria `ok({gramas: 0})`, que a tela mostraria
+    // como "0 g de tomate". A troca continua acontecendo; só a gramatura não.
+    if (item.adLibitum) {
+      for (const t of targets) {
+        alternatives.push(
+          toAlternativeDto({
+            foodId: t.foodId,
+            name: t.name,
+            gramas: 0,
+            medidaCaseira: null,
+            macros: {
+              kcalPer100g: t.kcalPer100g,
+              carbPer100g: t.carbPer100g,
+              proteinPer100g: t.proteinPer100g,
+              fatPer100g: t.fatPer100g,
+            },
+            exposure: item.exposure,
+            adLibitum: true,
+          }),
+        );
+      }
+
+      this.logger.debug(
+        `${alternatives.length} alternativa(s) à vontade no grupo "${group.name}"`,
+      );
+
+      return toSubstitutionsResponse({
+        itemId: item.id,
+        group: { id: group.id, name: group.name, basis },
+        current: {
+          foodId: item.foodId,
+          name: item.foodName,
+          quantityGrams: item.quantityGrams,
+          adLibitum: true,
+        },
+        alternatives,
+      });
+    }
+
     for (const t of targets) {
       const r = substituir({
         basis,
@@ -189,6 +232,7 @@ export class SubstitutionService {
         foodId: item.foodId,
         name: item.foodName,
         quantityGrams: item.quantityGrams,
+        adLibitum: false,
       },
       alternatives,
     });

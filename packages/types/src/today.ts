@@ -21,6 +21,9 @@ export interface MealItemDto {
   readonly food: FoodRefDto;
   readonly quantityGrams: number;
   readonly isLocked: boolean;
+  /** 018 — "à vontade": a nutri prescreveu SEM quantidade. Quando true,
+   *  `quantityGrams` é 0 e NÃO deve ser apresentado como número. */
+  readonly adLibitum: boolean;
   readonly substitutionGroupId: string | null;
   // = !isLocked && substitutionGroupId != null
   readonly substitutable: boolean;

@@ -11,6 +11,7 @@ export interface CurrentRow {
   readonly foodId: string;
   readonly name: string;
   readonly quantityGrams: number;
+  readonly adLibitum: boolean;
 }
 
 export interface GroupRow {
@@ -48,20 +49,29 @@ export function toAlternativeDto(input: {
     readonly fatPer100g: number;
   };
   readonly exposure: ExposureLevel;
+  /** 018: origem à vontade ⇒ alternativa à vontade, sem gramas e sem nutrição
+   *  (nutrição de 0 g diria "0 kcal", que é resposta errada para salada). */
+  readonly adLibitum?: boolean;
 }): SubstitutionAlternativeDto {
-  const gramas = round1(input.gramas);
-  const nutrition = nutritionFor(
-    { id: input.foodId, name: input.name, ...input.macros },
-    gramas,
-    input.exposure,
-  );
+  const adLibitum = input.adLibitum === true;
+  const gramas = adLibitum ? 0 : round1(input.gramas);
+  const nutrition = adLibitum
+    ? undefined
+    : nutritionFor(
+        { id: input.foodId, name: input.name, ...input.macros },
+        gramas,
+        input.exposure,
+      );
   return {
     foodId: input.foodId,
     name: input.name,
     gramas,
-    medidaCaseira: input.medidaCaseira
-      ? { label: input.medidaCaseira.label, grams: input.medidaCaseira.grams }
-      : null,
+    adLibitum,
+    medidaCaseira: adLibitum
+      ? null
+      : input.medidaCaseira
+        ? { label: input.medidaCaseira.label, grams: input.medidaCaseira.grams }
+        : null,
     ...(nutrition ? { nutrition } : {}),
   };
 }

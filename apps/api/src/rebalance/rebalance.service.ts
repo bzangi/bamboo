@@ -41,6 +41,7 @@ interface LoadedItem {
   readonly macros: FoodMacros;
   readonly quantityGrams: number;
   readonly isLocked: boolean;
+  readonly adLibitum: boolean;
   readonly groupId: string | null;
   readonly medidas: readonly HouseholdMeasure[];
 }
@@ -222,6 +223,7 @@ export class RebalanceService {
             id: schema.mealItem.id,
             quantityGrams: schema.mealItem.quantityGrams,
             isLocked: schema.mealItem.isLocked,
+            adLibitum: schema.mealItem.adLibitum,
             groupId: schema.mealItem.substitutionGroupId,
             foodId: schema.food.id,
             foodName: schema.food.name,
@@ -249,6 +251,7 @@ export class RebalanceService {
             },
             quantityGrams: it.quantityGrams,
             isLocked: it.isLocked,
+            adLibitum: it.adLibitum,
             groupId: it.groupId,
             medidas: measuresByFood.get(it.foodId) ?? [],
           })),
@@ -321,6 +324,7 @@ export class RebalanceService {
           gramas: it.quantityGrams,
           gramasPlanejado: it.quantityGrams,
           isLocked: it.isLocked,
+          adLibitum: it.adLibitum,
           groupId: it.groupId,
           medidas: it.medidas,
         }));
@@ -340,6 +344,7 @@ export class RebalanceService {
           gramas: it.gramas,
           gramasPlanejado: it.gramas,
           isLocked: true,
+          adLibitum: false, // item de refeição registrada: nunca alavanca, por outro motivo
           groupId: null,
           medidas: [],
         }));
@@ -353,6 +358,7 @@ export class RebalanceService {
         gramas: it.quantityGrams,
         gramasPlanejado: it.quantityGrams,
         isLocked: it.isLocked,
+        adLibitum: it.adLibitum,
         groupId: it.groupId,
         medidas: it.medidas,
       }));

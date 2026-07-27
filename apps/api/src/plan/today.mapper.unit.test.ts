@@ -25,6 +25,7 @@ const item = (id: string): ItemRow => ({
   id,
   quantityGrams: 100,
   isLocked: false,
+  adLibitum: false,
   substitutionGroupId: 'g1',
   food: food(id),
   measures: [],

@@ -19,13 +19,19 @@ export interface CurrentItemDto {
   readonly foodId: string;
   readonly name: string;
   readonly quantityGrams: number;
+  /** 018 — o item de origem é "à vontade": `quantityGrams` é 0 e não é
+   *  quantidade prescrita. */
+  readonly adLibitum: boolean;
 }
 
 export interface SubstitutionAlternativeDto {
   readonly foodId: string;
   readonly name: string;
   // Quantidade equivalente (preserva o nutriente-base do grupo).
+  // Quando `adLibitum` é true, vale 0 e NÃO é quantidade: trocar "à vontade" por
+  // "à vontade" é 1:1, não tem conta de equivalência (018/FR-005).
   readonly gramas: number;
+  readonly adLibitum: boolean;
   // Medida caseira mais próxima, ou null se o alvo não tiver medida.
   readonly medidaCaseira: HouseholdMeasureDto | null;
   // Nutrição da porção equivalente, filtrada pelo gate de exposição do

@@ -32,6 +32,7 @@ export interface ItemRow {
   readonly id: string;
   readonly quantityGrams: number;
   readonly isLocked: boolean;
+  readonly adLibitum: boolean;
   readonly substitutionGroupId: string | null;
   readonly food: FoodRow;
   // Medidas caseiras do alimento (label + gramas); pode ser vazio.
@@ -157,6 +158,11 @@ function toItemDto(
     food: { id: item.food.id, name: item.food.name },
     quantityGrams: gramas,
     isLocked: item.isLocked,
+    // 018: item sem quantidade prescrita. `quantityGrams` fica 0 — quem lê a
+    // flag NÃO deve apresentar esse 0 como quantidade (o app escreve
+    // "à vontade"). Medida caseira e nutrição de 0 g não fazem sentido aqui, e
+    // saem naturalmente: `medidaPlanejada(0, …)` é null e a nutrição é zerada.
+    adLibitum: item.adLibitum,
     substitutionGroupId: item.substitutionGroupId,
     substitutable,
     medidaCaseira: medidaPlanejada(gramas, item.measures),

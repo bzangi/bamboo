@@ -186,6 +186,7 @@ export class PlanService {
             id: schema.mealItem.id,
             quantityGrams: schema.mealItem.quantityGrams,
             isLocked: schema.mealItem.isLocked,
+            adLibitum: schema.mealItem.adLibitum,
             substitutionGroupId: schema.mealItem.substitutionGroupId,
             foodId: schema.food.id,
             foodName: schema.food.name,
@@ -206,6 +207,7 @@ export class PlanService {
             id: it.id,
             quantityGrams: it.quantityGrams,
             isLocked: it.isLocked,
+            adLibitum: it.adLibitum,
             substitutionGroupId: it.substitutionGroupId,
             food: {
               id: it.foodId,
@@ -371,6 +373,7 @@ export class PlanService {
           isLocked: it.isLocked,
           groupId: it.substitutionGroupId,
           medidas: it.measures,
+          adLibitum: it.adLibitum,
         }));
         return { position: m.position, isRegistered: false, itens };
       });
