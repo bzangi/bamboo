@@ -675,6 +675,1418 @@
           "Pacientes (só nutri)"
         ]
       }
+    },
+    "/nutri/patients/{patientId}": {
+      "get": {
+        "description": "Nome, contato, peso, altura e nível de exposição — o que o formulário de edição precisa preencher. Sem ciclo: a regra de \"qual ciclo mostrar\" mora na listagem (015/D2) e em nenhum outro lugar.",
+        "operationId": "PatientsController_detalhe",
+        "parameters": [
+          {
+            "name": "x-nutri-key",
+            "in": "header",
+            "description": "credencial stub da nutri (env NUTRI_API_KEY; fail-closed)",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "patientId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "a ficha do paciente"
+          },
+          "403": {
+            "description": "x-nutri-key ausente/errada"
+          },
+          "404": {
+            "description": "paciente não encontrado"
+          }
+        },
+        "summary": "A ficha de um paciente",
+        "tags": [
+          "Pacientes (só nutri)"
+        ]
+      },
+      "patch": {
+        "description": "PATCH parcial: campo AUSENTE do corpo preserva o valor atual; campo com `null` LIMPA (apagar dado de saúde é um direito, LGPD). Corpo sem nenhum campo conhecido é no-op, não erro. Campos: name, email, phone, heightCm, weightKg, exposure (hidden|percent|macros|full_kcal).",
+        "operationId": "PatientsController_atualizar",
+        "parameters": [
+          {
+            "name": "x-nutri-key",
+            "in": "header",
+            "description": "credencial stub da nutri (env NUTRI_API_KEY; fail-closed)",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "patientId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "example": {
+                  "name": "Ana Ribeiro",
+                  "email": "ana@exemplo.com",
+                  "phone": "11999990000",
+                  "heightCm": 165,
+                  "weightKg": 62.5,
+                  "exposure": "macros"
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "a ficha depois da alteração"
+          },
+          "400": {
+            "description": "campo com formato ou faixa inválidos"
+          },
+          "403": {
+            "description": "x-nutri-key ausente/errada"
+          },
+          "404": {
+            "description": "paciente não encontrado"
+          }
+        },
+        "summary": "Editar a ficha do paciente",
+        "tags": [
+          "Pacientes (só nutri)"
+        ]
+      },
+      "delete": {
+        "description": "Cascata PARA BAIXO: planos e o grafo inteiro (tipos-de-dia, refeições, opções, itens, programação da semana), ciclos e vigências. RECUSA com 409 se houver registro de refeição — histórico de saúde não é apagado por exclusão de cadastro.",
+        "operationId": "PatientsController_excluir",
+        "parameters": [
+          {
+            "name": "x-nutri-key",
+            "in": "header",
+            "description": "credencial stub da nutri (env NUTRI_API_KEY; fail-closed)",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "patientId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "paciente e grafo excluídos"
+          },
+          "403": {
+            "description": "x-nutri-key ausente/errada"
+          },
+          "404": {
+            "description": "paciente não encontrado"
+          },
+          "409": {
+            "description": "o paciente tem registro de refeição"
+          }
+        },
+        "summary": "Excluir o paciente",
+        "tags": [
+          "Pacientes (só nutri)"
+        ]
+      }
+    },
+    "/nutri/patients/{patientId}/plans": {
+      "get": {
+        "description": "Sem o grafo, com o TAMANHO dele (dayTypeCount, mealCount) e `semanaCompleta` — plano cuja semana não está programada não serve ao app do paciente. Ativo primeiro, depois o mais recente.",
+        "operationId": "PlanoController_listarPlanos",
+        "parameters": [
+          {
+            "name": "x-nutri-key",
+            "in": "header",
+            "description": "credencial stub da nutri (env NUTRI_API_KEY; fail-closed)",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "patientId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "planos do paciente"
+          },
+          "403": {
+            "description": "x-nutri-key ausente/errada"
+          },
+          "404": {
+            "description": "paciente não encontrado"
+          }
+        },
+        "summary": "Listar os planos do paciente",
+        "tags": [
+          "Editor de plano (só nutri)"
+        ]
+      },
+      "post": {
+        "description": "O plano nasce VAZIO: nem tipo-de-dia, nem refeição, nem programação de semana. O PRIMEIRO plano do paciente nasce ativo (não existe estado \"nenhum plano ativo\"); do segundo em diante nasce inativo, porque trocar o plano ativo é o ato que o ciclo observa (POST /nutri/patients/:id/active-plan) e não pode ser efeito colateral de um cadastro.",
+        "operationId": "PlanoController_criarPlano",
+        "parameters": [
+          {
+            "name": "x-nutri-key",
+            "in": "header",
+            "description": "credencial stub da nutri (env NUTRI_API_KEY; fail-closed)",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "patientId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "example": {
+                  "name": "Plano de julho"
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "o plano criado, com o grafo vazio"
+          },
+          "400": {
+            "description": "name ausente, vazio ou longo demais"
+          },
+          "403": {
+            "description": "x-nutri-key ausente/errada"
+          },
+          "404": {
+            "description": "paciente não encontrado"
+          }
+        },
+        "summary": "Criar um plano",
+        "tags": [
+          "Editor de plano (só nutri)"
+        ]
+      }
+    },
+    "/nutri/plans/{planId}": {
+      "get": {
+        "description": "Tipos-de-dia, programação da semana, refeições (ordenadas por posição), opções (a padrão primeiro) e itens com nome do alimento e do grupo já resolvidos. É a leitura que a tela do editor faz — uma, não uma por nó.",
+        "operationId": "PlanoController_detalhePlano",
+        "parameters": [
+          {
+            "name": "x-nutri-key",
+            "in": "header",
+            "description": "credencial stub da nutri (env NUTRI_API_KEY; fail-closed)",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "planId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "o grafo do plano"
+          },
+          "403": {
+            "description": "x-nutri-key ausente/errada"
+          },
+          "404": {
+            "description": "plano não encontrado"
+          }
+        },
+        "summary": "O plano inteiro em uma requisição",
+        "tags": [
+          "Editor de plano (só nutri)"
+        ]
+      },
+      "patch": {
+        "description": "Só o nome. `isActive` NÃO é editável aqui: ativar plano é o ato observado pelo ciclo e continua em POST /nutri/patients/:patientId/active-plan (007).",
+        "operationId": "PlanoController_atualizarPlano",
+        "parameters": [
+          {
+            "name": "x-nutri-key",
+            "in": "header",
+            "description": "credencial stub da nutri (env NUTRI_API_KEY; fail-closed)",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "planId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "example": {
+                  "name": "Plano de agosto"
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "o plano depois da alteração"
+          },
+          "400": {
+            "description": "name vazio ou longo demais"
+          },
+          "404": {
+            "description": "plano não encontrado"
+          }
+        },
+        "summary": "Renomear o plano",
+        "tags": [
+          "Editor de plano (só nutri)"
+        ]
+      },
+      "delete": {
+        "description": "Cascata para baixo (tipos-de-dia, refeições, opções, itens, semana). RECUSA com 409 em três casos: há registro de refeição no plano; há vigência dele em algum ciclo; é o plano ativo de um paciente com ciclo aberto.",
+        "operationId": "PlanoController_excluirPlano",
+        "parameters": [
+          {
+            "name": "x-nutri-key",
+            "in": "header",
+            "description": "credencial stub da nutri (env NUTRI_API_KEY; fail-closed)",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "planId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "plano e grafo excluídos"
+          },
+          "404": {
+            "description": "plano não encontrado"
+          },
+          "409": {
+            "description": "registro, vigência de ciclo, ou plano ativo com ciclo aberto"
+          }
+        },
+        "summary": "Excluir o plano e o grafo abaixo",
+        "tags": [
+          "Editor de plano (só nutri)"
+        ]
+      }
+    },
+    "/nutri/plans/{planId}/schedule": {
+      "put": {
+        "description": "A semana é UM objeto, não 7 linhas independentes: uma semana com 6 dias programados é um estado inválido. O PUT substitui a programação inteira. `days`: lista de {weekday 0=domingo…6=sábado, dayTypeId}, exatamente os 7 dias, sem repetir. Tipo-de-dia de outro plano → 422.",
+        "operationId": "PlanoController_definirSemana",
+        "parameters": [
+          {
+            "name": "x-nutri-key",
+            "in": "header",
+            "description": "credencial stub da nutri (env NUTRI_API_KEY; fail-closed)",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "planId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "example": {
+                  "days": [
+                    {
+                      "weekday": 0,
+                      "dayTypeId": "…"
+                    },
+                    {
+                      "weekday": 1,
+                      "dayTypeId": "…"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "o plano com a semana programada"
+          },
+          "400": {
+            "description": "days não é lista, não cobre os 7 dias, ou repete um dia"
+          },
+          "404": {
+            "description": "plano não encontrado"
+          },
+          "422": {
+            "description": "tipo-de-dia não pertence a este plano"
+          }
+        },
+        "summary": "Programar a semana (os 7 dias de uma vez)",
+        "tags": [
+          "Editor de plano (só nutri)"
+        ]
+      }
+    },
+    "/nutri/plans/{planId}/day-types": {
+      "post": {
+        "description": "Nasce VAZIO (sem refeição). O plano é um CONJUNTO de tipos-de-dia (treino / descanso), não um cardápio fixo.",
+        "operationId": "PlanoController_criarTipoDia",
+        "parameters": [
+          {
+            "name": "x-nutri-key",
+            "in": "header",
+            "description": "credencial stub da nutri (env NUTRI_API_KEY; fail-closed)",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "planId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "example": {
+                  "name": "Treino"
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "o tipo-de-dia criado, vazio"
+          },
+          "400": {
+            "description": "name ausente ou vazio"
+          },
+          "404": {
+            "description": "plano não encontrado"
+          }
+        },
+        "summary": "Criar um tipo-de-dia",
+        "tags": [
+          "Editor de plano (só nutri)"
+        ]
+      }
+    },
+    "/nutri/day-types/{dayTypeId}": {
+      "patch": {
+        "operationId": "PlanoController_atualizarTipoDia",
+        "parameters": [
+          {
+            "name": "x-nutri-key",
+            "in": "header",
+            "description": "credencial stub da nutri (env NUTRI_API_KEY; fail-closed)",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "dayTypeId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "example": {
+                  "name": "Descanso"
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "o tipo-de-dia depois da alteração"
+          },
+          "404": {
+            "description": "tipo-de-dia não encontrado"
+          }
+        },
+        "summary": "Renomear o tipo-de-dia",
+        "tags": [
+          "Editor de plano (só nutri)"
+        ]
+      },
+      "delete": {
+        "description": "Cascata em refeições, opções e itens. RECUSA com 409 se a programação da semana o referencia (a semana ficaria com um dia sem tipo) ou se há registro em alguma refeição sua.",
+        "operationId": "PlanoController_excluirTipoDia",
+        "parameters": [
+          {
+            "name": "x-nutri-key",
+            "in": "header",
+            "description": "credencial stub da nutri (env NUTRI_API_KEY; fail-closed)",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "dayTypeId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "tipo-de-dia excluído"
+          },
+          "404": {
+            "description": "tipo-de-dia não encontrado"
+          },
+          "409": {
+            "description": "está na semana, ou tem registro"
+          }
+        },
+        "summary": "Excluir o tipo-de-dia e o que pende abaixo",
+        "tags": [
+          "Editor de plano (só nutri)"
+        ]
+      }
+    },
+    "/nutri/day-types/{dayTypeId}/meals": {
+      "post": {
+        "description": "Corpo: {name, position, horario?}. `position` é ÚNICA no tipo-de-dia e é a chave que pareia refeições entre tipos-de-dia (a troca de tipo-de-dia depende dela) — duplicar responde 409. `horario` é informativo (HH:MM ou HH:MM:SS): não dirige \"o agora\".",
+        "operationId": "RefeicaoController_criarRefeicao",
+        "parameters": [
+          {
+            "name": "x-nutri-key",
+            "in": "header",
+            "description": "credencial stub da nutri (env NUTRI_API_KEY; fail-closed)",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "dayTypeId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "example": {
+                  "name": "Almoço",
+                  "position": 2,
+                  "horario": "12:30"
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "a refeição criada, sem opções"
+          },
+          "400": {
+            "description": "name/position/horario inválidos"
+          },
+          "403": {
+            "description": "x-nutri-key ausente/errada"
+          },
+          "404": {
+            "description": "tipo-de-dia não encontrado"
+          },
+          "409": {
+            "description": "position já usada neste tipo-de-dia"
+          }
+        },
+        "summary": "Criar uma refeição (slot) no tipo-de-dia",
+        "tags": [
+          "Editor de plano (só nutri)"
+        ]
+      }
+    },
+    "/nutri/meals/{mealId}": {
+      "patch": {
+        "description": "PATCH parcial de {name, position, horario}. `horario: null` limpa. Mover para uma position ocupada responde 409.",
+        "operationId": "RefeicaoController_atualizarRefeicao",
+        "parameters": [
+          {
+            "name": "x-nutri-key",
+            "in": "header",
+            "description": "credencial stub da nutri (env NUTRI_API_KEY; fail-closed)",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "mealId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "a refeição depois da alteração"
+          },
+          "404": {
+            "description": "refeição não encontrada"
+          },
+          "409": {
+            "description": "position já usada neste tipo-de-dia"
+          }
+        },
+        "summary": "Editar a refeição",
+        "tags": [
+          "Editor de plano (só nutri)"
+        ]
+      },
+      "delete": {
+        "description": "RECUSA com 409 se houver registro nesta refeição.",
+        "operationId": "RefeicaoController_excluirRefeicao",
+        "parameters": [
+          {
+            "name": "x-nutri-key",
+            "in": "header",
+            "description": "credencial stub da nutri (env NUTRI_API_KEY; fail-closed)",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "mealId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "refeição excluída"
+          },
+          "404": {
+            "description": "refeição não encontrada"
+          },
+          "409": {
+            "description": "há registro nesta refeição"
+          }
+        },
+        "summary": "Excluir a refeição (com opções e itens)",
+        "tags": [
+          "Editor de plano (só nutri)"
+        ]
+      }
+    },
+    "/nutri/meals/{mealId}/options": {
+      "post": {
+        "description": "Corpo: {label, isDefault?}. A PRIMEIRA opção da refeição nasce padrão mesmo sem pedir (refeição com opções e nenhuma padrão não tem o que mostrar). Criar com isDefault:true desmarca as irmãs — exatamente uma padrão por refeição.",
+        "operationId": "RefeicaoController_criarOpcao",
+        "parameters": [
+          {
+            "name": "x-nutri-key",
+            "in": "header",
+            "description": "credencial stub da nutri (env NUTRI_API_KEY; fail-closed)",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "mealId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "example": {
+                  "label": "Arroz e carne",
+                  "isDefault": true
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "a opção criada"
+          },
+          "400": {
+            "description": "label ausente/vazio"
+          },
+          "404": {
+            "description": "refeição não encontrada"
+          }
+        },
+        "summary": "Criar uma opção da refeição (os \"3 almoços\")",
+        "tags": [
+          "Editor de plano (só nutri)"
+        ]
+      }
+    },
+    "/nutri/options/{optionId}": {
+      "patch": {
+        "description": "PATCH parcial de {label, isDefault}. `isDefault: true` promove esta e desmarca as irmãs. `isDefault: false` na única padrão responde 409 — marque outra como padrão em vez de desmarcar esta.",
+        "operationId": "RefeicaoController_atualizarOpcao",
+        "parameters": [
+          {
+            "name": "x-nutri-key",
+            "in": "header",
+            "description": "credencial stub da nutri (env NUTRI_API_KEY; fail-closed)",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "optionId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "a opção depois da alteração"
+          },
+          "404": {
+            "description": "opção não encontrada"
+          },
+          "409": {
+            "description": "tentou desmarcar a única opção padrão"
+          }
+        },
+        "summary": "Editar a opção",
+        "tags": [
+          "Editor de plano (só nutri)"
+        ]
+      },
+      "delete": {
+        "description": "RECUSA com 409 se for a ÚNICA opção da refeição, ou se algum registro aponta para ela. Se era a padrão havendo outras, promove outra no mesmo ato.",
+        "operationId": "RefeicaoController_excluirOpcao",
+        "parameters": [
+          {
+            "name": "x-nutri-key",
+            "in": "header",
+            "description": "credencial stub da nutri (env NUTRI_API_KEY; fail-closed)",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "optionId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "opção excluída"
+          },
+          "404": {
+            "description": "opção não encontrada"
+          },
+          "409": {
+            "description": "única opção, ou apontada por registro"
+          }
+        },
+        "summary": "Excluir a opção (com os itens)",
+        "tags": [
+          "Editor de plano (só nutri)"
+        ]
+      }
+    },
+    "/nutri/options/{optionId}/items": {
+      "post": {
+        "description": "Corpo: {foodId, quantityGrams, isLocked?, substitutionGroupId?}. `isLocked` e `substitutionGroupId` são a marcação de flexibilidade inteira e são MUTUAMENTE EXCLUSIVOS (travado não troca) — os dois juntos respondem 400. O alimento precisa participar do grupo informado, senão 422: é o vínculo que carrega a porção de referência, sem a qual a troca não sabe reescalar a quantidade.",
+        "operationId": "RefeicaoController_criarItem",
+        "parameters": [
+          {
+            "name": "x-nutri-key",
+            "in": "header",
+            "description": "credencial stub da nutri (env NUTRI_API_KEY; fail-closed)",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "optionId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "example": {
+                  "foodId": "…",
+                  "quantityGrams": 120,
+                  "isLocked": false,
+                  "substitutionGroupId": "…"
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "o item criado"
+          },
+          "400": {
+            "description": "gramas ≤ 0, ou isLocked junto com substitutionGroupId"
+          },
+          "404": {
+            "description": "opção, alimento ou grupo não encontrado"
+          },
+          "422": {
+            "description": "o alimento não participa do grupo informado"
+          }
+        },
+        "summary": "Adicionar um item à opção",
+        "tags": [
+          "Editor de plano (só nutri)"
+        ]
+      }
+    },
+    "/nutri/items/{itemId}": {
+      "patch": {
+        "description": "PATCH parcial de {foodId, quantityGrams, isLocked, substitutionGroupId}. A marcação de flexibilidade é avaliada em CONJUNTO com o que já está gravado: mandar só `isLocked: true` num item que tem grupo responde 400, não \"resolve\" por precedência.",
+        "operationId": "RefeicaoController_atualizarItem",
+        "parameters": [
+          {
+            "name": "x-nutri-key",
+            "in": "header",
+            "description": "credencial stub da nutri (env NUTRI_API_KEY; fail-closed)",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "itemId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "o item depois da alteração"
+          },
+          "400": {
+            "description": "valores inválidos ou contraditórios"
+          },
+          "404": {
+            "description": "item, alimento ou grupo não encontrado"
+          },
+          "422": {
+            "description": "o alimento não participa do grupo informado"
+          }
+        },
+        "summary": "Editar o item",
+        "tags": [
+          "Editor de plano (só nutri)"
+        ]
+      },
+      "delete": {
+        "description": "Sem bloqueador: nada referencia `meal_item` (o snapshot do registro aponta para `food`). Sai direto.",
+        "operationId": "RefeicaoController_excluirItem",
+        "parameters": [
+          {
+            "name": "x-nutri-key",
+            "in": "header",
+            "description": "credencial stub da nutri (env NUTRI_API_KEY; fail-closed)",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "itemId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "item excluído"
+          },
+          "404": {
+            "description": "item não encontrado"
+          }
+        },
+        "summary": "Excluir o item",
+        "tags": [
+          "Editor de plano (só nutri)"
+        ]
+      }
+    },
+    "/nutri/foods": {
+      "get": {
+        "description": "Busca por trecho do nome, insensível a maiúscula E a acento (\"acai\" acha \"Açaí\"). `q` vazio devolve a primeira página, não erro — é o estado inicial da tela. `total` diz quantos casaram; a lista vem truncada por `limit` (default 50, máximo 600, que é a base TACO inteira).",
+        "operationId": "CatalogoController_buscarAlimentos",
+        "parameters": [
+          {
+            "name": "x-nutri-key",
+            "in": "header",
+            "description": "credencial stub da nutri (env NUTRI_API_KEY; fail-closed)",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "q",
+            "required": false,
+            "in": "query",
+            "description": "trecho do nome",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "1–600, default 50",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "alimentos que casaram + total"
+          },
+          "403": {
+            "description": "x-nutri-key ausente/errada"
+          }
+        },
+        "summary": "Buscar alimentos",
+        "tags": [
+          "Catálogo do editor (só nutri)"
+        ]
+      },
+      "post": {
+        "description": "Exige nome e os quatro nutrientes por 100 g (zero é válido: água tem 0 kcal). Nasce SEM `taco_id` e com `source` diferente de \"taco\", então a ingestão TACO (008), que faz upsert por `taco_id`, nunca o sobrescreve.",
+        "operationId": "CatalogoController_criarAlimento",
+        "parameters": [
+          {
+            "name": "x-nutri-key",
+            "in": "header",
+            "description": "credencial stub da nutri (env NUTRI_API_KEY; fail-closed)",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "example": {
+                  "name": "Pão da padaria da esquina",
+                  "kcalPer100g": 270,
+                  "carbPer100g": 55,
+                  "proteinPer100g": 8,
+                  "fatPer100g": 2,
+                  "fiberPer100g": 2.5
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "o alimento criado"
+          },
+          "400": {
+            "description": "nome ou nutriente inválido"
+          }
+        },
+        "summary": "Cadastrar um alimento fora da TACO",
+        "tags": [
+          "Catálogo do editor (só nutri)"
+        ]
+      }
+    },
+    "/nutri/foods/{foodId}": {
+      "patch": {
+        "description": "PATCH parcial. Vale para alimento da TACO também — mas a próxima ingestão sobrescreve o que tiver `taco_id`.",
+        "operationId": "CatalogoController_atualizarAlimento",
+        "parameters": [
+          {
+            "name": "x-nutri-key",
+            "in": "header",
+            "description": "credencial stub da nutri (env NUTRI_API_KEY; fail-closed)",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "foodId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "o alimento depois da alteração"
+          },
+          "404": {
+            "description": "alimento não encontrado"
+          }
+        },
+        "summary": "Editar um alimento",
+        "tags": [
+          "Catálogo do editor (só nutri)"
+        ]
+      },
+      "delete": {
+        "description": "Leva os vínculos de grupo e as medidas caseiras. RECUSA com 409 se o alimento está em algum plano ou em algum registro de refeição.",
+        "operationId": "CatalogoController_excluirAlimento",
+        "parameters": [
+          {
+            "name": "x-nutri-key",
+            "in": "header",
+            "description": "credencial stub da nutri (env NUTRI_API_KEY; fail-closed)",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "foodId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "alimento excluído"
+          },
+          "404": {
+            "description": "alimento não encontrado"
+          },
+          "409": {
+            "description": "em uso por plano ou registro"
+          }
+        },
+        "summary": "Excluir um alimento do catálogo",
+        "tags": [
+          "Catálogo do editor (só nutri)"
+        ]
+      }
+    },
+    "/nutri/substitution-groups": {
+      "get": {
+        "description": "`custom: true` = grupo desta nutri; `false` = grupo do sistema, mantido pela auto-classificação (008). Cada vínculo traz a porção de referência (a \"1 troca\") e a origem (manual = curadoria, nunca sobrescrita).",
+        "operationId": "CatalogoController_listarGrupos",
+        "parameters": [
+          {
+            "name": "x-nutri-key",
+            "in": "header",
+            "description": "credencial stub da nutri (env NUTRI_API_KEY; fail-closed)",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "grupos + vínculos"
+          }
+        },
+        "summary": "Listar os grupos de substituição com os alimentos vinculados",
+        "tags": [
+          "Catálogo do editor (só nutri)"
+        ]
+      },
+      "post": {
+        "description": "`basis` é o nutriente PRESERVADO na troca dentro do grupo: carb | protein | fat | kcal. O grupo nasce vinculado à nutricionista (custom), não ao sistema.",
+        "operationId": "CatalogoController_criarGrupo",
+        "parameters": [
+          {
+            "name": "x-nutri-key",
+            "in": "header",
+            "description": "credencial stub da nutri (env NUTRI_API_KEY; fail-closed)",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "example": {
+                  "name": "Meus carboidratos",
+                  "basis": "carb"
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "o grupo criado, sem alimentos"
+          },
+          "400": {
+            "description": "name vazio ou basis fora do conjunto"
+          },
+          "422": {
+            "description": "nenhuma nutricionista cadastrada, ou mais de uma"
+          }
+        },
+        "summary": "Criar um grupo de substituição próprio",
+        "tags": [
+          "Catálogo do editor (só nutri)"
+        ]
+      }
+    },
+    "/nutri/substitution-groups/{groupId}": {
+      "patch": {
+        "description": "Atenção: mudar `basis` muda o nutriente preservado em TODAS as trocas dentro do grupo.",
+        "operationId": "CatalogoController_atualizarGrupo",
+        "parameters": [
+          {
+            "name": "x-nutri-key",
+            "in": "header",
+            "description": "credencial stub da nutri (env NUTRI_API_KEY; fail-closed)",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "groupId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "o grupo depois da alteração"
+          },
+          "404": {
+            "description": "grupo não encontrado"
+          }
+        },
+        "summary": "Editar o grupo",
+        "tags": [
+          "Catálogo do editor (só nutri)"
+        ]
+      },
+      "delete": {
+        "description": "RECUSA com 409 se algum item de plano é flexível dentro dele.",
+        "operationId": "CatalogoController_excluirGrupo",
+        "parameters": [
+          {
+            "name": "x-nutri-key",
+            "in": "header",
+            "description": "credencial stub da nutri (env NUTRI_API_KEY; fail-closed)",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "groupId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "grupo excluído"
+          },
+          "404": {
+            "description": "grupo não encontrado"
+          },
+          "409": {
+            "description": "em uso por item de plano"
+          }
+        },
+        "summary": "Excluir o grupo (com os vínculos)",
+        "tags": [
+          "Catálogo do editor (só nutri)"
+        ]
+      }
+    },
+    "/nutri/substitution-groups/{groupId}/foods/{foodId}": {
+      "put": {
+        "description": "A porção de referência é a \"1 troca\" do exchange — é dela que sai o recálculo de quantidade na substituição. PUT porque o par (grupo, alimento) é a identidade: revincular atualiza. O vínculo nasce/vira `origin: manual`, que a auto-classificação nunca sobrescreve.",
+        "operationId": "CatalogoController_vincular",
+        "parameters": [
+          {
+            "name": "x-nutri-key",
+            "in": "header",
+            "description": "credencial stub da nutri (env NUTRI_API_KEY; fail-closed)",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "groupId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "foodId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "example": {
+                  "referencePortionGrams": 100
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "o grupo com o vínculo"
+          },
+          "400": {
+            "description": "referencePortionGrams ≤ 0"
+          },
+          "404": {
+            "description": "grupo ou alimento não encontrado"
+          }
+        },
+        "summary": "Vincular alimento ao grupo com a porção de referência",
+        "tags": [
+          "Catálogo do editor (só nutri)"
+        ]
+      },
+      "delete": {
+        "description": "RECUSA com 409 se existe item de plano deste alimento marcado como flexível dentro deste grupo — sem o vínculo a troca perderia a porção de referência.",
+        "operationId": "CatalogoController_desvincular",
+        "parameters": [
+          {
+            "name": "x-nutri-key",
+            "in": "header",
+            "description": "credencial stub da nutri (env NUTRI_API_KEY; fail-closed)",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "groupId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "foodId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "o grupo sem o vínculo"
+          },
+          "404": {
+            "description": "grupo não encontrado"
+          },
+          "409": {
+            "description": "item de plano depende do vínculo"
+          }
+        },
+        "summary": "Desvincular alimento do grupo",
+        "tags": [
+          "Catálogo do editor (só nutri)"
+        ]
+      }
     }
   },
   "info": {

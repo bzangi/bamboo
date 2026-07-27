@@ -34,6 +34,7 @@ import { API_URL, PATIENT_ID } from "./config";
 import {
   formatGrams,
   formatMedidaPlanejada,
+  formatQuantidadeItem,
   formatNutritionLine,
 } from "./format";
 import { SubstitutionSheet } from "./SubstitutionSheet";
@@ -650,12 +651,14 @@ function ItemRow({
   readonly onReset: (itemId: string) => void;
 }) {
   const foodName = nameOverride ? nameOverride.foodName : item.food.name;
-  const quantityText = nameOverride
-    ? nameOverride.quantityLabel
-    : (qtyOverride ??
-      (item.medidaCaseira
-        ? formatMedidaPlanejada(item.quantityGrams, item.medidaCaseira)
-        : formatGrams(item.quantityGrams)));
+  // 018: item à vontade não tem quantidade prescrita — mostrar "0 g" seria a
+  // tela mentindo. Vale também para o item trocado (salada por salada mantém o
+  // "à vontade", porque a alternativa vem marcada da API).
+  const quantityText = item.adLibitum
+    ? formatQuantidadeItem(item)
+    : nameOverride
+      ? nameOverride.quantityLabel
+      : (qtyOverride ?? formatQuantidadeItem(item));
   // Mostra nutrição só no estado original (mudou de alimento/quantidade → some).
   const nutritionLine =
     nameOverride || qtyOverride ? null : formatNutritionLine(item);

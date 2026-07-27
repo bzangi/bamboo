@@ -7,6 +7,27 @@ import type {
   SubstitutionAlternativeDto,
 } from "@bamboo/types";
 
+/** 018 — o que a nutri escreve no lugar da quantidade. Item "à vontade" não tem
+ *  quantidade prescrita: mostrar "0 g" seria a tela mentindo com número certo. */
+export const A_VONTADE = "à vontade";
+
+/** Texto da quantidade de um item do plano. Item à vontade curto-circuita: nem
+ *  gramas, nem medida caseira, nem quantidade trocada. */
+export function formatQuantidadeItem(item: {
+  readonly adLibitum: boolean;
+  readonly quantityGrams: number;
+  // Opcional no DTO (ausente quando o alimento não tem medida preferida).
+  readonly medidaCaseira?: {
+    readonly label: string;
+    readonly grams: number;
+  } | null;
+}): string {
+  if (item.adLibitum) return A_VONTADE;
+  return item.medidaCaseira
+    ? formatMedidaPlanejada(item.quantityGrams, item.medidaCaseira)
+    : formatGrams(item.quantityGrams);
+}
+
 // Quantidade em gramas, sem casas decimais supérfluas.
 export function formatGrams(grams: number): string {
   const rounded = Math.round(grams);

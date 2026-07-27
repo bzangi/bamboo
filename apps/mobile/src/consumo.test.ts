@@ -7,6 +7,7 @@ const item = (id: string): MealItemDto => ({
   food: { id: `food-${id}`, name: id },
   quantityGrams: 100,
   isLocked: false,
+  adLibitum: false,
   substitutionGroupId: `group-${id}`,
   substitutable: true,
 });

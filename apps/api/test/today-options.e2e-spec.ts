@@ -3,7 +3,7 @@ import { Test } from '@nestjs/testing';
 import request from 'supertest';
 import { pacienteSemeado } from './helpers';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { db, pool, schema } from '@bamboo/db';
+import { pool } from '@bamboo/db';
 import { PlanModule } from '../src/plan/plan.module';
 
 // e2e Fase 2 — extensão do GET /today: expõe TODAS as opções de cada refeição
