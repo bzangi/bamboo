@@ -35,8 +35,9 @@
 //      deixaria a interface mais RASA. A mensagem lista os labels existentes.
 // I-5  VALIDA antes de inserir: 2 ciclos abertos no mesmo paciente (índice único
 //      parcial `cycle_one_active_per_patient`), label duplicado, `position`
-//      duplicada num tipo, apelido de food não declarado. Erro com mensagem, não
-//      erro cru do Postgres.
+//      duplicada num tipo, apelido de food não declarado, item sem `grams` que
+//      não é `aVontade` (e o inverso). Erro com mensagem, não erro cru do
+//      Postgres.
 // I-6  NÃO sobe Nest, NÃO fala HTTP, NÃO chama `pool.end()` (pool singleton).
 // I-7  NÃO cria `food` / `substitution_group` / `food_substitution_group` /
 //      `food_household_measure` — são pré-requisito com semântica de
@@ -68,7 +69,12 @@ export type FoodQuery = {
 
 export type ItemSpec = {
   readonly food: string; // apelido declarado em ScenarioSpec.foods
-  readonly grams: number;
+  /** Obrigatório, EXCETO em item `aVontade` (018), que não tem quantidade
+   *  prescrita — declarar gramas ali seria inventar prescrição. */
+  readonly grams?: number;
+  /** "À vontade" (018): sem quantidade prescrita. Persistido como
+   *  `ad_libitum = true` + `quantity_grams = 0`. */
+  readonly aVontade?: boolean;
   readonly locked?: boolean; // default false
   readonly group?: string | null; // nome canônico do grupo; default null
 };
@@ -334,6 +340,19 @@ function validarSpec<D extends string>(spec: ScenarioSpec<D>): void {
                   `cenário: item referencia apelido de food não declarado: "${it.food}". Declarados: ${[...aliasesDeFood].join(", ") || "(nenhum)"}`,
                 );
               }
+              // I-5: sem isto, esquecer `grams` inseriria um item NORMAL de 0 g —
+              // exatamente o "0 porque bug" que a flag `ad_libitum` existe para
+              // distinguir (018).
+              if (it.aVontade !== true && typeof it.grams !== "number") {
+                throw new Error(
+                  `cenário: item "${it.food}" em "${dt.label}" pos ${m.position} sem \`grams\` — obrigatório, exceto em item \`aVontade\``,
+                );
+              }
+              if (it.aVontade === true && it.grams !== undefined) {
+                throw new Error(
+                  `cenário: item "${it.food}" em "${dt.label}" pos ${m.position} é \`aVontade\` e NÃO pode declarar \`grams\` (não há quantidade prescrita)`,
+                );
+              }
             }
           }
         }
@@ -563,8 +582,9 @@ export async function buildScenario<D extends string>(
                       it.food,
                       [...pre.foodPorAlias.keys()],
                     ),
-                    quantityGrams: it.grams,
+                    quantityGrams: it.aVontade ? 0 : (it.grams ?? 0),
                     isLocked: it.locked ?? false,
+                    adLibitum: it.aVontade ?? false,
                     substitutionGroupId: it.group
                       ? exigir(
                           pre.grupoPorNome.get(it.group),
