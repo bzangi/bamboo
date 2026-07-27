@@ -23,9 +23,7 @@ export function formatQuantidadeItem(item: {
   } | null;
 }): string {
   if (item.adLibitum) return A_VONTADE;
-  return item.medidaCaseira
-    ? formatMedidaPlanejada(item.quantityGrams, item.medidaCaseira)
-    : formatGrams(item.quantityGrams);
+  return formatQuantidade(item.quantityGrams, item.medidaCaseira);
 }
 
 // Quantidade em gramas, sem casas decimais supérfluas.
@@ -34,25 +32,69 @@ export function formatGrams(grams: number): string {
   return `${rounded} g`;
 }
 
-// Item planejado em UNIDADE/FATIA quando há medida preferida (ovo, fruta):
-// "1 unidade média", "2× unidade média". Granel cai em formatGrams (medida null).
-export function formatMedidaPlanejada(
-  quantityGrams: number,
-  medida: { readonly label: string; readonly grams: number },
+// Quantidade de QUALQUER porção (item do plano, alternativa de troca, parte de
+// combinação, item rebalanceado): medida caseira quando houver, senão gramas.
+export function formatQuantidade(
+  grams: number,
+  medida?: { readonly label: string; readonly grams: number } | null,
 ): string {
-  const n = Math.max(1, Math.round(quantityGrams / medida.grams));
-  return n === 1 ? medida.label : `${n}× ${medida.label}`;
+  // `medida.grams` vem do banco; 0 daria Infinity na contagem.
+  if (!medida || !(medida.grams > 0)) return formatGrams(grams);
+  const n = Math.max(1, Math.round(grams / medida.grams));
+  // O "1" vai escrito: "unidade média" sozinho não diz se é uma ou o rótulo.
+  const label = n === 1 ? medida.label : pluralizar(medida.label);
+  return `${n} ${label} (${formatGrams(grams)})`;
 }
 
-// Rótulo principal de uma alternativa de troca: medida caseira quando houver,
-// senão a quantidade em gramas (edge case "alvo sem medida caseira").
+// Plural pt-BR do rótulo de medida caseira ("unidade média" -> "unidades
+// médias", "colher de sopa cheia" -> "colheres de sopa cheias"). Flexiona o
+// núcleo e os adjetivos; pula preposição, o termo que ela governa e parênteses.
+// ponytail: regra suficiente para os 15 rótulos do TACO; rótulo novo que ela
+// errar entra numa tabela de exceções aqui.
+function pluralizar(label: string): string {
+  const preposicoes = new Set(["de", "da", "do", "com", "em", "no", "na"]);
+  const palavras = label.split(" ");
+  return palavras
+    .map((p, i) => {
+      const anterior = palavras[i - 1];
+      const invariavel =
+        preposicoes.has(p) ||
+        (anterior !== undefined && preposicoes.has(anterior)) ||
+        p.includes("(");
+      return invariavel ? p : plural(p);
+    })
+    .join(" ");
+}
+
+function plural(p: string): string {
+  if (p.endsWith("s")) return p;
+  if (p.endsWith("ão")) return `${p.slice(0, -2)}ões`;
+  if (p.endsWith("m")) return `${p.slice(0, -1)}ns`;
+  if (p.endsWith("l")) return `${p.slice(0, -1)}is`;
+  if (/[rz]$/.test(p)) return `${p}es`;
+  return `${p}s`;
+}
+
+// Diff de uma quantidade ajustada, na linguagem do git: o "antes" fica visível
+// junto do "depois", com direção e tamanho da mudança. null quando a mudança
+// arredonda pra 0 g — nada a anunciar.
+export function formatDiffQuantidade(
+  gramasAntes: number,
+  gramasNovo: number,
+  medida?: { readonly label: string; readonly grams: number } | null,
+): string | null {
+  const delta = Math.round(gramasNovo) - Math.round(gramasAntes);
+  if (delta === 0) return null;
+  const seta = delta > 0 ? "↑" : "↓";
+  const antes = formatQuantidade(gramasAntes, medida);
+  return `${seta} ${Math.abs(delta)} g · antes ${antes}`;
+}
+
+// Rótulo principal de uma alternativa de troca (edge case "alvo sem medida").
 export function formatAlternativeQuantity(
   alt: SubstitutionAlternativeDto,
 ): string {
-  if (alt.medidaCaseira) {
-    return `${alt.medidaCaseira.label} (${formatGrams(alt.gramas)})`;
-  }
-  return formatGrams(alt.gramas);
+  return formatQuantidade(alt.gramas, alt.medidaCaseira);
 }
 
 // Linha nutricional montada APENAS com o que o gate de exposição liberou.
@@ -83,4 +125,37 @@ export function formatNutrition(n: NutritionDto | undefined): string | null {
 
 export function formatNutritionLine(item: MealItemDto): string | null {
   return formatNutrition(item.nutrition);
+}
+
+const DIAS = [
+  "domingo",
+  "segunda-feira",
+  "terça-feira",
+  "quarta-feira",
+  "quinta-feira",
+  "sexta-feira",
+  "sábado",
+] as const;
+
+const MESES = [
+  "janeiro",
+  "fevereiro",
+  "março",
+  "abril",
+  "maio",
+  "junho",
+  "julho",
+  "agosto",
+  "setembro",
+  "outubro",
+  "novembro",
+  "dezembro",
+] as const;
+
+/** Data por extenso do cabeçalho: "quinta-feira, 27 de julho".
+ *  Tabela à mão em vez de `Intl.DateTimeFormat`: o suporte a locale no Hermes
+ *  depende de build e plataforma, e uma data que sai em inglês num dos dois
+ *  sistemas operacionais é pior que 24 linhas de constante. */
+export function dataExtenso(d: Date): string {
+  return `${DIAS[d.getDay()]}, ${d.getDate()} de ${MESES[d.getMonth()]}`;
 }

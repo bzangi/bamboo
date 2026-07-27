@@ -26,6 +26,8 @@ export const FRASES = {
     "Algum campo da ficha está inválido: o nome precisa ter de 1 a 120 caracteres, e altura e peso precisam ser números maiores que zero (ou ficar em branco).",
   "semana-invalida":
     "A programação da semana precisa cobrir os sete dias, cada um com um tipo-de-dia.",
+  "duracao-invalida":
+    "A duração prevista precisa ser um número inteiro de dias maior que zero. Ela é previsão, não trava: o prazo vencer não fecha o ciclo sozinho.",
 
   // 409 — conflito, por entidade.
   "conflito-paciente":
@@ -53,6 +55,8 @@ export const FRASES = {
     "A programação aponta para um tipo-de-dia que não é deste plano.",
   "sem-nutricionista":
     "Não há exatamente uma nutricionista cadastrada. Rode o seed do banco — com a credencial stub o sistema não sabe qual seria a responsável.",
+  "ciclo-sem-plano":
+    "O paciente não tem plano ativo. O ciclo observa qual plano vigora em cada dia, então ele precisa de um plano ativo para começar — monte ou ative um em Planos.",
 
   // Infra.
   "nao-encontrado":
@@ -79,7 +83,8 @@ export type Entidade =
   | "item"
   | "semana"
   | "alimento"
-  | "grupo";
+  | "grupo"
+  | "ciclo";
 
 const CONFLITO: Partial<Record<Entidade, CodigoDeFalha>> = {
   paciente: "conflito-paciente",
@@ -95,6 +100,7 @@ const REGRA: Partial<Record<Entidade, CodigoDeFalha>> = {
   item: "fora-do-grupo",
   semana: "tipo-de-outro-plano",
   grupo: "sem-nutricionista",
+  ciclo: "ciclo-sem-plano",
 };
 
 /** 400 é estrutural, mas em dois nós ele tem uma causa NOMEÁVEL. */
@@ -102,6 +108,7 @@ const ESTRUTURAL: Partial<Record<Entidade, CodigoDeFalha>> = {
   semana: "semana-invalida",
   item: "conflito-item",
   paciente: "ficha-invalida",
+  ciclo: "duracao-invalida",
 };
 
 /**

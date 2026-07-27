@@ -7,11 +7,10 @@ import Link from "next/link";
 import type { NutriPatientDto, PlanoResumoDto } from "@bamboo/types";
 import {
   Aviso,
-  Cabecalho,
+  CabecalhoDoPaciente,
   Falha,
   Mono,
   Pagina,
-  Trilha,
   Vazio,
 } from "@/components/chrome";
 import { Badge } from "@/components/ui/badge";
@@ -60,8 +59,10 @@ export default async function Planos({
     const { titulo, detalhe } = explicarFalha(e);
     return (
       <Pagina>
-        <Trilha
-          itens={[{ href: "/", texto: "pacientes" }, { texto: "planos" }]}
+        <CabecalhoDoPaciente
+          patientId={patientId}
+          nome="Paciente"
+          ativa="planos"
         />
         <Falha titulo={titulo} detalhe={detalhe} />
       </Pagina>
@@ -72,24 +73,7 @@ export default async function Planos({
 
   return (
     <Pagina>
-      <Trilha
-        itens={[
-          { href: "/", texto: "pacientes" },
-          { href: `/patients/${patientId}`, texto: nome },
-          { texto: "planos" },
-        ]}
-      />
-      <Cabecalho
-        sobrescrito="planos alimentares"
-        titulo={nome}
-        direita={
-          <Link href={`/patients/${patientId}`}>
-            <Button variant="outline" size="sm">
-              Acompanhamento
-            </Button>
-          </Link>
-        }
-      />
+      <CabecalhoDoPaciente patientId={patientId} nome={nome} ativa="planos" />
 
       <Aviso codigo={erro} />
 

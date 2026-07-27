@@ -237,10 +237,11 @@ async function main(): Promise<void> {
         .from(schema.mealEvent)
         .where(eq(schema.mealEvent.planId, planoExistente.id))
         .limit(1);
+      // Registro pendurado: NÃO reconstrói (apagaria dado de saúde). Antes isso
+      // abortava, e derrubava o `pnpm mobile:dev`, que só quer o patientId — o
+      // plano já está no banco. Agora pula, avisando em voz alta.
       if (eventos.length > 0) {
-        throw new Error(
-          `carregar: o plano "${PLANO}" já tem registro (meal_event) pendurado. Reconstruir o grafo apagaria dado de saúde — apague os eventos à mão se for isso que você quer.`,
-        );
+        return { pulado: true as const, patientId, planId: planoExistente.id };
       }
 
       const dayTypes = await tx
@@ -387,6 +388,7 @@ async function main(): Promise<void> {
     }
 
     return {
+      pulado: false as const,
       patientId,
       planId,
       foods: { criados, atualizados },
@@ -398,6 +400,19 @@ async function main(): Promise<void> {
       itensAVontade,
     };
   });
+
+  if (resumo.pulado) {
+    console.log("\n=== plano real JÁ CARREGADO — grafo NÃO reconstruído ===");
+    console.log(`paciente  ${PACIENTE}`);
+    console.log(`patientId ${resumo.patientId}`);
+    console.log(`planId    ${resumo.planId}`);
+    console.log(
+      `\nO plano tem registro (meal_event) pendurado, então nada foi reescrito.` +
+        `\nSe você mudou bruno-2026-07.ts e quer o grafo novo, apague os eventos` +
+        `\ndeste plano à mão e rode de novo.`,
+    );
+    process.exit(0);
+  }
 
   console.log("\n=== plano real carregado ===");
   console.log(`paciente  ${PACIENTE}`);

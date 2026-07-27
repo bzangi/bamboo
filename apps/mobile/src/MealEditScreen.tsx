@@ -21,6 +21,7 @@ import {
   Text,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { radius, space, text, usePalette, type Palette } from "./theme";
 import type {
   MealDto,
@@ -79,6 +80,7 @@ export function MealEditScreen({
 }: Props) {
   const c = usePalette();
   const styles = useMemo(() => makeStyles(c), [c]);
+  const insets = useSafeAreaInsets();
   const [pendentes, setPendentes] = useState<Pendentes>({});
   const [pickingItem, setPickingItem] = useState<MealItemDto | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
@@ -146,6 +148,9 @@ export function MealEditScreen({
     <Animated.View
       style={[
         styles.screen,
+        // A Home virou borda a borda, então esta página cobre o recorte do topo
+        // e precisa afastar o próprio conteúdo do relógio/bateria.
+        { paddingTop: insets.top + space.md },
         {
           transform: [
             {
@@ -312,8 +317,9 @@ function LinhaEdicao({
 
 const makeStyles = (c: Palette) =>
   StyleSheet.create({
-    // Cobre a Home inteira (dentro da SafeArea do App). Papel opaco: é uma
-    // página, não um véu.
+    // Cobre a Home inteira, agora de borda a borda (o App não tem mais
+    // SafeAreaView). Papel opaco: é uma página, não um véu. O paddingTop vem do
+    // call site, com o recorte do aparelho.
     screen: {
       position: "absolute",
       top: 0,
@@ -322,7 +328,6 @@ const makeStyles = (c: Palette) =>
       bottom: 0,
       backgroundColor: c.paper,
       paddingHorizontal: space.xl,
-      paddingTop: space.md,
       paddingBottom: space.xl,
     },
     header: { marginBottom: space.md },

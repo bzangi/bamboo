@@ -4,7 +4,13 @@
 // linhas de visualização com paleta validada (015), e o diff mais curto E mais
 // seguro é não encostar nela. A tela de acompanhamento só ganhou os links.
 import type { ExposureLevel, NutriPatientDetalheDto } from "@bamboo/types";
-import { Aviso, Cabecalho, Falha, Pagina, Trilha } from "@/components/chrome";
+import {
+  Aviso,
+  CabecalhoDoPaciente,
+  Falha,
+  Pagina,
+  Trilha,
+} from "@/components/chrome";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -72,14 +78,7 @@ export default async function Ficha({
 
   return (
     <Pagina>
-      <Trilha
-        itens={[
-          { href: "/", texto: "pacientes" },
-          { href: `/patients/${patientId}`, texto: p.name },
-          { texto: "ficha" },
-        ]}
-      />
-      <Cabecalho sobrescrito="ficha do paciente" titulo={p.name} />
+      <CabecalhoDoPaciente patientId={patientId} nome={p.name} ativa="ficha" />
 
       <Aviso codigo={erro} />
 

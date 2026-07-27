@@ -152,7 +152,11 @@ function toItemDto(
   const substitutable = !item.isLocked && item.substitutionGroupId != null;
   const ajustado = ajuste?.get(item.id);
   const gramas = ajustado ?? item.quantityGrams;
-  const nutrition = nutritionFor(item.food, gramas, exposure);
+  // 018: nutrição de item à vontade sairia toda zerada — "0 kcal" numa salada é
+  // a tela mentindo com número certo. Mesma decisão do mapper de substituição.
+  const nutrition = item.adLibitum
+    ? undefined
+    : nutritionFor(item.food, gramas, exposure);
   return {
     id: item.id,
     food: { id: item.food.id, name: item.food.name },

@@ -1,8 +1,12 @@
 // A tela do paciente (US2): o ciclo atual lido em cinco segundos — adesão,
 // evolução, padrão de registro, comparativo. Server Component; nenhum número é
 // recalculado aqui (FR-007), só formatado.
-import Link from "next/link";
 import { notFound } from "next/navigation";
+import { Aviso, CabecalhoDoPaciente } from "../../../components/chrome";
+import { Button } from "../../../components/ui/button";
+import { Input } from "../../../components/ui/input";
+import { Label } from "../../../components/ui/label";
+import { abrirCiclo, fecharCiclo } from "../../acoes";
 import type {
   CycleReportResponse,
   FlagsFrequenciaDto,
@@ -44,35 +48,6 @@ function Falha({ titulo, detalhe }: { titulo: string; detalhe: string }) {
     <div className={s.card}>
       <p className={s.cardTitle}>{titulo}</p>
       <p className={s.cardBody}>{detalhe}</p>
-    </div>
-  );
-}
-
-/**
- * A barra de navegação da tela do paciente. Ganhou os caminhos para o editor de
- * plano e para a ficha na 017 — é o único ponto desta tela que a 017 tocou: a
- * visualização de dados abaixo tem paleta validada (banda de luminosidade, croma,
- * ΔE de daltonismo, contraste) e migrá-la para Tailwind só criaria risco de
- * regressão sem nenhum ganho.
- */
-function Nav({ patientId }: { patientId: string }) {
-  return (
-    <div className="flex flex-wrap items-center gap-4">
-      <Link className={s.back} href="/">
-        ← pacientes
-      </Link>
-      <Link
-        className="text-xs text-[var(--ink-3)] hover:text-[var(--ink)] hover:underline"
-        href={`/patients/${patientId}/plans`}
-      >
-        planos
-      </Link>
-      <Link
-        className="text-xs text-[var(--ink-3)] hover:text-[var(--ink)] hover:underline"
-        href={`/patients/${patientId}/ficha`}
-      >
-        ficha
-      </Link>
     </div>
   );
 }
@@ -141,13 +116,67 @@ function BarraEmpilhada({
   );
 }
 
+/* ═══════════ os dois atos da consulta ═══════════
+ *
+ * Abrir e fechar o ciclo moram AQUI, na tela que eles mudam — abrir troca o
+ * estado vazio pelo relatório, fechar congela a janela. Server Actions no padrão
+ * do resto do app: nenhum componente client, a credencial nunca sai do servidor.
+ */
+
+/** O campo + o botão. Duração é obrigatória (a API recusa sem ela) e 30 dias é o
+ *  intervalo usual entre consultas — mas continua editável, porque é previsão. */
+function FormAbrirCiclo({ patientId }: { patientId: string }) {
+  return (
+    <form
+      action={abrirCiclo}
+      className="flex flex-wrap items-end gap-3 pt-1"
+      // O `id` do campo tem o paciente embutido: a tela pode renderizar este
+      // formulário duas vezes (estado vazio e "abrir o próximo"), e dois `<label
+      // for="duracao">` na mesma página apontariam para o mesmo campo.
+    >
+      <input type="hidden" name="patientId" value={patientId} />
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor={`duracao-${patientId}`}>Duração prevista (dias)</Label>
+        <Input
+          id={`duracao-${patientId}`}
+          name="expectedDurationDays"
+          type="number"
+          min="1"
+          step="1"
+          defaultValue={30}
+          required
+          className="w-28"
+        />
+      </div>
+      <Button type="submit">Abrir ciclo</Button>
+    </form>
+  );
+}
+
+/** Fechar não apaga nada — só delimita a janela. Por isso `outline` e não
+ *  `destructive`: pintar de vermelho um ato rotineiro da consulta ensina a nutri
+ *  a hesitar onde não há risco. */
+function BotaoFecharCiclo({ patientId }: { patientId: string }) {
+  return (
+    <form action={fecharCiclo}>
+      <input type="hidden" name="patientId" value={patientId} />
+      <Button type="submit" variant="outline" size="sm">
+        Fechar ciclo
+      </Button>
+    </form>
+  );
+}
+
 export default async function Paciente({
   params,
+  searchParams,
 }: {
-  // Next 15+: params é Promise.
+  // Next 15+: params e searchParams são Promise.
   params: Promise<{ patientId: string }>;
+  searchParams: Promise<{ erro?: string }>;
 }) {
   const { patientId } = await params;
+  const { erro } = await searchParams;
 
   // A roster é também a fonte de nome + ciclo atual (D1).
   // ponytail: relê a lista inteira para achar um paciente; vira
@@ -158,7 +187,11 @@ export default async function Paciente({
   } catch (e) {
     return (
       <main className={s.page}>
-        <Nav patientId={patientId} />
+        <CabecalhoDoPaciente
+          patientId={patientId}
+          nome="Paciente"
+          ativa="acompanhamento"
+        />
         <Falha {...explicarFalha(e)} />
       </main>
     );
@@ -172,9 +205,15 @@ export default async function Paciente({
   if (!ciclo) {
     return (
       <main className={s.page}>
-        <Nav patientId={patientId} />
-        <p className={s.eyebrow}>paciente</p>
-        <h1 className={s.title}>{paciente.name}</h1>
+        <CabecalhoDoPaciente
+          patientId={patientId}
+          nome={paciente.name}
+          ativa="acompanhamento"
+        />
+        <Aviso codigo={erro} />
+        {/* Tela vazia é convite para agir: o formulário fica ABERTO aqui, sem
+            `<details>`, porque abrir o ciclo é a única coisa a fazer nesta tela
+            enquanto não houver um. */}
         <div className={s.card}>
           <p className={s.cardTitle}>Sem ciclo de acompanhamento</p>
           <p className={s.cardBody}>
@@ -182,6 +221,7 @@ export default async function Paciente({
             partir daí, adesão e padrão de registro deste paciente aparecem
             nesta tela.
           </p>
+          <FormAbrirCiclo patientId={patientId} />
         </div>
       </main>
     );
@@ -193,9 +233,11 @@ export default async function Paciente({
   } catch (e) {
     return (
       <main className={s.page}>
-        <Nav patientId={patientId} />
-        <p className={s.eyebrow}>paciente</p>
-        <h1 className={s.title}>{paciente.name}</h1>
+        <CabecalhoDoPaciente
+          patientId={patientId}
+          nome={paciente.name}
+          ativa="acompanhamento"
+        />
         <Falha {...explicarFalha(e)} />
       </main>
     );
@@ -209,27 +251,57 @@ export default async function Paciente({
 
   return (
     <main className={s.page}>
-      <Nav patientId={patientId} />
+      <CabecalhoDoPaciente
+        patientId={patientId}
+        nome={paciente.name}
+        ativa="acompanhamento"
+        direita={
+          <div className="flex flex-wrap items-center gap-3">
+            <p className={s.rowState}>
+              {cycle.aberto ? (
+                <>
+                  ciclo aberto · dia {diaDoCiclo(cycle.startedOn, janela.to)} de{" "}
+                  {cycle.expectedDurationDays} · retrato parcial até hoje
+                </>
+              ) : (
+                <>
+                  ciclo fechado · {dataCurta(janela.from)} →{" "}
+                  {dataCurta(janela.to)} · {diasDeJanela} dias
+                </>
+              )}
+            </p>
+            {cycle.aberto ? <BotaoFecharCiclo patientId={patientId} /> : null}
+          </div>
+        }
+      />
 
-      <div className={s.head}>
-        <div>
-          <p className={s.eyebrow}>paciente</p>
-          <h1 className={s.title}>{paciente.name}</h1>
-        </div>
-        <p className={s.rowState}>
-          {cycle.aberto ? (
-            <>
-              ciclo aberto · dia {diaDoCiclo(cycle.startedOn, janela.to)} de{" "}
-              {cycle.expectedDurationDays} · retrato parcial até hoje
-            </>
-          ) : (
-            <>
-              ciclo fechado · {dataCurta(janela.from)} → {dataCurta(janela.to)}{" "}
-              · {diasDeJanela} dias
-            </>
-          )}
-        </p>
-      </div>
+      <Aviso codigo={erro} />
+
+      {/* Ciclo fechado: a tela mostra o retrato do que passou, e o próximo ato é
+          abrir o seguinte. Colapsado, porque aqui a leitura vem primeiro — ao
+          contrário do estado vazio, onde abrir é a única coisa a fazer. */}
+      {!cycle.aberto ? (
+        <details className="group w-fit rounded-md border border-dashed border-border">
+          <summary className="flex items-center gap-2 px-5 py-3 text-sm font-medium text-muted-foreground hover:text-foreground">
+            <span
+              aria-hidden="true"
+              className="font-mono text-base leading-none text-subtle group-open:hidden"
+            >
+              +
+            </span>
+            <span
+              aria-hidden="true"
+              className="hidden font-mono text-base leading-none text-subtle group-open:inline"
+            >
+              −
+            </span>
+            Abrir o próximo ciclo
+          </summary>
+          <div className="border-t border-border px-5 py-4">
+            <FormAbrirCiclo patientId={patientId} />
+          </div>
+        </details>
+      ) : null}
 
       {/* ───── adesão ───── */}
       <section className={s.section}>

@@ -28,7 +28,12 @@ function TableBody({ className, ...props }: React.ComponentProps<"tbody">) {
 function TableRow({ className, ...props }: React.ComponentProps<"tr">) {
   return (
     <tr
-      className={cn("border-b border-border transition-colors", className)}
+      // O `transition-colors` estava aqui sem nada para transicionar. Agora tem:
+      // a linha responde ao ponteiro, que é o que faz uma lista longa navegável.
+      className={cn(
+        "border-b border-border transition-colors hover:bg-muted/50",
+        className,
+      )}
       {...props}
     />
   );
@@ -38,7 +43,9 @@ function TableHead({ className, ...props }: React.ComponentProps<"th">) {
   return (
     <th
       className={cn(
-        "h-9 px-3 text-left align-middle text-xs font-medium uppercase tracking-wide text-subtle",
+        // `first:pl-5 last:pr-5`: alinha a 1ª e a última coluna com o padding do
+        // Card que envolve a tabela, sem tirar o full-bleed das linhas.
+        "h-10 px-3 first:pl-5 last:pr-5 text-left align-middle font-mono text-[0.6875rem] font-medium uppercase tracking-[0.12em] text-subtle",
         className,
       )}
       {...props}
@@ -47,7 +54,12 @@ function TableHead({ className, ...props }: React.ComponentProps<"th">) {
 }
 
 function TableCell({ className, ...props }: React.ComponentProps<"td">) {
-  return <td className={cn("px-3 py-2 align-middle", className)} {...props} />;
+  return (
+    <td
+      className={cn("px-3 py-3 first:pl-5 last:pr-5 align-middle", className)}
+      {...props}
+    />
+  );
 }
 
 export { Table, TableHeader, TableBody, TableRow, TableHead, TableCell };

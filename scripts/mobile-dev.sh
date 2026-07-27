@@ -13,7 +13,13 @@ cd "$REPO_ROOT"
 # é idempotente e exige a nutricionista do seed — se o banco estiver vazio, ele
 # diz "rode o seed primeiro".
 echo "[mobile-dev] Carregando o plano real..."
-CARGA_OUT=$(node --env-file=.env --import tsx packages/db/scripts/planos/carregar.ts 2>&1)
+# `set -e` mata o script na atribuição se a carga falhar — sem o `if !`, a
+# mensagem do carregador nunca aparecia e sobrava só "exit code 1".
+if ! CARGA_OUT=$(node --env-file=.env --import tsx packages/db/scripts/planos/carregar.ts 2>&1); then
+  echo "$CARGA_OUT"
+  echo "[mobile-dev] ERRO: a carga do plano falhou (mensagem acima)."
+  exit 1
+fi
 echo "$CARGA_OUT"
 
 PATIENT_ID=$(echo "$CARGA_OUT" | grep 'patientId ' | awk '{print $NF}')

@@ -11,7 +11,7 @@
 ## Phase 1: Schema (primeiro, para a migration não colidir)
 
 - [x] **T001** `meal_item.ad_libitum boolean not null default false` no schema + `drizzle-kit
-    generate`. Gate: `db:migrate` aplica e nenhum item existente muda.
+generate`. Gate: `db:migrate` aplica e nenhum item existente muda.
 
 ## Phase 2: Núcleo (test-first)
 

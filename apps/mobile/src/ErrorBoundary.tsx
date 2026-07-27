@@ -1,6 +1,7 @@
 import { Component, type ErrorInfo, type ReactNode } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { Appearance, StyleSheet, Text, View } from "react-native";
 import { log } from "./logger";
+import { palettes, space, text } from "./theme";
 
 interface Props {
   readonly children: ReactNode;
@@ -28,10 +29,18 @@ export class ErrorBoundary extends Component<Props, State> {
 
   render(): ReactNode {
     if (this.state.error) {
+      // Componente de classe não usa hook; `Appearance` lido no render dá o modo
+      // certo na hora do crash, que é a única hora em que esta tela existe.
+      const c =
+        Appearance.getColorScheme() === "dark" ? palettes.dark : palettes.light;
       return (
-        <View style={styles.root}>
-          <Text style={styles.title}>Algo quebrou na tela</Text>
-          <Text style={styles.detail}>{this.state.error.message}</Text>
+        <View style={[styles.root, { backgroundColor: c.paper }]}>
+          <Text style={[styles.title, { color: c.ink }]}>
+            Algo quebrou na tela
+          </Text>
+          <Text style={[styles.detail, { color: c.ink2 }]}>
+            {this.state.error.message}
+          </Text>
         </View>
       );
     }
@@ -44,8 +53,8 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    padding: 24,
+    padding: space.xl,
   },
-  title: { fontSize: 18, fontWeight: "600", marginBottom: 8 },
-  detail: { fontSize: 14, color: "#666", textAlign: "center" },
+  title: { ...text.title, marginBottom: space.sm },
+  detail: { ...text.small, textAlign: "center" },
 });

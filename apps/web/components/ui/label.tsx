@@ -8,7 +8,9 @@ function Label({ className, ...props }: React.ComponentProps<"label">) {
   return (
     <label
       className={cn(
-        "text-xs font-medium uppercase tracking-wide text-muted-foreground",
+        // Micro-rótulo em mono: mesma voz dos rótulos da tela de leitura, onde
+        // rótulo é instrumento e não título.
+        "font-mono text-[0.6875rem] font-medium uppercase tracking-[0.12em] text-subtle",
         className,
       )}
       {...props}

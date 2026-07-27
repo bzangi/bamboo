@@ -1,0 +1,21 @@
+<!-- O mesmo glifo da marca no header (layout.tsx): o colmo — dois nós numa haste.
+     Convenção de arquivo do App Router: `app/icon.svg` vira o <link rel="icon">.
+     Aqui as cores são literais (o SVG é servido fora da página, sem as custom
+     properties do globals.css) e o par claro/escuro é o mesmo da paleta.
+     Proporção mais cheia que no header: aos 16 px do favicon, o traço fino do
+     header desaparece. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <style>
+    .fundo { fill: #f2efe6 }
+    .colmo { stroke: #3a6b3d }
+    .no { stroke: #b7af96 }
+    @media (prefers-color-scheme: dark) {
+      .fundo { fill: #14150f }
+      .colmo { stroke: #5fae6b }
+      .no { stroke: #8f8974 }
+    }
+  </style>
+  <rect class="fundo" width="32" height="32" rx="7" />
+  <path class="colmo" d="M16 6v20" stroke-width="3.5" stroke-linecap="round" />
+  <path class="no" d="M10 12.5h12M10 19.5h12" stroke-width="2.5" />
+</svg>

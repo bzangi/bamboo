@@ -7,17 +7,18 @@
 // e rede que ninguém pediu. Com página, a busca precisa ser do SERVIDOR: filtrar
 // só o que já baixou devolveria resultado errado (o alimento pode estar na página
 // que ainda não veio).
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
-  Modal,
   Pressable,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from "react-native";
+import { Folha } from "./Folha";
+import { radius, space, text, usePalette, type Palette } from "./theme";
 import { getSubstitutions } from "@bamboo/api-client";
 import type {
   MealItemDto,
@@ -68,6 +69,8 @@ const PAGINA = 20;
 const fimDaLista = (recebidos: number) => recebidos < PAGINA;
 
 export function SubstitutionSheet({ item, onClose, onSelect }: Props) {
+  const c = usePalette();
+  const styles = useMemo(() => makeStyles(c), [c]);
   const [state, setState] = useState<LoadState>({ status: "loading" });
   const [termo, setTermo] = useState("");
   // O termo já "assentado" — é ele que vai à rede, não cada tecla.
@@ -167,43 +170,32 @@ export function SubstitutionSheet({ item, onClose, onSelect }: Props) {
   const visible = item !== null;
 
   return (
-    <Modal
+    <Folha
       visible={visible}
-      transparent
-      animationType="slide"
-      onRequestClose={onClose}
+      onClose={onClose}
+      titulo="Trocar alimento"
+      legenda={item ? `Atual: ${item.food.name}` : undefined}
+      maxHeight="75%"
     >
-      {/* Backdrop: tocar fora fecha o sheet. */}
-      <Pressable style={styles.backdrop} onPress={onClose}>
-        {/* Card do sheet: para o toque não vazar para o backdrop. */}
-        <Pressable style={styles.sheet} onPress={() => {}}>
-          <View style={styles.handle} />
-          <Text style={styles.title}>Trocar alimento</Text>
-          {item && (
-            <Text style={styles.currentLabel}>Atual: {item.food.name}</Text>
-          )}
+      <SheetBody
+        state={state}
+        termo={termo}
+        buscando={busca.length > 0}
+        onTermo={setTermo}
+        onFimDaLista={carregarMais}
+        onSelect={(alt) => {
+          if (item) onSelect(item, alt);
+        }}
+      />
 
-          <SheetBody
-            state={state}
-            termo={termo}
-            buscando={busca.length > 0}
-            onTermo={setTermo}
-            onFimDaLista={carregarMais}
-            onSelect={(alt) => {
-              if (item) onSelect(item, alt);
-            }}
-          />
-
-          <Pressable
-            style={styles.closeButton}
-            onPress={onClose}
-            accessibilityRole="button"
-          >
-            <Text style={styles.closeButtonText}>Fechar</Text>
-          </Pressable>
-        </Pressable>
+      <Pressable
+        style={styles.closeButton}
+        onPress={onClose}
+        accessibilityRole="button"
+      >
+        <Text style={styles.closeButtonText}>Fechar</Text>
       </Pressable>
-    </Modal>
+    </Folha>
   );
 }
 
@@ -223,6 +215,8 @@ function SheetBody({
   readonly onFimDaLista: () => void;
   readonly onSelect: (alt: SubstitutionAlternativeDto) => void;
 }) {
+  const c = usePalette();
+  const styles = useMemo(() => makeStyles(c), [c]);
   if (state.status === "error") {
     return (
       <View style={styles.centerBox}>
@@ -247,7 +241,7 @@ function SheetBody({
           value={termo}
           onChangeText={onTermo}
           placeholder="Buscar alimento"
-          placeholderTextColor="#999"
+          placeholderTextColor={c.ink3}
           autoCorrect={false}
           autoCapitalize="none"
           clearButtonMode="while-editing"
@@ -310,6 +304,8 @@ function Alternativa({
   readonly alt: SubstitutionAlternativeDto;
   readonly onSelect: (alt: SubstitutionAlternativeDto) => void;
 }) {
+  const c = usePalette();
+  const styles = useMemo(() => makeStyles(c), [c]);
   const nutritionLine = formatNutrition(alt.nutrition);
   return (
     <Pressable
@@ -328,112 +324,56 @@ function Alternativa({
   );
 }
 
-const styles = StyleSheet.create({
-  backdrop: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.4)",
-    justifyContent: "flex-end",
-  },
-  sheet: {
-    backgroundColor: "#fff",
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
-    paddingHorizontal: 20,
-    paddingTop: 12,
-    paddingBottom: 28,
-    maxHeight: "75%",
-  },
-  handle: {
-    alignSelf: "center",
-    width: 40,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: "#d0d0d0",
-    marginBottom: 12,
-  },
-  title: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#1a1a1a",
-  },
-  currentLabel: {
-    fontSize: 14,
-    color: "#666",
-    marginTop: 4,
-  },
-  search: {
-    marginTop: 14,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "#ccc",
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 16,
-    color: "#1a1a1a",
-  },
-  groupLabel: {
-    fontSize: 13,
-    color: "#888",
-    marginTop: 16,
-    marginBottom: 8,
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-  },
-  list: {
-    marginBottom: 8,
-  },
-  footer: {
-    paddingVertical: 16,
-  },
-  altRow: {
-    paddingVertical: 14,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: "#eee",
-  },
-  altMain: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  altName: {
-    fontSize: 16,
-    color: "#1a1a1a",
-    flexShrink: 1,
-    paddingRight: 12,
-  },
-  altQty: {
-    fontSize: 15,
-    color: "#2e7d32",
-    fontWeight: "600",
-  },
-  altNutrition: {
-    fontSize: 13,
-    color: "#888",
-    marginTop: 4,
-  },
-  centerBox: {
-    paddingVertical: 32,
-    alignItems: "center",
-    gap: 8,
-  },
-  hint: {
-    fontSize: 14,
-    color: "#666",
-    textAlign: "center",
-  },
-  errorText: {
-    fontSize: 14,
-    color: "#c62828",
-    textAlign: "center",
-  },
-  closeButton: {
-    marginTop: 8,
-    paddingVertical: 12,
-    alignItems: "center",
-  },
-  closeButtonText: {
-    fontSize: 16,
-    color: "#1565c0",
-    fontWeight: "600",
-  },
-});
+const makeStyles = (c: Palette) =>
+  StyleSheet.create({
+    search: {
+      marginTop: space.lg,
+      borderWidth: 1,
+      borderColor: c.line,
+      borderRadius: radius.sm,
+      backgroundColor: c.muted,
+      paddingHorizontal: space.md,
+      paddingVertical: 11,
+      ...text.body,
+      color: c.ink,
+    },
+    groupLabel: {
+      ...text.label,
+      color: c.ink3,
+      marginTop: space.lg,
+      marginBottom: space.sm,
+    },
+    list: { marginBottom: space.sm },
+    footer: { paddingVertical: space.lg },
+    altRow: {
+      paddingVertical: space.lg,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: c.line,
+    },
+    altMain: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+    },
+    altName: {
+      ...text.body,
+      color: c.ink,
+      flexShrink: 1,
+      paddingRight: space.md,
+    },
+    altQty: { ...text.value, color: c.feito },
+    altNutrition: { ...text.small, color: c.ink3, marginTop: space.xs },
+    centerBox: {
+      paddingVertical: space.xxl,
+      alignItems: "center",
+      gap: space.sm,
+    },
+    hint: { ...text.small, color: c.ink2, textAlign: "center" },
+    errorText: { ...text.small, color: c.pulei, textAlign: "center" },
+    closeButton: {
+      marginTop: space.sm,
+      paddingVertical: space.md,
+      alignItems: "center",
+    },
+    closeButtonText: { ...text.body, color: c.troquei, fontWeight: "600" },
+  });

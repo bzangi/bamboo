@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 // 015 — não são cores novas. `neutro` é ausência de dado, e por isso não compete
 // com as três reais.
 const badgeVariants = cva(
-  "inline-flex items-center gap-1.5 rounded-sm border px-2 py-0.5 text-xs font-medium whitespace-nowrap",
+  "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-medium whitespace-nowrap",
   {
     variants: {
       variant: {
