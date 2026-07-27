@@ -263,6 +263,53 @@ Dado de saúde desde a Fase 0: controle de acesso, criptografia, consentimento. 
 
 <!-- SPECKIT START -->
 
+Feature **019-busca-de-alimentos** (busca fuzzy + paginação do catálogo): **implementada e testada**
+(2026-07-27). Dois sintomas do mesmo problema — **lista longa sem como filtrar**: a
+auto-classificação (008) pôs ~506 alimentos em ~7 grupos, e o `SubstitutionSheet` despejava o grupo
+inteiro num `ScrollView` **sem campo de busca** (achar "batata doce" entre 70 amidos é rolagem, o
+oposto de "trocar num toque"); e `GET /nutri/foods` tinha `limit`/`total` mas **nenhuma forma de
+pedir a 2ª página** — quem casava além do limite era inalcançável.
+· **Núcleo** — `packages/core/src/fuzzy.ts` é a régua **ÚNICA**, usada pelo app e pela API: duas
+cópias de uma ordenação divergem no primeiro ajuste e o mesmo termo passa a dar ordens diferentes
+em telas diferentes. Fuzzy aqui é **subsequência pontuada** (semântica de fzf/VSCode), não distância
+de edição: +1 por caractere, +3 em início de palavra, e **+4 / −min(salto,3)** pelos dois lados do
+MESMO teste — casar em `cursor` **é** casar colado no anterior, então prêmio e punição não são duas
+regras. Casamento **guloso pela esquerda**, que para _existência_ de subsequência é ótimo (só a
+pontuação fica subótima, e pontuação subótima reordena — não esconde resultado). `buscarFuzzy` é
+**estável**: empate preserva a ordem de entrada, então o desempate é do chamador e não há
+`localeCompare` escondido no núcleo.
+· **API** — o pré-filtro **continua no Postgres**: `LIKE '%a%r%r%o%z%'` **é** o teste de
+subsequência, e a dobra de acento já existia (`translate(lower(...))`). O banco filtra, o núcleo só
+**ordena** — e as duas metades nunca discordam porque a tabela de acentos do `translate` e a de
+`normalizarBusca` são a mesma (está escrito nos dois lugares). A query de `count(*)` **sumiu**
+(2 → 1 query): `total` é o tamanho do conjunto casado. `offset` é fatiado **em memória**, não no
+SQL — a ordenação é por relevância, que o Postgres não conhece, então `OFFSET` pularia pela ordem
+errada. `limit`/`offset` fora de forma caem no default em vez de 400 (é o que o `limit` já fazia; um
+`?offset=abc` que derruba a tela seria pior). `%` e `_` seguem literais — o teste da 017 continua
+válido sem alteração.
+· **App** — o campo filtra **o que já está em mão**: `/meal-items/:id/substitutions` devolve todas
+as alternativas elegíveis do grupo, então buscar não é ida à rede e um endpoint por tecla seria pior
+em toda métrica. Aparece a partir de **8 alternativas** (abaixo disso é ruído numa tela pequena) e o
+termo é **zerado ao abrir** — o sheet não desmonta entre trocas. "Nenhum alimento com X" é mensagem
+**distinta** de "sem alternativas neste grupo": lista filtrada vazia e grupo vazio não são o mesmo
+estado. `@bamboo/core` virou dependência do `apps/mobile` (o que a constituição sempre previu);
+provado com `expo export --platform ios` de verdade — 601 módulos, `normalizarBusca` e a tabela de
+acentos aparecem no bytecode Hermes.
+· **Colateral** — a query de alternativas do `substitution.service` **não tinha `ORDER BY`**: com
+desempate estável isso viraria "relevância e depois arbitrário". Ganhou `(name, id)`.
+**Fora de escopo por DECISÃO:** tolerância a **erro de digitação** ("arros" → "arroz") — pede
+distância de edição e um **limiar** para calibrar, e afrouxar a subsequência só produz ruído; o
+passo é `pg_trgm` quando houver reclamação · buscar **fora do grupo** no lado do paciente (a troca é
+dentro do grupo por definição — é o que preserva o nutriente-base) · paginação por **cursor**
+(`offset` sobre ~600 linhas é o custo de nada) · ordenar por histórico de trocas (ninguém guarda
+esse dado ainda).
+Sem migration, sem endpoint novo, forma da resposta inalterada. Resultado: **core 181** (166 + 15) ·
+**api 296** (291 + 5) · **db 20** · **web 29** verdes; mobile verde (a contagem está se movendo:
+a 017 avança em paralelo na mesma árvore); lint 0 errors, Prettier e
+`check-types` limpos; OpenAPI regenerado (31 paths). O prêmio de contiguidade foi provado
+**por reversão** (zerá-lo derruba o teste que o isola). Artefatos: `specs/019-busca-de-alimentos/`
+(spec/plan/tasks).
+
 Feature **018-item-a-vontade** (item sem quantidade prescrita): **implementada e testada**
 (2026-07-27). Aprovada pelo dono ao ler o GAP-1 da transcrição do plano real. O plano do paciente 0
 prescreve **alface e brócolis sem quantidade em 12 das 30 opções** ("salada, verduras e vegetais são

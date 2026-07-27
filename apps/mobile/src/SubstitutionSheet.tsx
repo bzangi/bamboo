@@ -9,9 +9,11 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from "react-native";
 import { getSubstitutions } from "@bamboo/api-client";
+import { buscarFuzzy } from "@bamboo/core";
 import type {
   MealItemDto,
   SubstitutionAlternativeDto,
@@ -37,13 +39,20 @@ interface Props {
   ) => void;
 }
 
+/** Abaixo disto o campo de busca é ruído: a lista inteira já cabe na tela. */
+const MINIMO_PARA_BUSCAR = 8;
+
 export function SubstitutionSheet({ item, onClose, onSelect }: Props) {
   const [state, setState] = useState<LoadState>({ status: "loading" });
+  const [termo, setTermo] = useState("");
 
   useEffect(() => {
     if (!item) return;
     let cancelled = false;
     setState({ status: "loading" });
+    // O sheet não desmonta entre aberturas: sem isto a busca da troca anterior
+    // continuaria filtrando a lista do item novo.
+    setTermo("");
 
     getSubstitutions(API_URL, item.id)
       .then((data) => {
@@ -88,6 +97,8 @@ export function SubstitutionSheet({ item, onClose, onSelect }: Props) {
 
           <SheetBody
             state={state}
+            termo={termo}
+            onTermo={setTermo}
             onSelect={(alt) => {
               if (item) onSelect(item, alt);
             }}
@@ -108,9 +119,13 @@ export function SubstitutionSheet({ item, onClose, onSelect }: Props) {
 
 function SheetBody({
   state,
+  termo,
+  onTermo,
   onSelect,
 }: {
   readonly state: LoadState;
+  readonly termo: string;
+  readonly onTermo: (t: string) => void;
   readonly onSelect: (alt: SubstitutionAlternativeDto) => void;
 }) {
   if (state.status === "loading") {
@@ -143,11 +158,38 @@ function SheetBody({
     );
   }
 
+  // 019: a régua é a do núcleo (`@bamboo/core`), a mesma da busca do catálogo.
+  // Filtra o que JÁ está em mão — o grupo inteiro veio na resposta, então buscar
+  // não é ida à rede.
+  const filtradas = buscarFuzzy(alternatives, termo, (a) => a.name);
+
   return (
     <>
+      {alternatives.length >= MINIMO_PARA_BUSCAR && (
+        <TextInput
+          style={styles.search}
+          value={termo}
+          onChangeText={onTermo}
+          placeholder="Buscar alimento"
+          placeholderTextColor="#999"
+          autoCorrect={false}
+          autoCapitalize="none"
+          clearButtonMode="while-editing"
+          accessibilityLabel="Buscar alimento entre as alternativas"
+        />
+      )}
+
       <Text style={styles.groupLabel}>Equivalentes em {group.name}</Text>
+
+      {/* Nada casou: é diferente de "este grupo não tem alternativas". */}
+      {filtradas.length === 0 && (
+        <View style={styles.centerBox}>
+          <Text style={styles.hint}>Nenhum alimento com “{termo}”.</Text>
+        </View>
+      )}
+
       <ScrollView style={styles.list}>
-        {alternatives.map((alt) => {
+        {filtradas.map((alt) => {
           const nutritionLine = formatNutrition(alt.nutrition);
           return (
             <Pressable
@@ -205,6 +247,16 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#666",
     marginTop: 4,
+  },
+  search: {
+    marginTop: 14,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: "#ccc",
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 16,
+    color: "#1a1a1a",
   },
   groupLabel: {
     fontSize: 13,

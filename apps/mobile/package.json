@@ -4,6 +4,7 @@
   "main": "index.ts",
   "dependencies": {
     "@bamboo/api-client": "workspace:*",
+    "@bamboo/core": "workspace:*",
     "@bamboo/types": "workspace:*",
     "expo": "~56.0.8",
     "expo-status-bar": "~56.0.4",

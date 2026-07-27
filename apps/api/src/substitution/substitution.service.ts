@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 import { match } from 'ts-pattern';
 import { substituir, type HouseholdMeasure } from '@bamboo/core';
-import { and, eq, ne, schema } from '@bamboo/db';
+import { and, asc, eq, ne, schema } from '@bamboo/db';
 import type {
   SubstitutionAlternativeDto,
   SubstitutionsResponse,
@@ -99,7 +99,10 @@ export class SubstitutionService {
           eq(schema.foodSubstitutionGroup.groupId, groupId),
           ne(schema.foodSubstitutionGroup.foodId, item.foodId),
         ),
-      );
+      )
+      // 019: ordem explícita. A busca do app é estável no empate, então sem isto
+      // a lista filtrada herdaria a ordem que o heap devolvesse.
+      .orderBy(asc(schema.food.name), asc(schema.food.id));
 
     // 5. Medidas caseiras dos alvos (1 query; agrupa em memória).
     const measuresByFood = new Map<string, HouseholdMeasure[]>();
