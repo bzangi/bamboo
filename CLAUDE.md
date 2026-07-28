@@ -311,15 +311,20 @@ o planejado, e a **adesão que a nutri lê subconta**. Já era assim sob overrid
 caminho padrão. Corrigir exige decidir como se **chama** "feito com ajuste" (mandar as gramas pelo
 caminho existente faria a API derivar "troquei", rotulando adaptação **do sistema** como do
 **paciente**) — vira spec própria.
-**Sem migration, sem endpoint novo, sem campo novo.** Resultado: **core 186** (181 + 5) · **api 336**
-(3 arquivos e2e tocados, 2 novos) · **mobile 82** verdes; lint 0 errors, `check-types` 9/9, Prettier
-limpo. **Pendências explícitas:** (a) smoke manual no simulador (`quickstart.md`, designado ao
-Bruno); (b) os 2 testes reescritos em `today-daytype.e2e-spec.ts` **não puderam ser executados** — a
-suíte inteira morre no `beforeAll` por resíduo no banco de dev (a refeição "Ceia" pos 4 do tipo
-`descanso`, criada à mão em smoke do editor 017, tem **0 opções**, e o seed só cria 3 refeições ali).
-Achado colateral do mesmo resíduo: `/today` num tipo-de-dia com refeição **sem nenhuma opção** quebra
-(`defaultDe` devolve `undefined`), e esse estado é alcançável pelo editor da 017 — bug real,
-pré-existente, fora do escopo desta feature.
+**Sem migration, sem endpoint novo, sem campo novo.** Resultado: **core 186** (181 + 5) · **api 330**
+(3 arquivos e2e tocados, 2 novos; restam 8 vermelhos pré-existentes em `adesao`/`ciclo`, idênticos ao
+baseline e confirmados por reversão) · **mobile 82** verdes; lint 0 errors, `check-types` 9/9,
+Prettier limpo.
+**Resíduo no banco de dev, encontrado e removido nesta sessão:** a suíte `today-daytype` inteira
+morria no `beforeAll` — a refeição **"Ceia" pos 4 do tipo `descanso` tinha 0 opções**, criada à mão
+em smoke do editor 017 (o seed só cria 3 refeições ali). Linha apagada com autorização do dono (sem
+opção, item ou evento pendurado); a suíte voltou a **11/11**, com os 2 testes reescritos rodando de
+verdade.
+**Bug real que esse resíduo revelou, NÃO corrigido (fora do escopo):** `/today` num tipo-de-dia com
+refeição **sem nenhuma opção** quebra — `defaultDe` devolve `undefined` e o acesso a `.items`
+estoura. O editor da 017 alcança esse estado (cria a refeição vazia, as opções vêm depois). Merece
+spec própria.
+**Pendência explícita:** smoke manual no simulador (`quickstart.md`), designado ao Bruno.
 Artefatos: `specs/022-recalculo-pelo-consumo/` (spec/plan/research D1–D9/data-model/contracts/
 quickstart/tasks) + `docs/adr/0004-recalculo-pelo-consumo-sem-override.md`.
 
