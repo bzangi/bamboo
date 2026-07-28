@@ -5,6 +5,7 @@ import { useEffect, useRef } from "react";
 import { Animated, StyleSheet, Text, View } from "react-native";
 import { BlurView } from "expo-blur";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { BotaoAparencia } from "./Aparencia";
 import { palettes, space, text, usePalette, type Palette } from "./theme";
 
 /** Altura do conteúdo da barra (sem o recorte do topo, que varia por aparelho).
@@ -106,6 +107,10 @@ export function BarraMarca({
           </Animated.View>
         ) : null}
       </View>
+      {/* Fora do `vao`: o vão é o par nome/pílula que se sobrepõe e desliza na
+          rolagem. O controle de aparência não participa dessa dança — fica
+          ancorado na borda direita, igual nos dois estados da barra. */}
+      <BotaoAparencia />
     </BlurView>
   );
 }

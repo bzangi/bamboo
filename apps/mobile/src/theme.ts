@@ -13,7 +13,18 @@
 // melhor que a anterior sob daltonismo (o pior par, verde/âmbar em protanopia,
 // sai de ΔE 14.7 para 18.9 no claro e 21.6 no escuro).
 
-import { useColorScheme } from "react-native";
+import { useSyncExternalStore } from "react";
+import { Appearance, useColorScheme } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { log } from "./logger";
+import {
+  getMode,
+  isDark,
+  parseThemeMode,
+  setMode,
+  subscribe,
+  type ThemeMode,
+} from "./theme-mode";
 
 export interface Palette {
   /** fundo da tela — o papel */
@@ -73,10 +84,52 @@ const dark: Palette = {
 
 export const palettes = { light, dark } as const;
 
-/** A paleta do modo do sistema. Só existem DUAS identidades de objeto possíveis,
- *  então o `useMemo(() => makeStyles(c), [c])` de cada tela acerta sempre. */
+/** A paleta em vigor: a escolha da pessoa, ou o modo do sistema quando ela não
+ *  escolheu. Só existem DUAS identidades de objeto possíveis, então o
+ *  `useMemo(() => makeStyles(c), [c])` de cada tela acerta sempre — e o
+ *  `c === palettes.dark` do `Marca.tsx` também. É o que faz a troca manual não
+ *  custar uma linha em nenhuma das telas. */
 export function usePalette(): Palette {
-  return useColorScheme() === "dark" ? dark : light;
+  const modo = useSyncExternalStore(subscribe, getMode, getMode);
+  const sistema = useColorScheme();
+  return isDark(modo, sistema) ? dark : light;
+}
+
+/** O modo escolhido, para a tela que o exibe marcado. */
+export function useThemeMode(): ThemeMode {
+  return useSyncExternalStore(subscribe, getMode, getMode);
+}
+
+const CHAVE_MODO = "bamboo.themeMode";
+
+/** Aplica a escolha em três lugares, nesta ordem: o store (a verdade da paleta),
+ *  a superfície NATIVA e o disco. */
+export function applyThemeMode(proximo: ThemeMode): void {
+  setMode(proximo);
+  // ponytail: uma linha só para o que o React não pinta — aparência do teclado
+  // nos campos de busca, indicador de rolagem. Li o `Appearance.js`: ele NÃO
+  // emite o evento `change` por conta própria, depende do nativo re-emitir
+  // `appearanceChanged`; se não propagar, nada quebra, porque a paleta vem do
+  // store. `'unspecified'` (não `null`) é o sentinela de "volta pro sistema".
+  Appearance.setColorScheme(proximo === "system" ? "unspecified" : proximo);
+  AsyncStorage.setItem(CHAVE_MODO, proximo).catch((e) =>
+    log.warn("theme", "não deu para gravar o modo de tema", e),
+  );
+}
+
+/** Lê a escolha gravada, uma vez, no boot. Disco ilegível ou vazio deixa o app
+ *  no automático — que é o default certo, não um estado de erro.
+ *
+ *  ponytail: o `AsyncStorage` é assíncrono, então quem escolheu contra o sistema
+ *  vê 1–2 frames no modo do sistema antes do override entrar. Fechar essa
+ *  janela pede uma splash screen (dependência nova) por dois frames. */
+export async function loadThemeMode(): Promise<void> {
+  try {
+    const guardado = parseThemeMode(await AsyncStorage.getItem(CHAVE_MODO));
+    if (guardado) applyThemeMode(guardado);
+  } catch (e) {
+    log.warn("theme", "não deu para ler o modo de tema gravado", e);
+  }
 }
 
 /** Escala de espaço. Vale a pena ser uma escala: o app usava 14 valores ad hoc. */

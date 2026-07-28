@@ -265,6 +265,67 @@ Dado de saúde desde a Fase 0: controle de acesso, criptografia, consentimento. 
 
 <!-- SPECKIT START -->
 
+Feature **023-tema-manual** (troca manual de tema no app do paciente): **implementada e testada**
+(2026-07-27). Pedido do dono: "tema claro e tema escuro para o mobile e a web". **O levantamento
+mudou o pedido:** os dois apps **já tinham** os dois temas, seguindo o sistema operacional — web com
+`:root` + `@media (prefers-color-scheme: dark)` e tokens pontados no Tailwind por `@theme inline`
+(zero classe `dark:`), mobile com `palettes.light/dark` + `usePalette()` sobre `useColorScheme()`,
+`userInterfaceStyle: "automatic"` e **zero hexadecimal fora do `theme.ts`**. A lacuna real era
+**não haver como a pessoa escolher**: quem prefere escuro de dia dependia de trocar o modo do
+telefone inteiro. **A web ficou FORA por decisão do dono** (o automático dela já serve; guardar a
+escolha em cookie optaria o app fora de renderização estática) — `apps/web` com `git diff` **vazio**.
+· **A pedra angular:** o override entrou **dentro** do `usePalette()`, que já era o funil único da
+cor, e ele **continua devolvendo uma das DUAS identidades de objeto de módulo** — então o
+`useMemo(() => makeStyles(c), [c])` das 9 telas e o `c === palettes.dark` do `Marca.tsx` (tint do
+`BlurView`) seguem corretos **sem uma linha de mudança em tela nenhuma**. `HomeScreen.tsx` com
+`git diff` **vazio**, porque o controle é auto-contido (o `visible` da folha não sobe para a tela de
+1300 linhas). Ambos verificados, não assumidos.
+· **`src/theme-mode.ts` é novo e PURO** (zero import de `react-native`), e o corte não é estético: o
+Vitest do app roda em `environment: "node"` **sem stub nativo**, então essa é a metade que dá para
+provar sem simulador. Leva `isDark`, `parseThemeMode` e um store de `Set<() => void>` assinado por
+`useSyncExternalStore` — **não** um Context, que obrigaria a envolver a árvore para um valor que o
+`usePalette()` já busca sozinho. `theme.ts` fica com o que só existe com nativo.
+· **Dois achados que vieram de LER, não de supor:** (1) `Appearance.setColorScheme` existe na RN
+0.85.3 mas o `Appearance.js` **não emite** o evento `change` por conta própria — depende do nativo
+re-emitir `appearanceChanged`; por isso ele entrou como **auxiliar de uma linha** (aparência do
+teclado nos campos de busca), e a verdade da paleta é o store: se não propagar num aparelho, nada
+quebra. (2) `ColorSchemeName` é `'light'|'dark'|'unspecified'` — **não `null`**: o sentinela de
+"volta pro sistema" é `'unspecified'`, e `useColorScheme()` **também pode devolvê-lo**. Este segundo
+foi o **`tsc` que pegou**, contra um tipo meu que só previa `null`; virou o tipo `SystemScheme` e
+caso de teste.
+· **UX:** o glifo `◐` é **fixo, não indica o modo** — quem diz qual está valendo é o `✓` da folha,
+porque um ícone sol/lua **mentiria** no automático (nenhum símbolo diz "escuro PORQUE o telefone
+está escuro"). É texto, não emoji, então herda a tinta nos dois modos e não custa biblioteca de
+ícones (mesmo motivo do colmo desenhado com três `View`). A folha é a **`Folha` que já existe**, com
+as linhas no idioma do `DayTypePicker`. `StatusBar` deixou de ser `"auto"`: `auto` lê o
+`useColorScheme()` cru, então escuro forçado num telefone claro deixava a hora do relógio em tinta
+escura sobre papel escuro.
+· **Dep nova:** `@react-native-async-storage/async-storage` 2.2.0 por `npx expo install` (suporte
+conferido na doc versionada do **SDK v56**, como o `AGENTS.md` do app exige); lockfile só com ela +
+2 transitivas.
+**Fora de escopo por DECISÃO:** a web (caminho já desenhado se quiser: `light-dark()` por token — o
+override vira só `color-scheme`, sem duplicar paleta — + cookie por Server Action, que preserva o
+zero `"use client"` das 015/016/017) · tela de ajustes (teria UMA opção dentro) · ícone que cicla
+nos 3 modos sem folha (três estados num glifo é opaco) · sincronizar a preferência com a API
+(é preferência de aparelho, não dado do paciente) · migrar o `DayTypePicker` (`HomeScreen.tsx:996`)
+para a `Folha` — ele ainda duplica backdrop+cartão+pegador à mão, dívida **pré-existente**.
+**Resíduos assumidos, com `ponytail:` no código:** flash de 1–2 frames no boot (o `AsyncStorage` é
+assíncrono; fechar a janela pede splash screen por dois frames) · o `Appearance.setColorScheme`
+auxiliar descrito acima.
+**Sem migration, sem endpoint novo, `packages/core`/`packages/db`/`apps/api` intocados** (verificado).
+Resultado: **mobile 82** verdes (10 novos), `tsc --noEmit` limpo, lint da raiz 0 errors, Prettier
+limpo. Prova de bundle no padrão da 019: `expo export --platform ios` (617 módulos) + `grep` no
+bytecode Hermes — `bamboo.themeMode`, `unspecified`, `Claro`, `Escuro` e `multiGet` (JS do
+AsyncStorage) presentes; **acentuado só aparece em UTF-16LE**, que é como o Hermes guarda não-ASCII
+(grep de UTF-8 dá falso negativo).
+**Pendente:** smoke manual no simulador (Bruno) — roteiro no `tasks.md`; **dev client** compilado
+antes desta instalação precisa ser reconstruído, o Expo Go já traz o AsyncStorage.
+**Nota da árvore:** feita com **outra sessão ativa na mesma árvore** (`022-recalculo-pelo-consumo`:
+`ResumoDoDia.tsx`/`resumo-dia.ts`), sem nenhum arquivo em comum. Commit por caminho explícito, nunca
+`git add -A`; `.specify/feature.json` (que aponta para a 022) intocado — por isso a spec foi escrita
+à mão em vez de por `/speckit-specify`, que reescreveria o ponteiro.
+Artefatos: `specs/023-tema-manual/` (spec/plan/tasks).
+
 Feature **021-combinar-busca-e-self** (busca + alimento de origem no modo de combinar):
 **implementada e testada** (2026-07-27). Pedido do dono: "ao combinar 2 alimentos, quero poder
 selecionar o alimento que já está no plano e também quero o mesmo search que foi implementado na
