@@ -265,6 +265,64 @@ Dado de saúde desde a Fase 0: controle de acesso, criptografia, consentimento. 
 
 <!-- SPECKIT START -->
 
+Feature **022-recalculo-pelo-consumo** (o dia recalcula pelo consumido sem override + o gatilho como
+alavanca de último recurso): **implementada e testada** (2026-07-27). Bug reportado pelo dono no
+simulador: pulou o lanche da tarde, sobrou saldo, e (a) o jantar continuou exibindo as gramas
+planejadas; (b) escolher outra opção do jantar — a **única** refeição não registrada — respondia
+"Não dá pra ajustar as próximas refeições… volta amanhã", **barrando a troca**. Regra que o dono
+enunciou: "se eu altero uma refeição ou pulo, deve ser feito o recálculo nas próximas refeições sem
+eu ter que mexer em mais nada".
+· **US1 — o `/today` ajusta sempre.** O recálculo pelo consumo real estava atrás de um ternário
+(`plan.service.ts`, `dayTypeId ? … : undefined`) por decisão **Q1/FR-013a da 004** — que o
+`research.md:67` daquela feature registra como **escolha do dono, sem travamento técnico**. O
+ternário **sumiu**; o método virou `calcularAjustePeloConsumo` (o nome antigo passaria a mentir).
+`packages/core` **intocado** nesta parte: `previewTrocaTipoDia` já fazia a conta, com a guarda de
+double-count por `position` e alavancas restritas a item flexível não-à-vontade. **`registroPorPosition`
+continua atrás do override** — o mapper escolhe a fonte do badge pela **presença** do mapa
+(`today.mapper.ts:213`), e passá-lo sempre mudaria a marcação em todo dia com registro de outro
+tipo-de-dia (resíduo `014/A2`, que a 022 **não** reabre). Zero diff no app: o badge "ajustado" e a
+frase de porquê já vinham de `MealDto.rebalanceado` (009). **ADR-0004** registra a revogação.
+· **US2 — o gatilho vira alavanca quando não sobra outra.** `previewTrocaOpcao` excluía o gatilho
+sempre ("a escolha fixou essa", 002). A regra foi **restringida, não revogada**: com qualquer outra
+alavanca no dia o gatilho segue intocado (FR-009, provado por reversão); **conjunto vazio** ⇒ os
+itens flexíveis do próprio gatilho entram. Quatro linhas no núcleo, **usando o mesmo `ehAlavanca`** —
+e por isso **a guarda da 020 saiu de graça**: o overlay da edição em lote chega como
+`isLocked: true, groupId: null` (`rebalance.service.ts:439`), logo nunca é alavanca. O achado
+refinou o FR-008: a guarda é **por item**, não por refeição — item que o paciente **não** editou na
+mesma refeição continua ajustável. Gatilho sem item elegível continua `sem-alavanca` **sem ramo
+novo** (cai no `rebalancearPorKcal`).
+· **Contrato HTTP inalterado, e isso foi VERIFICADO**: OpenAPI regenerado e `diff` **vazio** (31
+paths). `refeicoesAfetadas` já podia conter o gatilho — o mapper não o filtra e `foodByItemId` cobre
+todas as opções de todas as refeições. Um teste afirma o **nome do alimento** de propósito: o
+`continue` do mapper é silencioso e devolveria `rebalanceado` com lista vazia.
+· **Correção de rota durante a execução:** a folha de prévia oferecia só "Entendi" em
+`recusa-orientada`, apesar de o comentário dizer "nunca barra" — o reducer (`swaps.ts`/`edits.ts`) já
+tratava esse desfecho como troca sem ajustes desde a 005. Ganhou "Trocar mesmo assim".
+**Duas afirmações minhas dos artefatos foram falsificadas pela execução e corrigidas nos arquivos, não
+escondidas:** (1) "nenhuma query nova" — dia **sem** registro não muda (early-return), mas dia **com**
+registro e **sem** override passa a rodar as leituras que só o caminho com override rodava (1 de
+parâmetros + até 3 do `carregarConsumoReal`); (2) "os 15 casos calibrados não mudam" — **13** não
+mudam, **2** invertem de propósito (eram a caracterização do bug) e viraram a prova e2e da correção
+no plano semeado. Mais 2 testes de núcleo tinham a mesma causa (fixture com gatilho flexível e
+nenhuma outra alavanca) e tiveram o fixture corrigido, não a asserção.
+**RESÍDUO ACEITO, decisão do dono:** "Feito" grava o consumo dos itens **planejados** — só "troquei"
+grava snapshot de gramas. Se a tela exibir quantidade ajustada e o paciente marcar "Feito", registra
+o planejado, e a **adesão que a nutri lê subconta**. Já era assim sob override; a 022 torna isso o
+caminho padrão. Corrigir exige decidir como se **chama** "feito com ajuste" (mandar as gramas pelo
+caminho existente faria a API derivar "troquei", rotulando adaptação **do sistema** como do
+**paciente**) — vira spec própria.
+**Sem migration, sem endpoint novo, sem campo novo.** Resultado: **core 186** (181 + 5) · **api 336**
+(3 arquivos e2e tocados, 2 novos) · **mobile 82** verdes; lint 0 errors, `check-types` 9/9, Prettier
+limpo. **Pendências explícitas:** (a) smoke manual no simulador (`quickstart.md`, designado ao
+Bruno); (b) os 2 testes reescritos em `today-daytype.e2e-spec.ts` **não puderam ser executados** — a
+suíte inteira morre no `beforeAll` por resíduo no banco de dev (a refeição "Ceia" pos 4 do tipo
+`descanso`, criada à mão em smoke do editor 017, tem **0 opções**, e o seed só cria 3 refeições ali).
+Achado colateral do mesmo resíduo: `/today` num tipo-de-dia com refeição **sem nenhuma opção** quebra
+(`defaultDe` devolve `undefined`), e esse estado é alcançável pelo editor da 017 — bug real,
+pré-existente, fora do escopo desta feature.
+Artefatos: `specs/022-recalculo-pelo-consumo/` (spec/plan/research D1–D9/data-model/contracts/
+quickstart/tasks) + `docs/adr/0004-recalculo-pelo-consumo-sem-override.md`.
+
 Feature **023-tema-manual** (troca manual de tema no app do paciente): **implementada e testada**
 (2026-07-27). Pedido do dono: "tema claro e tema escuro para o mobile e a web". **O levantamento
 mudou o pedido:** os dois apps **já tinham** os dois temas, seguindo o sistema operacional — web com

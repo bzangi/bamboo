@@ -232,14 +232,22 @@ describe("previewTrocaOpcao (P1) — alavancas = refeições não-gatilho (v0: n
     expect(r.ok && r.value.kind).toBe("sem-acao");
   });
 
-  it("nenhuma refeição não-gatilho com alavanca → recusa sem-alavanca", () => {
+  // (022) o item do gatilho é travado aqui de propósito: desde a 022, gatilho
+  // com item flexível e nenhuma outra alavanca produz `rebalanceado` (é o
+  // describe do último recurso, no fim do arquivo). Este caso é "não há alavanca
+  // em lugar nenhum".
+  it("nenhuma alavanca em lugar nenhum (nem no gatilho) → recusa sem-alavanca", () => {
     const dia = [
       {
         position: 1,
         isRegistered: false,
         itens: [itemDia("ant", 100, { isLocked: true, groupId: null })],
       },
-      { position: 2, isRegistered: false, itens: [itemDia("m2", 150)] },
+      {
+        position: 2,
+        isRegistered: false,
+        itens: [itemDia("m2", 150, { isLocked: true, groupId: null })],
+      },
       {
         position: 3,
         isRegistered: false,
@@ -365,18 +373,25 @@ describe("previewTrocaOpcao (P1) — exclui refeições já registradas das alav
     } else throw new Error("esperava rebalanceado");
   });
 
-  // (c) TODAS as não-gatilho registradas → não sobra alavanca → recusa sem-alavanca.
-  // m1 registrada 150, m2 gatilho 150, m3 registrada (seg 150 + lock 100).
-  // Total = 150+150+150+100 = 550; alvo 450; delta +100 (fora da faixa) → tenta
-  // rebalancear mas não há alavanca não-registrada → recusa-orientada/sem-alavanca.
-  it("todas as não-gatilho registradas → recusa-orientada sem-alavanca", () => {
+  // (c) TODAS as não-gatilho registradas E o gatilho sem item elegível → não
+  // sobra alavanca em lugar nenhum → recusa sem-alavanca.
+  // ATENÇÃO (022): até a 021 este caso tinha o item do gatilho FLEXÍVEL, e ainda
+  // assim recusava — o gatilho estava fora das alavancas por regra. Desde a 022
+  // o gatilho é alavanca de último recurso, então o cenário que caracteriza a
+  // recusa precisa que o gatilho também não tenha o que ajustar (travado aqui).
+  // O caso do gatilho flexível virou o describe abaixo.
+  it("todas as não-gatilho registradas e gatilho travado → recusa-orientada sem-alavanca", () => {
     const dia = [
       {
         position: 1,
         isRegistered: true,
         itens: [itemDia("ant", 150, { gramasPlanejado: 100 })],
       },
-      { position: 2, isRegistered: false, itens: [itemDia("m2", 150)] },
+      {
+        position: 2,
+        isRegistered: false,
+        itens: [itemDia("m2", 150, { isLocked: true, groupId: null })],
+      },
       {
         position: 3,
         isRegistered: true,
@@ -522,14 +537,20 @@ describe('previewTrocaOpcao (P1) — item "à vontade" fica fora dos ajustes', (
     } else throw new Error("esperava rebalanceado");
   });
 
-  it("se TODOS os flexíveis das não-gatilho são à vontade → recusa sem-alavanca (nunca ajusta o inajustável)", () => {
+  // (022) o gatilho também precisa estar inajustável: desde a 022 ele é alavanca
+  // de último recurso, e um gatilho flexível aqui produziria `rebalanceado`.
+  it("se TODOS os flexíveis são à vontade → recusa sem-alavanca (nunca ajusta o inajustável)", () => {
     const dia = [
       {
         position: 1,
         isRegistered: false,
         itens: [itemDia("s1", 0, { gramasPlanejado: 0, adLibitum: true })],
       },
-      { position: 2, isRegistered: false, itens: [itemDia("m2", 150)] }, // gatilho
+      {
+        position: 2,
+        isRegistered: false,
+        itens: [itemDia("m2", 150, { adLibitum: true })],
+      }, // gatilho
       {
         position: 3,
         isRegistered: false,
@@ -546,5 +567,89 @@ describe('previewTrocaOpcao (P1) — item "à vontade" fica fora dos ajustes', (
     expect(r.ok && r.value.kind === "recusa-orientada" && r.value.motivo).toBe(
       "sem-alavanca",
     );
+  });
+});
+
+/* ====== 022 — o gatilho como alavanca de ÚLTIMO RECURSO ====== */
+
+// Quando o gatilho é a única refeição ainda ajustável do dia, não existe
+// "próxima refeição" a preservar: recusar seria barrar a troca sem ter o que
+// proteger. Só nesse caso os itens flexíveis do próprio gatilho viram alavanca.
+//
+// FR-009 (com outra alavanca disponível o gatilho segue intocado) já é travado
+// pelo primeiro teste deste arquivo, que assere `ids === ["ant", "seg"]` com o
+// gatilho flexível na posição 2 — não se repete aqui.
+//
+// Cenário-base: m1 PULADA (registrada, sem itens → 0 kcal), m3 registrada com
+// 250 kcal, gatilho m2 com 100 kcal. Total 350; alvo 450; déficit de 100 kcal.
+describe("previewTrocaOpcao (P1) — gatilho vira alavanca quando não sobra outra (022)", () => {
+  const diaSemOutraAlavanca = (itensDoGatilho: readonly ItemDia[]) => [
+    { position: 1, isRegistered: true, itens: [] },
+    { position: 2, isRegistered: false, itens: itensDoGatilho },
+    {
+      position: 3,
+      isRegistered: true,
+      itens: [
+        itemDia("seg", 150, { gramasPlanejado: 150 }),
+        itemDia("lock", 100, { isLocked: true, groupId: null }),
+      ],
+    },
+  ];
+
+  const preview = (itensDoGatilho: readonly ItemDia[]) =>
+    previewTrocaOpcao({
+      refeicoesDefault,
+      diaComEscolha: diaSemOutraAlavanca(itensDoGatilho),
+      triggerPosition: 2,
+      parametros: PARAMETROS_SISTEMA,
+    });
+
+  it("FR-007 — déficit sem outra alavanca → ajusta o item flexível do próprio gatilho", () => {
+    const r = preview([itemDia("m2", 100)]);
+    if (r.ok && r.value.kind === "rebalanceado") {
+      expect(r.value.alavancas).toHaveLength(1);
+      const [a] = r.value.alavancas;
+      expect(a!.itemId).toBe("m2");
+      expect(a!.refeicaoPosition).toBe(2); // a própria refeição do gatilho
+      expect(a!.gramasNovo).toBeCloseTo(200, 4); // +100 kcal a 1 kcal/g
+      expect(r.value.totalDepois.kcal).toBeCloseTo(450, 4); // fecha no alvo
+    } else throw new Error("esperava rebalanceado");
+  });
+
+  it("FR-010 — gatilho só com item travado → segue recusa sem-alavanca", () => {
+    const r = preview([itemDia("m2", 100, { isLocked: true, groupId: null })]);
+    expect(r.ok && r.value.kind === "recusa-orientada" && r.value.motivo).toBe(
+      "sem-alavanca",
+    );
+  });
+
+  it("FR-010 — gatilho só com item à vontade → segue recusa sem-alavanca", () => {
+    const r = preview([itemDia("m2", 100, { adLibitum: true })]);
+    expect(r.ok && r.value.kind === "recusa-orientada" && r.value.motivo).toBe(
+      "sem-alavanca",
+    );
+  });
+
+  it("FR-010 — gatilho só com item sem grupo de substituição → segue recusa sem-alavanca", () => {
+    const r = preview([itemDia("m2", 100, { groupId: null })]);
+    expect(r.ok && r.value.kind === "recusa-orientada" && r.value.motivo).toBe(
+      "sem-alavanca",
+    );
+  });
+
+  // FR-008 / D4 — a guarda da 020 é POR ITEM, não por refeição. O overlay da
+  // edição em lote chega ao motor como item travado e sem grupo (ids `ed-`), e
+  // por isso nunca é alavanca; um item da MESMA refeição que o paciente não
+  // editou continua ajustável. Nada disso precisa de flag: o predicado de item
+  // flexível já decide.
+  it("FR-008 — item vindo do overlay de edição não é alavanca; o não-editado é", () => {
+    const r = preview([
+      itemDia("ed-x-0", 50, { isLocked: true, groupId: null }), // forma do overlay
+      itemDia("m2", 50),
+    ]);
+    if (r.ok && r.value.kind === "rebalanceado") {
+      const ids = r.value.alavancas.map((a) => a.itemId);
+      expect(ids).toEqual(["m2"]);
+    } else throw new Error("esperava rebalanceado");
   });
 });

@@ -236,11 +236,26 @@ export function previewTrocaOpcao(input: {
   // gatilho (a escolha fixou essa). Refeições já registradas (`isRegistered`) saem
   // das alavancas — ficam intactas (FR-001/FR-002), mas seus itens reais já entram
   // no `totalAtual` acima, então o consumido move o que o restante precisa ajustar.
-  const alavancas = diaComEscolha
+  const outras = diaComEscolha
     .filter((r) => r.position !== triggerPosition && !r.isRegistered)
     .flatMap((r) =>
       r.itens.filter(ehAlavanca).map((i) => toAlavanca(i, r.position)),
     );
+
+  // (022) ÚLTIMO RECURSO: se não sobrou nenhuma outra alavanca no dia, o próprio
+  // gatilho vira alavanca. "A escolha fixou essa" existe para proteger a próxima
+  // refeição do paciente de ser mexida sem ele pedir — quando não há próxima
+  // refeição, não há o que proteger, e recusar só barra a troca. O predicado de
+  // item flexível é o MESMO (`ehAlavanca`), então item travado, sem grupo, "à
+  // vontade" ou vindo do overlay de edição (`isLocked`, sem grupo — 020) continua
+  // fora, e um gatilho sem item elegível cai no `sem-alavanca` de
+  // `rebalancearPorKcal`, sem ramo novo aqui.
+  const alavancas =
+    outras.length > 0
+      ? outras
+      : (diaComEscolha.find((r) => r.position === triggerPosition)?.itens ?? [])
+          .filter(ehAlavanca)
+          .map((i) => toAlavanca(i, triggerPosition));
 
   return rebalancearPorKcal({
     alavancas,

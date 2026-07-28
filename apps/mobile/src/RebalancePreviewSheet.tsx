@@ -122,6 +122,7 @@ export function RebalancePreviewSheet({
       <Body
         state={state}
         edicao={consumoItems !== undefined}
+        mealId={meal?.id ?? ""}
         mealName={meal?.name ?? ""}
         gramasAntes={gramasAntes}
         onConfirm={(outcome) => {
@@ -136,6 +137,7 @@ export function RebalancePreviewSheet({
 function Body({
   state,
   edicao,
+  mealId,
   mealName,
   gramasAntes,
   onConfirm,
@@ -144,6 +146,10 @@ function Body({
   readonly state: LoadState;
   // (020) Prévia da edição em lote (textos falam da refeição editada).
   readonly edicao: boolean;
+  // (022) Para saber se o ajuste caiu na PRÓPRIA refeição-gatilho — acontece
+  // quando ela é a última ainda ajustável do dia e vira alavanca de último
+  // recurso. Aí "deixa o resto assim" seria mentira: não há resto.
+  readonly mealId: string;
   readonly mealName: string;
   readonly gramasAntes: ReadonlyMap<string, number>;
   readonly onConfirm: (outcome: RebalanceOutcomeDto) => void;
@@ -190,24 +196,38 @@ function Body({
   }
 
   if (outcome.kind === "recusa-orientada") {
-    // "nunca barra": orienta, não bloqueia.
+    // "nunca barra": orienta, não bloqueia — o motor não compensa, mas a
+    // escolha é do paciente (ele vai comer isso de todo jeito). O reducer já
+    // trata este outcome como troca sem ajustes (swaps.ts/edits.ts).
     return (
       <>
         <Text style={styles.orientText}>{outcome.mensagem}</Text>
-        <Pressable style={styles.primaryBtn} onPress={onClose}>
-          <Text style={styles.primaryText}>Entendi</Text>
-        </Pressable>
+        <ConfirmRow
+          label={edicao ? "Confirmar mesmo assim" : "Trocar mesmo assim"}
+          onConfirm={() => onConfirm(outcome)}
+          onClose={onClose}
+        />
       </>
     );
   }
 
   // rebalanceado
+  // (022) O ajuste caiu só na própria refeição-gatilho: ela era a última
+  // ajustável do dia, então o motor fechou o dia nela mesma.
+  const soNoGatilho =
+    outcome.refeicoesAfetadas.length === 1 &&
+    outcome.refeicoesAfetadas[0]?.mealId === mealId;
+
   return (
     <>
       <Text style={styles.bodyText}>
-        {edicao
-          ? `Comer esse ${mealName} do seu jeito deixa o resto assim:`
-          : `Esse ${mealName} deixa o resto assim:`}
+        {soNoGatilho
+          ? edicao
+            ? `Como o resto do dia já está registrado, ajustei as quantidades do próprio ${mealName}:`
+            : `Não sobrou refeição pra ajustar depois, então acertei as quantidades no próprio ${mealName}:`
+          : edicao
+            ? `Comer esse ${mealName} do seu jeito deixa o resto assim:`
+            : `Esse ${mealName} deixa o resto assim:`}
       </Text>
       <ScrollView style={styles.list}>
         {outcome.refeicoesAfetadas.map((r) => (

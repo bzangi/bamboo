@@ -241,20 +241,30 @@ export class PlanService {
       .from(schema.dayType)
       .where(eq(schema.dayType.planId, pln.id));
 
-    // 7. US3 (Fase 4) — recalcular pelo CONSUMIDO na troca de tipo-de-dia. SÓ
-    //    quando há `dayTypeId` (override ativo) E consumo registrado hoje. O tipo
-    //    padrão por weekday (sem override) NUNCA auto-ajusta (Q1/FR-013a).
-    // (009) Com override ativo, além do ajuste (alavancas recalculadas) vem o
-    //    registro pareado por POSIÇÃO (o badge da refeição comida segue pro novo
-    //    tipo). Ambos derivam do MESMO consumo do dia (uma leitura).
-    const troca = dayTypeId
-      ? await this.calcularTrocaTipoDia(pat, mealRows, vigentesHoje, loggedDate)
-      : undefined;
-    if (troca?.ajuste) {
+    // 7. (022) Recalcular pelo CONSUMIDO sempre que houver registro hoje — com
+    //    ou SEM override de tipo-de-dia. A Q1/FR-013a da 004 ("o tipo padrão
+    //    nunca auto-ajusta") foi REVOGADA: registrar uma refeição reajusta as
+    //    seguintes no dia comum, que é onde o produto vive.
+    //    Ver docs/adr/0004-recalculo-pelo-consumo-sem-override.md.
+    const troca = await this.calcularAjustePeloConsumo(
+      pat,
+      mealRows,
+      vigentesHoje,
+      loggedDate,
+    );
+    if (troca.ajuste) {
       this.logger.debug(
-        `troca de tipo-de-dia: ${troca.ajuste.size} alavanca(s) recalculada(s) pelo consumo`,
+        `recálculo pelo consumo: ${troca.ajuste.size} alavanca(s) recalculada(s)`,
       );
     }
+    // (009/014) O registro pareado por POSIÇÃO continua atrás do override: o
+    //    mapper escolhe a fonte do estado pela PRESENÇA deste mapa
+    //    (today.mapper.ts), e passá-lo sempre mudaria o badge em todo dia com
+    //    registro vindo de outro tipo-de-dia — o resíduo 014/A2, que a 022 não
+    //    reabre (FR-005). Sem override, o badge segue o estado vigente por mealId.
+    const registroPorPosition = dayTypeId
+      ? troca.registroPorPosition
+      : undefined;
 
     // 8. Monta o DTO puro (gate de exposição + "o agora" lá; ajuste aplicado só
     //    aos itens flexíveis da default — US3; registro por posição + flag
@@ -267,17 +277,18 @@ export class PlanService {
         availableDayTypes: dayTypes.map((d) => ({ id: d.id, label: d.name })),
         meals: mealRows,
       },
-      troca?.ajuste,
-      troca?.registroPorPosition,
+      troca.ajuste,
+      registroPorPosition,
     );
   }
 
-  // US3 (Fase 4) — calcula o mapa itemId→gramasNovo das alavancas recalculadas
-  // pela troca de tipo-de-dia, lendo o CONSUMO REAL do dia. Casca de leitura:
+  // (022, antes 004/US3) — calcula o mapa itemId→gramasNovo das alavancas
+  // recalculadas pelo CONSUMO REAL do dia. Roda com ou sem override; o gatilho
+  // é a existência de registro, não a troca de tipo-de-dia. Casca de leitura:
   // I/O + orquestra o núcleo puro (previewTrocaTipoDia). Não lança — "nunca
   // barra": qualquer desfecho ≠ rebalanceado devolve undefined (mostra planejado;
   // /today não tem superfície de recusa). Decisões D5/D7, contracts/http-motor.md.
-  private async calcularTrocaTipoDia(
+  private async calcularAjustePeloConsumo(
     pat: {
       readonly bandTolerancePct: number | null;
       readonly floorPct: number | null;

@@ -311,16 +311,20 @@ describe('POST .../rebalance/option-choice (US1 Fase 4) — não recalcula o reg
     expect(semRegistro).not.toEqual(comRegistro);
   });
 
-  it('FR-004 recusa: todas as refeições do dia MENOS o gatilho registradas → sem-alavanca', async () => {
+  // (022) Este caso era a caracterização de `sem-alavanca` quando só o gatilho
+  // sobra — e era o bug reportado: a troca ficava barrada sem haver próxima
+  // refeição a proteger. Desde a 022 o gatilho é alavanca de ÚLTIMO RECURSO,
+  // então o desfecho passa a ser `rebalanceado` **na própria refeição-gatilho**.
+  // A recusa continua existindo quando o gatilho não tem item elegível — coberto
+  // em test/rebalance-ultimo-recurso.e2e-spec.ts e no núcleo.
+  it('022/FR-007: todas MENOS o gatilho registradas → ajusta o PRÓPRIO gatilho', async () => {
     const outras = allMealIds.filter((id) => id !== triggerMealId);
     try {
       for (const id of outras) await registrar(id, 'feito');
 
       const res = await optionChoice();
-      expect(res.body.outcome.kind).toBe('recusa-orientada');
-      expect(res.body.outcome.motivo).toBe('sem-alavanca');
-      expect(typeof res.body.outcome.mensagem).toBe('string');
-      expect(res.body.outcome.mensagem.length).toBeGreaterThan(0);
+      expect(res.body.outcome.kind).toBe('rebalanceado');
+      expect(positionsAfetadas(res.body)).toEqual([triggerPosition]);
     } finally {
       for (const id of outras) await registrar(id, 'desfazer');
     }
@@ -712,23 +716,44 @@ describe('POST .../rebalance/option-choice (US2) — total do dia pelo consumo r
     }
   });
 
-  // ── Caso 4 — "Déficit que não cabe" → 'sem-alavanca' (reinterpretação) ─────
-  // Café 'pulei' + Jantar 'feito' (ambos registrados) → não sobra alavanca (o
-  // almoço é o gatilho). O dia fica ABAIXO do alvo (déficit pelo café pulado),
-  // mas o motor NÃO emite 'estoura-piso' — déficit não tem teto, então a única
-  // recusa possível é 'sem-alavanca'. ("hoje ficou abaixo" é INALCANÇÁVEL no v0:
-  // a engine só recusa-piso no EXCESSO; aumentar nunca fura o piso.)
-  it("Déficit sem alavancas → 'sem-alavanca' (NÃO 'estoura-piso'; déficit não fura o piso)", async () => {
+  // ── Caso 4 — déficit com o gatilho como única refeição ajustável (022) ─────
+  // Café 'pulei' + Jantar 'feito' (ambos registrados) → fora do gatilho não
+  // sobra alavanca (o almoço é o gatilho). O dia fica ABAIXO do alvo (déficit
+  // pelo café pulado).
+  // ANTES da 022: `sem-alavanca` — a única recusa possível, porque déficit não
+  // tem teto e a engine só recusa-piso no EXCESSO ("hoje ficou abaixo" é
+  // inalcançável no v0). Essa leitura da engine continua verdadeira.
+  // DESDE a 022: o próprio almoço absorve o saldo do café pulado — que é o
+  // comportamento que o produto vende (FR-007). O que se afirma aqui é o
+  // AUMENTO: déficit → mais comida no gatilho, nunca menos.
+  it('022/FR-007: déficit com só o gatilho ajustável → o gatilho AUMENTA', async () => {
     try {
       await registrar({ mealId: cafeMealId, intent: 'pulei' });
       await registrar({ mealId: jantarMealId, intent: 'feito' });
 
       const res = await optionChoice(almocoDefaultOptId);
-      expect(res.body.outcome.kind).toBe('recusa-orientada');
-      // Reinterpretação fiel à engine: déficit + zero alavancas = sem-alavanca.
-      expect(res.body.outcome.motivo).toBe('sem-alavanca');
-      expect(typeof res.body.outcome.mensagem).toBe('string');
-      expect(res.body.outcome.mensagem.length).toBeGreaterThan(0);
+      expect(res.body.outcome.kind).toBe('rebalanceado');
+      const afetadas = res.body.outcome.refeicoesAfetadas as {
+        mealId: string;
+        itensAjustados: { itemId: string; gramasNovo: number }[];
+      }[];
+      expect(afetadas.map((a) => a.mealId)).toEqual([almocoMealId]);
+
+      // Direção do ajuste contra o PLANEJADO de cada item (sem hardcode).
+      const planejado = new Map(
+        (
+          await db
+            .select({
+              id: schema.mealItem.id,
+              g: schema.mealItem.quantityGrams,
+            })
+            .from(schema.mealItem)
+            .where(eq(schema.mealItem.mealOptionId, almocoDefaultOptId))
+        ).map((it) => [it.id, it.g] as const),
+      );
+      for (const it of afetadas[0].itensAjustados) {
+        expect(it.gramasNovo).toBeGreaterThan(planejado.get(it.itemId)!);
+      }
     } finally {
       await registrar({ mealId: cafeMealId, intent: 'desfazer' });
       await registrar({ mealId: jantarMealId, intent: 'desfazer' });

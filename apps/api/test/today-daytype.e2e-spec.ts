@@ -329,19 +329,28 @@ describe('GET /patients/:id/today?dayTypeId (US3 — troca de tipo-de-dia)', () 
     }
   });
 
-  // ── Caso 4 (Q1 / FR-013a) — tipo PADRÃO (sem dayTypeId) NÃO auto-ajusta ─────
-  it('Q1 — após consumo, GET /today SEM dayTypeId (tipo padrão) mostra o PLANEJADO + badge de registro; nada ajustado', async () => {
+  // ── Caso 4 — tipo PADRÃO (sem dayTypeId) TAMBÉM ajusta pelo consumido ───────
+  // A Q1/FR-013a da 004 ("registrar não auto-recalcula o tipo padrão") foi
+  // REVOGADA pela 022 — ver docs/adr/0004-recalculo-pelo-consumo-sem-override.md.
+  // Este teste era a caracterização daquela regra; a metade das quantidades
+  // inverteu, e a metade do `registro` por mealId PERMANECE idêntica, porque é
+  // ela que prova que a 022 não encostou na semântica de badge da 009/014
+  // (FR-005/SC-004 da 022).
+  it('022/ADR-0004 — após consumo, GET /today SEM dayTypeId ajusta os flexíveis e mantém o badge por mealId', async () => {
     try {
       await registrar(originalCafeMealId, 'pulei');
 
       const res = await getToday().expect(200); // SEM dayTypeId → tipo padrão (treino)
       expect(res.body.dayType.id).toBe(originalDayTypeId);
 
-      // Itens da opção default do tipo padrão = grama PLANEJADA (sem ajuste).
+      // Itens da opção default do tipo padrão: o TRAVADO segue planejado; ao
+      // menos um FLEXÍVEL de refeição não-registrada mudou (o café pulado abriu
+      // saldo, e o motor o distribui pelas alavancas).
       const origMeals = await db
         .select({ id: schema.meal.id, position: schema.meal.position })
         .from(schema.meal)
         .where(eq(schema.meal.dayTypeId, originalDayTypeId));
+      let algumFlexivelAjustado = false;
       for (const m of origMeals) {
         const opts = await db
           .select({
@@ -355,19 +364,30 @@ describe('GET /patients/:id/today?dayTypeId (US3 — troca de tipo-de-dia)', () 
           .select({
             id: schema.mealItem.id,
             quantityGrams: schema.mealItem.quantityGrams,
+            isLocked: schema.mealItem.isLocked,
+            groupId: schema.mealItem.substitutionGroupId,
+            adLibitum: schema.mealItem.adLibitum,
           })
           .from(schema.mealItem)
           .where(eq(schema.mealItem.mealOptionId, defOpt.id));
         const meal = byPosition(res.body, m.position);
+        const registrada = m.id === originalCafeMealId;
         for (const planned of planItems) {
           const got = meal.defaultOption.items.find(
             (i) => i.id === planned.id,
           )!;
-          expect(got.quantityGrams).toBe(planned.quantityGrams);
+          const alavanca =
+            !planned.isLocked && planned.groupId != null && !planned.adLibitum;
+          if (registrada || !alavanca) {
+            expect(got.quantityGrams).toBe(planned.quantityGrams);
+          } else if (got.quantityGrams !== planned.quantityGrams) {
+            algumFlexivelAjustado = true;
+          }
         }
       }
+      expect(algumFlexivelAjustado).toBe(true);
 
-      // O café registrado mostra o badge (state='pulei'), mas nada de ajuste.
+      // INALTERADO pela 022: o badge continua vindo do estado vigente por mealId.
       const cafe = mealsOf(res.body).find((m) => m.id === originalCafeMealId)!;
       expect(cafe.registro).toEqual({ state: 'pulei' });
     } finally {
@@ -498,14 +518,25 @@ describe('GET /patients/:id/today?dayTypeId (US3 — troca de tipo-de-dia)', () 
     }
   });
 
-  // ── 009 US3 / INV-3 — sem override: nada sinaliza, registro por mealId ─────
-  it('009/US3 — GET /today SEM dayTypeId (tipo padrão): rebalanceado=false em tudo e registro por mealId', async () => {
+  // ── 009 US3 / INV-3 — sem override: sinaliza o ajuste, registro por mealId ──
+  // Metade invertida pela 022 (`rebalanceado` deixa de ser sempre false sem
+  // override); metade preservada de propósito (registro por mealId).
+  it('022/ADR-0004 — GET /today SEM dayTypeId: sinaliza rebalanceado onde ajustou, e registro segue por mealId', async () => {
     try {
       await registrar(originalCafeMealId, 'pulei');
       const res = await getToday().expect(200); // sem override
 
-      for (const m of mealsOf(res.body)) expect(m.rebalanceado).toBe(false);
+      // A refeição registrada nunca é alavanca → nunca sinaliza.
       const cafe = mealsOf(res.body).find((m) => m.id === originalCafeMealId)!;
+      expect(cafe.rebalanceado).toBe(false);
+      // Ao menos uma das outras foi ajustada e sinaliza.
+      expect(
+        mealsOf(res.body).some(
+          (m) => m.id !== originalCafeMealId && m.rebalanceado,
+        ),
+      ).toBe(true);
+
+      // INALTERADO pela 022 (FR-005/SC-004).
       expect(cafe.registro).toEqual({ state: 'pulei' });
     } finally {
       await registrar(originalCafeMealId, 'desfazer');
